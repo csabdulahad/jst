@@ -706,3 +706,13 @@ tbody tr:last-child td {
     padding: 0;
     animation: jst-keyframes-pulse 0.50s linear infinite alternate-reverse;
 }
+
+
+
+/************************
+*   Blogger classes     *
+*************************/
+
+.jst-blogger-actions {
+    display: block;
+}

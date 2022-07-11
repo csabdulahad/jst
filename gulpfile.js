@@ -20,6 +20,7 @@ const js = () =>
         'jst/ActiveNav.js',
         'jst/Scrollbar.js',
         'jst/SimPro.js',
+        'jst/Blogger.js',
     ])
         .pipe(concat('jst-min.js'))
         .pipe(uglify())
