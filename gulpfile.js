@@ -21,7 +21,7 @@ const js = () =>
         'jst/Scrollbar.js',
         'jst/SimPro.js',
     ])
-        .pipe(concat('jst-mini.js'))
+        .pipe(concat('jst-min.js'))
         .pipe(uglify())
         .pipe(dest('dist'));
 
@@ -29,7 +29,7 @@ const js = () =>
 gulp.task('css', function () {
         return gulp.src('jst/jst.css')
             .pipe(csso())
-            .pipe(concat('jst-mini.css'))
+            .pipe(concat('jst-min.css'))
             // Output
             .pipe(gulp.dest('dist'))
 });
