@@ -312,7 +312,7 @@ class Form {
         // animate if requested by the blur event
         if (ele.owns('animate') && !result) {
             if (this.#animateErr) this.#errAnimation(nextEle);
-            ele.remove('animate');
+            ele.erase('animate');
         }
 
         return false;

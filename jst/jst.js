@@ -128,7 +128,7 @@ class jst {
             configurable: false // no one can configure this property
         });
 
-        Object.defineProperty(Array.prototype, 'remove', {
+        Object.defineProperty(Array.prototype, 'erase', {
             value: function (item) {
                 let index = this.indexOf(item);
                 if (index < 0) return null;
@@ -138,7 +138,7 @@ class jst {
             }, writable: false, configurable: false
         });
 
-        Object.defineProperty(Array.prototype, 'removeAt', {
+        Object.defineProperty(Array.prototype, 'eraseAt', {
             value: function (index) {
                 if (typeof index !== 'number' || index < 0) return null;
                 let value = this[index];
@@ -165,7 +165,7 @@ class jst {
             configurable: false // no one can configure this property
         });
 
-        Object.defineProperty(Object.prototype, 'remove', {
+        Object.defineProperty(Object.prototype, 'erase', {
             value: function (key) {
                 let val = {key: key, value: this[key]};
                 delete this[key];
