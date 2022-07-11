@@ -120,7 +120,7 @@ class Form {
             // get the form input element and see if it is defined
             let dom = $(this.#form).find(`#${ele.id}`)[0];
 
-            if (jst.isUndef(dom) && ele.contains('name'))
+            if (jst.isUndef(dom) && ele.owns('name'))
                 dom =  $(this.#form).find(`[name=${ele.name}]`);
 
             if (jst.isUndef(dom)) {
@@ -178,7 +178,7 @@ class Form {
         else if (filterType === 'float') ok = this.#float(ele);
 
         // check if we need to match any pattern
-        if (ok && ele.contains('pattern')) ok = this.#pattern(ele);
+        if (ok && ele.owns('pattern')) ok = this.#pattern(ele);
 
         this.#getMeta(ele).ok = ok;
     };
@@ -248,7 +248,7 @@ class Form {
 
         if (!this.#checkRange(ele, value)) return false;
 
-        if (ele.contains('place')) {
+        if (ele.owns('place')) {
             if (value.split('.')[1].length !== ele.place)
                 return this.#showMsg(false, ele, `Fractional place must be of ${ele.place}.`);
         }
@@ -267,13 +267,13 @@ class Form {
     // Based on the value of the result, it either updates or adds the message element
     // into the specified element or to the next of the input element by default.
     #showMsg(result, ele, msg) {
-        let inline =  ele.contains('inline') ? ele.inline : this.#inline;
+        let inline =  ele.owns('inline') ? ele.inline : this.#inline;
         let icon = result ? this.#iconOk : this.#iconErr;
         let color = result ? this.#colorOk : this.#colorErr;
 
         // add the msg element if we have none
         let haveNextEle = $(ele.dom).next().hasClass('jst-form-msg');
-        let havePositionedEle = ele.contains('msgPos');
+        let havePositionedEle = ele.owns('msgPos');
 
         if (!haveNextEle || havePositionedEle) {
             let msgEle = inline ?
@@ -310,9 +310,9 @@ class Form {
         if (result) return true;
 
         // animate if requested by the blur event
-        if (ele.contains('animate') && !result) {
+        if (ele.owns('animate') && !result) {
             if (this.#animateErr) this.#errAnimation(nextEle);
-            ele.del('animate');
+            ele.remove('animate');
         }
 
         return false;
@@ -344,7 +344,7 @@ class Form {
 
     #checkInOption(ele, value) {
         let inOption = false;
-        if (ele.contains('option')) {
+        if (ele.owns('option')) {
             for (const opValue of ele.option) {
                 if (opValue === value) {
                     inOption = true;

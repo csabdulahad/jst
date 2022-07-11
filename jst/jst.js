@@ -110,7 +110,7 @@ class jst {
         window.err = (msg) => console.error(msg);
         window.info = (msg) => console.info(msg);
 
-        Object.defineProperty(Array.prototype, 'contains', {
+        Object.defineProperty(Array.prototype, 'owns', {
             value: function (item) {
                 if (item === undefined) throw new Error(`Key can't be undefined.`);
                 return this.indexOf(item) !== -1;
@@ -128,7 +128,7 @@ class jst {
             configurable: false // no one can configure this property
         });
 
-        Object.defineProperty(Array.prototype, 'del', {
+        Object.defineProperty(Array.prototype, 'remove', {
             value: function (item) {
                 let index = this.indexOf(item);
                 if (index < 0) return null;
@@ -138,7 +138,7 @@ class jst {
             }, writable: false, configurable: false
         });
 
-        Object.defineProperty(Array.prototype, 'delAt', {
+        Object.defineProperty(Array.prototype, 'removeAt', {
             value: function (index) {
                 if (typeof index !== 'number' || index < 0) return null;
                 let value = this[index];
@@ -147,7 +147,7 @@ class jst {
             }, writable: false, configurable: false
         });
 
-        Object.defineProperty(Object.prototype, 'contains', {
+        Object.defineProperty(Object.prototype, 'owns', {
             value: function (key) {
                 if (key === undefined) throw new Error(`Key can't be undefined.`);
                 return this.hasOwnProperty(key);
@@ -165,7 +165,7 @@ class jst {
             configurable: false // no one can configure this property
         });
 
-        Object.defineProperty(Object.prototype, 'del', {
+        Object.defineProperty(Object.prototype, 'remove', {
             value: function (key) {
                 let val = {key: key, value: this[key]};
                 delete this[key];

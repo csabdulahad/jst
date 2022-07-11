@@ -26,7 +26,7 @@
         }
 
         remove(id) {
-            this.#holder.del(id);
+            this.#holder.remove(id);
             if (this.#holder.length === 0) $(this.#overlay).fadeOut(250);
         }
 
