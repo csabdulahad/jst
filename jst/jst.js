@@ -88,15 +88,6 @@ class jst {
 
     static getChildrenOf = (id, parent) => $(parent).find(`${id}`).children();
 
-    static loadJS(url) {
-        let ele = document.createElement('script');
-        ele.setAttribute('src', `${jsTPath}/${url}.js`);
-        ele.setAttribute('type', 'text/javascript');
-        ele.setAttribute('async', 'true');
-        ele.addEventListener('error', () => console.error(`js-tea failed to load dependency : ${url}`));
-        document.head.appendChild(ele);
-    }
-
     static queryParam(key, defaultValue) {
         let params = new URL(document.location).searchParams;
         let value = params.get(key);
@@ -159,7 +150,7 @@ class jst {
         Object.defineProperty(Object.prototype, 'missing', {
             value: function (key) {
                 if (key === undefined) throw new Error(`Key can't be undefined.`);
-                return !this.contains(key);
+                return !this.owns(key);
             },
             writable: false, // no code can rewrite/modify the contain method
             configurable: false // no one can configure this property
