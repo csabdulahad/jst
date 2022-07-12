@@ -34,6 +34,9 @@
 
         #visible = false;
 
+        // indicates whether the modal content will have custom fancy scrollbar
+        #scrollbar;
+
         // whether the modal will be closeable by Esc keyup event or clicking outside the modal
         #cancelable = false;
 
@@ -124,7 +127,10 @@
 
             // initiate the scrollbar for the modal content
             let modalContent = jst.getChildOf('.jst-modal-content', modelFlexChild);
-            Scrollbar.init(modalContent, {alwaysShowTracks: true});
+
+            // update fancy scrollbar as per argument
+            if (this.#scrollbar) Scrollbar.init(modalContent, {alwaysShowTracks: true});
+            else Scrollbar.destroy(modalContent);
         }
 
         onCancel(callback) {
@@ -137,11 +143,12 @@
             // hide previously showing modal if there is any
             this.hide(false);
 
-            let {w = 450, h = 'auto', closable = true, padding = '1rem'} = options || {};
+            let {w = 450, h = 'auto', closable = true, padding = '1rem', scrollbar = true} = options || {};
 
             this.#modal = $(`#${id}`);
             this.#cancelable = closable;
             this.#padding = padding;
+            this.#scrollbar = scrollbar;
 
             this.#prepare(w, h);
             this.#addListener();
