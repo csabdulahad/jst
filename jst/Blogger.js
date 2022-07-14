@@ -295,7 +295,7 @@ class Blogger {
             pedantic: false,
             gfm: true,
             breaks: true,
-            sanitize: false,
+            sanitize: true,
             smartLists: true,
             smartypants: false,
             xhtml: false

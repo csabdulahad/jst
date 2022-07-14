@@ -373,6 +373,8 @@ tbody tr:last-child td {
     align-items: baseline;
 }
 
+.jst-lay-column { flex-flow: column; }
+
 /************************
 *   Typography styling  *
 *************************/
