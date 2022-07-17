@@ -9,6 +9,8 @@
 *       name: 'name to the radio input'
 *       min: 'the min value'
 *       max: 'the max value'
+*       minLen: 'the minimum length'
+*       maxLen: 'the maximum length'
 *       inline: 'indicates to show feedback as inline'
 *       msgPos: 'id of where to show the feedback message div'
 *       type: 'can be of type str, int, float, email'
@@ -56,8 +58,8 @@ class Form {
     // form dom
     #form;
 
-    // holds various information such as firstBlur, input ok status etc.
-    #meta = {};
+    // holds the configuration info for each element
+    #eleArr;
 
     // indicated whether the feedback message should be inline or block level element
     #inline;
@@ -131,11 +133,15 @@ class Form {
             // add the input dom element to the object
             ele.dom = dom;
 
-            let key = ele.id || ele.name;
-            this.#meta[key] = { ok: false, firstBlur: true };
+            ele.ok = false;
+            ele.firstBlur = true;
+            ele.key = ele.id || ele.name;
 
             this.#addListener(ele);
         }
+
+        // store ref to all the passed ele configurations after setup
+        this.#eleArr = eles;
 
         this.#inline = inline;
     }
@@ -148,13 +154,12 @@ class Form {
         let nodeName = $(dom).prop('nodeName').toLowerCase();
         let eleType = $(dom).attr('type');
 
-        $(dom).blur(() => { this.#decorateBlurEvent(ele, this.#filter); });
+        $(dom).blur(() => { Form.#decorateBlurEvent(ele, this.#filter); });
 
-        if (eleType === 'radio' || eleType === 'checkbox' || nodeName === 'select') {
+        if (eleType === 'radio' || eleType === 'checkbox' || nodeName === 'select')
             $(dom).change(() => this.#filter(ele));
-        } else {
-            $(dom).keyup(() => { if (!this.#getMeta(ele).firstBlur) this.#filter(ele); });
-        }
+        else
+            $(dom).keyup(() => { if (!ele.firstBlur) this.#filter(ele); });
     }
 
     #filter = (ele) => {
@@ -167,7 +172,7 @@ class Form {
         // stop from selecting first option of the select input
         if (nodeName === 'select') {
             if(Form.#getValue(ele) === '') {
-                this.#getMeta(ele).ok = this.#showMsg(false, ele, 'Select an option.');
+                ele.ok = this.#showMsg(false, ele, 'Select an option.');
                 return;
             }
         }
@@ -180,7 +185,7 @@ class Form {
         // check if we need to match any pattern
         if (ok && ele.owns('pattern')) ok = this.#pattern(ele);
 
-        this.#getMeta(ele).ok = ok;
+        ele.ok = ok;
     };
 
     // we don't want to disturb the user with the error message when they are
@@ -188,10 +193,10 @@ class Form {
     // already said that it is first blur. Now on this blur callback event we
     // tell this is not first blur anymore to indicate to show the error message
     // as user types in after the first blur has already been taken place.
-    #decorateBlurEvent(ele, fn) {
-        this.#getMeta(ele).firstBlur = false;
+    static #decorateBlurEvent(ele, fn) {
+        ele.firstBlur = false;
         ele.animate = true;
-        if (!this.#getMeta(ele).ok) fn(ele);
+        if (!ele.ok) fn(ele);
     }
 
     #email = (ele) => {
@@ -229,8 +234,9 @@ class Form {
         // get the number
         value = parseInt(value);
 
-        if(!this.#checkRange(ele, value)) return false;
         if (!Number.isSafeInteger(value)) return this.#showMsg(false, ele, `Must be an integer.`);
+        if (!this.#checkLen(ele, value)) return false;
+        if(!this.#checkRange(ele, value)) return false;
         if (!this.#checkInOption(ele, value)) return false;
         return this.#showMsg(true, ele, `${Form.#getEleName(ele)} accepted.`);
     };
@@ -246,11 +252,13 @@ class Form {
 
         if (value.replaceAll(/-?\d+\.\d+/g, '').length !== 0) return this.#showMsg(false, ele, 'Illegal input.');
 
+        if (!this.#checkLen(ele, value)) return false;
+
         if (!this.#checkRange(ele, value)) return false;
 
         if (ele.owns('place')) {
-            if (value.split('.')[1].length !== ele.place)
-                return this.#showMsg(false, ele, `Fractional place must be of ${ele.place}.`);
+            if (value.split('.')[1].length !== ele['place'])
+                return this.#showMsg(false, ele, `Fractional place must be of ${ele['place']}.`);
         }
 
         if (!this.#checkInOption(ele, value)) return false;
@@ -275,16 +283,26 @@ class Form {
         let haveNextEle = $(ele.dom).next().hasClass('jst-form-msg');
         let havePositionedEle = ele.owns('msgPos');
 
+        // get the currently shown msg
+        let currentMsg;
+
         if (!haveNextEle || havePositionedEle) {
             let msgEle = inline ?
                 `<div class="jst-d-inline jst-form-msg"><span></span> <span></span></div>` :
                 `<div class="jst-form-msg"><span></span> <span></span></div>`;
 
             // add the message element accordingly
-            if(havePositionedEle) $(`#${ele.msgPos}`).html(msgEle);
-            else $(ele.dom).after(msgEle);
+            if(havePositionedEle) {
+                let element = $(`#${ele.msgPos}`);
+                currentMsg = this.#getLastShownMsg(element);
+                $(element).html(msgEle);
+            }
+            else {
+                let element = $(ele.dom);
+                currentMsg = this.#getLastShownMsg(element);
+                $(element).after(msgEle);
+            }
         }
-
 
         // update the nextEle to newly inserted one since we have just updated
         let nextEle = havePositionedEle ? $('#' + ele.msgPos) : $(ele.dom).next();
@@ -293,21 +311,13 @@ class Form {
         let spans = $(nextEle).find('span');
         let iconSpan = spans[0];
         let msgSpan = spans[1];
-
-
         if (!this.#noIcon && ele.missing('noIcon')) $(iconSpan).html(icon);
         if (!this.#noMsg  && ele.missing('noMsg')) $(msgSpan).html(msg);
-
-        $(nextEle).removeClass('jst-form-msg-ok jst-form-msg-err');
         $(nextEle).css('color', color);
 
-        if (result) {
-            $(nextEle).css('display', 'none');
-            $(nextEle).fadeIn(250);
-        } else $(nextEle).show();
-
-        // no animation on success!
-        if (result) return true;
+        $(nextEle).css('display', 'none');
+        if (currentMsg && currentMsg === msg) $(nextEle).show();
+        else $(nextEle).fadeIn(250);
 
         // animate if requested by the blur event
         if (ele.owns('animate') && !result) {
@@ -315,18 +325,18 @@ class Form {
             ele.erase('animate');
         }
 
-        return false;
+        return result;
     }
 
-    // get the meta based on the key of ID or name.
-    #getMeta(ele) {
-        let key = ele.id || ele.name;
-        return this.#meta[key];
+    #getLastShownMsg(element) {
+        return $($(element).find('span')[1]).html();
     }
 
     #checkLen(ele, value) {
-        let min = ele.min || 0;
-        let max = ele.max || -1;
+        if ((typeof value).toLowerCase() !== 'string') value = String(value);
+
+        let min = ele.minLen || 0;
+        let max = ele.maxLen || -1;
 
         if (value.length < min) return this.#showMsg(false, ele, `Must be ${min} in length.`);
         if (max !== -1 && value.length > max) return this.#showMsg(false, ele, `Exceeded maximum length of ${max}.`);
@@ -345,7 +355,7 @@ class Form {
     #checkInOption(ele, value) {
         let inOption = false;
         if (ele.owns('option')) {
-            for (const opValue of ele.option) {
+            for (const opValue of ele['option']) {
                 if (opValue === value) {
                     inOption = true;
                     break;
@@ -357,32 +367,6 @@ class Form {
         return true;
     }
 
-    // In this method, we first loop through the meta-object which has a flags indicating
-    // whether each form element has passed the validation as specified by the config-obj.
-    // if one the flags is false, then the form validation result becomes false.
-    // on finding false flag for each element, it triggers the blur callback to attract user
-    // to correct/complete the input.
-    #validate() {
-        // say, we can submit the form
-        this.#canSubmit = true;
-
-        for (const key in this.#meta) {
-            let flag = this.#meta[key].ok;
-
-            if (this.#canSubmit) this.#canSubmit = flag;
-
-            if (!flag) {
-                let target = $(`#${key}`)[0];
-                if (jst.isDef(target)) $(target).trigger('blur');
-                else {
-                    let namedDom = $(`input[name="${key}"]`)[0];
-                    $(namedDom).trigger('blur');
-                }
-            }
-        }
-        return this.#canSubmit;
-    }
-
     submit() {
         $(this.#form).off('submit');
         $(this.#form).submit();
@@ -390,7 +374,15 @@ class Form {
     }
 
     validate() {
-        return this.#validate();
+        // say, we can submit the form
+        this.#canSubmit = true;
+
+        this.#eleArr.forEach((ele) => {
+            this.#filter(ele);
+            if (this.#canSubmit) this.#canSubmit = ele.ok;
+        });
+
+        return this.#canSubmit;
     }
 
     noIcon() { this.#noIcon = true; return this; }

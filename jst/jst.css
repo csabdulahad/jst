@@ -390,7 +390,7 @@ tbody tr:last-child td {
 *   Button styling  *
 *********************/
 
-.jst-icon-swap {}
+.jst-icon-swap { background-color: transparent; }
 
 .jst-btn-icon-cir, .jst-btn-icon-cir-lg {
     margin: 0;
@@ -413,7 +413,7 @@ tbody tr:last-child td {
     padding-bottom: 0.25rem;
 }
 
-.jst-btn-icon-only {  }
+.jst-btn-icon-only { background-color: transparent; }
 
 .jst-btn-icon-only .material-icons {
     line-height: 1.5rem;
@@ -676,11 +676,11 @@ tbody tr:last-child td {
 *   ActiveNav styling   *
 *************************/
 
-.jst-nav-link {}
+.jst-nav-link { background-color: transparent; }
 
 .jst-nav-cat { display: none; }
 
-.jst-nav-arrow {}
+.jst-nav-arrow { background-color: transparent; }
 
 .jst-nav-act { font-weight: bold; }
 

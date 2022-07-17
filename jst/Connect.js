@@ -108,6 +108,7 @@
                         console.error(this.#statusText);
                     }
                 }
+                this.#noToast = true;
                 this.#invokeRedirect(result);
                 this.#invokeCallback(result);
                 this.#resetConnection();
@@ -150,7 +151,8 @@
             // handle sticky toast
             if (!this.#autoHideToast) {
                 Toast.show(this.#hatiStatus, this.#hatiMsg, false);
-                this.#direct(success);
+                this.#directAfterToast(success);
+                this.#resetConnection();
                 return;
             }
 
@@ -163,14 +165,13 @@
                 if (this.#toastOnError && !success) this.#showToast(false);
             }
 
-            this.#resetConnection();
         }
 
         #invokeRedirect(success) {
             // firstly process any redirection based on no-toast or instant redirection
-            if (this.#insDirAny || this.#noToast) this.#directNonNull(this.#anyPath);
-            if ((success && this.#insDirOk) || (this.#noToast && success)) this.#directNonNull(this.#successPath);
-            if ((!success && this.#insDirErr) || (this.#noToast && !success)) this.#directNonNull(this.#errorPath);
+            if ((this.#insDirAny || this.#noToast) && this.#anyPath) Connect.redirect(this.#anyPath);
+            if ((this.#insDirOk  || this.#noToast) && success) Connect.redirect(this.#successPath);
+            if ((this.#insDirErr || this.#noToast) && !success) Connect.redirect(this.#errorPath);
         }
 
         #invokeCallback(success) {
@@ -221,24 +222,23 @@
             this.#ngScope = null;
         }
 
-        #direct(success) {
-            if (this.#anyPath != null) Connect.redirect(this.#anyPath);
+        #directAfterToast(success) {
+            if (this.#anyPath) this.#direct(this.#anyPath);
             else {
-                if (success) this.#directNonNull(this.#successPath);
-                else this.#directNonNull(this.#errorPath);
+                if (success) this.#direct(this.#successPath);
+                else this.#direct(this.#errorPath);
             }
         }
 
-        #directNonNull(path) {
-            if (this.#preRedirect != null) this.#preRedirect();
-
-            if (path == null) return;
+        #direct(path) {
+            if (this.#preRedirect) this.#preRedirect();
             Connect.redirect(path);
         }
 
         #showToast(success) {
             Toast.show(this.#hatiStatus, this.#hatiMsg, true, () => {
-                this.#direct(success);
+                this.#directAfterToast(success);
+                this.#resetConnection();
             }, this.#delay);
         }
 
@@ -271,6 +271,8 @@
 
         direct(path, instantRedirect = false) {
             this.#anyPath = path;
+            this.#successPath = null;
+            this.#errorPath = null;
             this.#insDirAny = instantRedirect;
             return this;
         }
@@ -406,6 +408,7 @@
         }
 
         static redirect(path) {
+            if (!path) return;
             window.location = path;
         }
 
