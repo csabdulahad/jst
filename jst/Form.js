@@ -283,8 +283,11 @@ class Form {
         let haveNextEle = $(ele.dom).next().hasClass('jst-form-msg');
         let havePositionedEle = ele.owns('msgPos');
 
+        let element = haveNextEle ? $(ele.dom).next() : undefined;
+        if (!element) element = havePositionedEle ? $(`#${ele['msgPos']}`) : undefined;
+
         // get the currently shown msg
-        let currentMsg;
+        let currentMsg = element ?  this.#getLastShownMsg(element) : undefined;
 
         if (!haveNextEle || havePositionedEle) {
             let msgEle = inline ?
@@ -292,20 +295,12 @@ class Form {
                 `<div class="jst-form-msg"><span></span> <span></span></div>`;
 
             // add the message element accordingly
-            if(havePositionedEle) {
-                let element = $(`#${ele.msgPos}`);
-                currentMsg = this.#getLastShownMsg(element);
-                $(element).html(msgEle);
-            }
-            else {
-                let element = $(ele.dom);
-                currentMsg = this.#getLastShownMsg(element);
-                $(element).after(msgEle);
-            }
+            if(havePositionedEle) $(`#${ele['msgPos']}`).html(msgEle);
+            else $(ele.dom).after(msgEle);
         }
 
         // update the nextEle to newly inserted one since we have just updated
-        let nextEle = havePositionedEle ? $('#' + ele.msgPos) : $(ele.dom).next();
+        let nextEle = havePositionedEle ? $('#' + ele['msgPos']) : $(ele.dom).next();
 
         // update the icon, message and the color class
         let spans = $(nextEle).find('span');
