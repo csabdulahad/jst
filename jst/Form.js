@@ -1,24 +1,24 @@
 
 /**
-* Web forms are very verbose in taking user inputs. This Form class can greatly simplify
-* the form validations with nice and easy coding. Each element is marked with an ID or
-* name(where the input type is radio) and elements are registered via the constructor by
-* object. The possible properties that the object can have:
-*
-*       id: 'id of the form element'
-*       name: 'name to the radio input'
-*       min: 'the min value'
-*       max: 'the max value'
-*       minLen: 'the minimum length'
-*       maxLen: 'the maximum length'
-*       inline: 'indicates to show feedback as inline'
-*       msgPos: 'id of where to show the feedback message div'
-*       type: 'can be of type str, int, float, email'
-*       pattern: 'any Form pattern constant or custom patter to match'
-*       place: 'the floating fractional place length'
-*       option: 'array containing the permitted options for the input'
+ * Web forms are very verbose in taking user inputs. This Form class can greatly simplify
+ * the form validations with nice and easy coding. Each element is marked with an ID or
+ * name(where the input type is radio) and elements are registered via the constructor by
+ * object. The possible properties that the object can have:
+ *
+ *       id: 'id of the form element'
+ *       name: 'name to the radio input'
+ *       min: 'the min value'
+ *       max: 'the max value'
+ *       minLen: 'the minimum length'
+ *       maxLen: 'the maximum length'
+ *       inline: 'indicates to show feedback as inline'
+ *       msgPos: 'id of where to show the feedback message div'
+ *       type: 'can be of type str, int, float, email'
+ *       pattern: 'any Form pattern constant or custom patter to match'
+ *       place: 'the floating fractional place length'
+ *       option: 'array containing the permitted options for the input'
  *      noIcon: 'any value(preferably boolean) indicates not to show icon for the element on error'
-* */
+ * */
 
 class Form {
 
@@ -283,12 +283,6 @@ class Form {
         let haveNextEle = $(ele.dom).next().hasClass('jst-form-msg');
         let havePositionedEle = ele.owns('msgPos');
 
-        let element = haveNextEle ? $(ele.dom).next() : undefined;
-        if (!element) element = havePositionedEle ? $(`#${ele['msgPos']}`) : undefined;
-
-        // get the currently shown msg
-        let currentMsg = element ?  this.#getLastShownMsg(element) : undefined;
-
         if (!haveNextEle || havePositionedEle) {
             let msgEle = inline ?
                 `<div class="jst-d-inline jst-form-msg"><span></span> <span></span></div>` :
@@ -310,10 +304,6 @@ class Form {
         if (!this.#noMsg  && ele.missing('noMsg')) $(msgSpan).html(msg);
         $(nextEle).css('color', color);
 
-        $(nextEle).css('display', 'none');
-        if (currentMsg && currentMsg === msg) $(nextEle).show();
-        else $(nextEle).fadeIn(250);
-
         // animate if requested by the blur event
         if (ele.owns('animate') && !result) {
             if (this.#animateErr) this.#errAnimation(nextEle);
@@ -321,10 +311,6 @@ class Form {
         }
 
         return result;
-    }
-
-    #getLastShownMsg(element) {
-        return $($(element).find('span')[1]).html();
     }
 
     #checkLen(ele, value) {
@@ -373,6 +359,8 @@ class Form {
         this.#canSubmit = true;
 
         this.#eleArr.forEach((ele) => {
+            ele.animate = true;
+            ele.firstBlur = false;
             this.#filter(ele);
             if (this.#canSubmit) this.#canSubmit = ele.ok;
         });
