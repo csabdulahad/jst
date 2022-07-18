@@ -461,7 +461,7 @@ class Moment {
         while(true) {
             let momA = new Moment(Moment.firstDayOfMonth(mom.getMonth(), mom.getYear()));
             let momB = new Moment(Moment.lastDayOfMonth(mom.getMonth(), mom.getYear())).addHour(24).addSec(-1);
-            let a = momA.valueOf();
+            momA.valueOf();
             let b = momB.valueOf();
             if (b > end) break;
 

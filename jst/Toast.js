@@ -156,14 +156,14 @@
 
     window.Toast = new Toast();
 
-    window.Toast.loadToast = (msg, type = Toast.SUCCESS, autoHide = true, delay = 3) => {
+    window.Toast.loadToast = (msg, type = window.Toast.SUCCESS, autoHide = true, delay = 3) => {
         Biscuit.set('toast_msg', msg);
         Biscuit.set('toast_type', type);
         Biscuit.set('toast_auto_hide', autoHide);
         Biscuit.set('toast_delay', delay);
     };
 
-    window.addEventListener('load', () => {
+    jst.run( () => {
         // let's see if we have any cookie message to show
         let msg = Biscuit.getStr('toast_msg', '');
         if (msg.length === 0) return;
@@ -172,7 +172,7 @@
         let autoHide = Biscuit.getBool('toast_auto_hide', true);
         let delay = Biscuit.getInt('toast_delay', 3);
 
-        Toast.show(type, msg, autoHide, null, delay);
+        window.Toast.show(type, msg, autoHide, null, delay);
         Biscuit.unset('toast_msg');
         Biscuit.unset('toast_type');
         Biscuit.unset('toast_auto_hide');

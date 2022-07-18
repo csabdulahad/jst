@@ -162,7 +162,8 @@
             } else {
                 // show toast only it is either success or error
                 if (this.#toastOnSuccess && success) this.#showToast(true);
-                if (this.#toastOnError && !success) this.#showToast(false);
+                else if (this.#toastOnError && !success) this.#showToast(false);
+                else this.#resetConnection();
             }
 
         }
@@ -193,7 +194,7 @@
 
             // various callbacks
             this.#callbackAny = null;
-            this.#callbackOk = null
+            this.#callbackOk = null;
             this.#callbackErr = null;
             this.#timeout = null;
             this.#unresolvedHost = null;
@@ -416,8 +417,7 @@
 
     window.Connect = new Connect();
 
+    window.Connect.parameterize = (obj) => Connect.parameterize(obj);
+    window.Connect.redirect = (path) => Connect.redirect(path);
+
 })();
-
-
-
-
