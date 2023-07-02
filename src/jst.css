@@ -375,6 +375,16 @@ tbody tr:last-child td {
 
 .jst-lay-column { flex-flow: column; }
 
+
+/************************
+*    Display styling    *
+*************************/
+
+.jst-d-inline {
+    display: inline;
+}
+
+
 /************************
 *   Typography styling  *
 *************************/
@@ -633,7 +643,7 @@ tbody tr:last-child td {
 
 .jst-modal-icon-close-dark:hover { color: lightgray; }
 
-.jst-modal-content { height: 100%; }
+.jst-modal-content { overflow: hidden !important; height: 100%; }
 
 .jst-dialog-btn {
     display: flex;
@@ -717,4 +727,32 @@ tbody tr:last-child td {
 
 .jst-blogger-actions {
     display: block;
+}
+
+
+
+/************************************************
+*    OverlayScrollbar library customization     *
+************************************************/
+
+.os-scrollbar {
+    background-color: rgba(115, 115, 115, 0.8) !important;
+    padding: 0 !important;
+}
+
+.os-theme-dark .os-scrollbar-horizontal {
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.os-theme-dark .os-scrollbar-vertical {
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.os-scrollbar-handle {
+    border-radius: 0 !important;
+    background-color: rgba(115, 115, 115, 0.8) !important;
 }

@@ -1,13 +1,20 @@
 
-class Moment {
+class Shomoy {
 
     #datetime;
 
+    /**
+     * Create a shomoy object.
+     *
+     * @param {number|string|Date|Shomoy} datetime The value can a valid value that JS accepts
+     * for Date object. Moreover, another date or shomoy object can passed-in as value.
+     * By default, it creates from the current datetime.
+     * */
     constructor(datetime = new Date()) {
-        if (jQuery.type(datetime) === 'string' || jQuery.type(datetime) === 'number')
-            this.#datetime =  new Date(datetime);
-        else if (datetime instanceof Date) this.#datetime = new Date(datetime.toISOString());
-        else if (datetime instanceof Moment) this.#datetime = new Date(datetime.iso());
+        if (datetime instanceof Date) this.#datetime = new Date(datetime.toISOString());
+        else if (datetime instanceof Shomoy) this.#datetime = new Date(datetime.iso());
+        else if (jQuery.type(datetime) === 'string') this.#datetime =  new Date(datetime);
+        else if (jQuery.type(datetime) === 'number') this.#datetime =  new Date(datetime);
         else new Error('Invalid time value was passed');
     }
 
@@ -16,32 +23,33 @@ class Moment {
      *
      * @return {number} the starting millisecond of the shomoy object.
      */
-    momentStart() { return new Date(this.iso()).setHours(0, 0, 0, 0); }
+    shomoyStart() { return new Date(this.iso()).setHours(0, 0, 0, 0); }
 
     /**
      * Using this method, the ending millisecond of the shomoy can be calculated.
      *
      * @return {number} the ending milliseconds of the shomoy object.
      */
-    momentEnd() { return this.momentStart() - 1 + Moment.msInDay(1); }
+    shomoyEnd() { return this.shomoyStart() - 1 + Shomoy.msInDay(1); }
 
     /**
      * A shomoy object can compare itself with other shomoy object. Internally it
      * uses the valueOf() method of date object to calculate the difference in
      * timestamp and returns either 0, 1, or -1 based on the calculation.
      *
-     * @param moment {Moment} The Shomoy object to calculate against
+     * @param {Shomoy} shomoy The Shomoy object to calculate against
      *
-     * @return int the difference between two shomoy objects
+     * @return {number} int the difference between two shomoy objects. Returns 0 if both
+     * shomoy are equal, -1 if the comparing shomoy is bigger, otherwise 1.
      * */
-    compare (moment) {
-        if (!(moment instanceof Moment)) throw new Error('Argument must be an instance of Moment.');
+    compare (shomoy) {
+        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
 
-        let momentA = this.datetime.valueOf();
-        let momentB = moment.dateTime.valueOf();
+        let shomoyA = this.datetime.valueOf();
+        let shomoyB = shomoy.dateTime.valueOf();
 
-        if (momentA < momentB) return -1;
-        else if (momentA > momentB) return 1;
+        if (shomoyA < shomoyB) return -1;
+        else if (shomoyA > shomoyB) return 1;
         else return 0;
     }
 
@@ -50,28 +58,41 @@ class Moment {
      * milliseconds(which is default) or microseconds(timestamp) value. It always
      * finds the difference from $this object to passed one.
      *
-     * @param moment {Moment} the Shomoy object to calculate the difference against
-     * @param inMilli {boolean} indicates whether to calculate in milliseconds or microseconds
-     *
-     * @return int the difference between two Shomoy objects.
+     * @param {Shomoy} shomoy the Shomoy object to calculate the difference against
+     * @param {boolean} inMilli indicates whether to calculate in milliseconds or microseconds
+     * @return {number} the difference between two Shomoy objects.
      * */
-    diff(moment, inMilli = true) {
-        if (!(moment instanceof Moment)) throw new Error('Argument must be an instance of Moment.');
+    diff(shomoy, inMilli = true) {
+        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
 
-        if (inMilli) return this.getMilliseconds() - moment.getMilliseconds();
-        else return this.getTimestamp() - moment.getTimestamp();
+        if (inMilli) return this.getMilliseconds() - shomoy.getMilliseconds();
+        else return this.getTimestamp() - shomoy.getTimestamp();
     }
 
-    diffHour(moment) {
-        if (!(moment instanceof Moment)) throw new Error('Argument must be an instance of Moment.');
-        let diff = this.diff(moment, false);
+    /**
+     * Difference in hour with another shomoy object can be calculated. It internally
+     * uses Shomoy.diff() method.
+     *
+     * @param {Shomoy} shomoy A shomoy to calculate against
+     * @return {number} The difference from the passed-in shomoy
+     * */
+    diffHour(shomoy) {
+        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
+        let diff = this.diff(shomoy, false);
         return diff / 3600;
     }
 
-    diffCompo(moment) {
-        if (!(moment instanceof Moment)) throw new Error('Argument must be an instance of Moment.');
+    /**
+     * Difference with another shomoy object can be calculated and returned as an array of components
+     * of time in order: sec, min, hour, day.
+     *
+     * @param {Shomoy} shomoy The shomoy object to calculate against
+     * @return {array} Containing time components
+     * */
+    diffCompo(shomoy) {
+        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
 
-        let time = this.diff(moment, false);
+        let time = this.diff(shomoy, false);
 
         let secInDay = 60 * 60 * 24;
 
@@ -103,7 +124,7 @@ class Moment {
      * Any number of milliseconds can be added to the Shomoy object using this method.
      * Negative value can be added too.
      *
-     * @param ms {number} number of milliseconds to be added.
+     * @param {number} ms number of milliseconds to be added.
      * */
     addMs(ms) {
         ms = this.datetime.getMilliseconds() + ms;
@@ -115,7 +136,7 @@ class Moment {
      * Any number of seconds can be added to the Shomoy object using this method.
      * Negative value can be added too.
      *
-     * @param sec {number} number of seconds to be added.
+     * @param {number} sec number of seconds to be added.
      * */
     addSec(sec) {
         sec = this.datetime.getSeconds() + sec;
@@ -127,7 +148,7 @@ class Moment {
      * Any number of minutes can be added to the Shomoy object using this method.
      * Negative value can be added too.
      *
-     * @param min {number} number of minutes to be added.
+     * @param {number} min number of minutes to be added.
      * */
     addMin(min) {
         min = this.datetime.getMinutes() + min;
@@ -139,7 +160,7 @@ class Moment {
      * Any number of hours can be added to the Shomoy object using this method.
      * It also takes negative hours which subtracts the hours from the shomoy,
      *
-     * @param hour {number} number of hours to be added.
+     * @param {number} hour number of hours to be added.
      * */
     addHour(hour) {
         hour = this.datetime.getHours() + hour;
@@ -151,7 +172,7 @@ class Moment {
      * Any number of days can be added to the Shomoy object using this method.
      * It also takes negative day which subtracts the days from the shomoy,
      *
-     * @param day {number} number of days to be added.
+     * @param {number} day number of days to be added.
      * */
     addDay(day) {
         day = this.datetime.getDate() + day;
@@ -163,7 +184,7 @@ class Moment {
      * Any number of months can be added to the Shomoy object using this method.
      * Negative value can be added too.
      *
-     * @param month {number} number of months to be added.
+     * @param {number} month number of months to be added.
      * */
     addMonth(month) {
         month = this.datetime.getMonth() + month;
@@ -175,7 +196,7 @@ class Moment {
      * Any number of years can be added to the Shomoy object using this method.
      * Negative value can be added too.
      *
-     * @param year {number} number of years to be added.
+     * @param {number} year number of years to be added.
      * */
     addYear(year) {
         year = this.year() + year;
@@ -326,7 +347,7 @@ class Moment {
 
     get datetime () { return this.#datetime; }
 
-    static isoNow = () => { return new Moment().iso(); };
+    static isoNow = () => { return new Shomoy().iso(); };
 
     static secInMin(of) { return 60 * of; }
 
@@ -336,54 +357,74 @@ class Moment {
 
     static msInDay(of) { return 1000 * 60 * 60 * 24 * of; }
 
-    static clone(moment) {
-        if (!moment instanceof Moment) throw new Error('Argument must be instance of Moment.');
-        return new Moment(moment);
+    static clone(shomoy) {
+        if (!shomoy instanceof Shomoy) throw new Error('Argument must be instance of Shomoy.');
+        return new Shomoy(shomoy);
     }
 
+    /**
+     * For a specified month and year, it returns Date for the first of day of the month.
+     * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
+     * returns for the current month.
+     *
+     * @param {number} month Month
+     * @param {number} year Year
+     * @return {Date} Date object for the first of the month as specified
+     * */
     static firstDayOfMonth(month, year) {
-        let now = new Moment();
+        let now = new Shomoy();
 
         if (!Number.isSafeInteger(year)) year = now.getYear();
-        month = !Number.isSafeInteger(month) ? now.getMonth() : month;
+        month = !Number.isSafeInteger(month) ? now.getMonth() : month-1;
 
         now.setYear(year).setMonth(month).setDate(1).setHour(0).setMin(0).setSec(0).setMilli(0);
         return now.datetime;
     }
 
+    /**
+     * For a specified month and year, it returns Date for the last of day of the month.
+     * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
+     * returns for the current month.
+     *
+     * @param {number} month Month
+     * @param {number} year Year
+     * @return {Date} Date object for the last of the month as specified
+     * */
     static lastDayOfMonth(month, year) {
-        let mom = new Moment();
+        let shomoy = new Shomoy();
 
-        if (!Number.isSafeInteger(year)) year = mom.getYear();
-        month = !Number.isSafeInteger(month) ? mom.getMonth() : month;
+        if (!Number.isSafeInteger(year)) year = shomoy.getYear();
+        month = !Number.isSafeInteger(month) ? shomoy.getMonth() : month-1;
 
-        mom.setYear(year).setMonth(month+1).setDate(0).setHour(0).setMin(0).setSec(0).setMilli(0);
-        return mom.datetime;
+        shomoy.setYear(year).setMonth(month+1).setDate(0).setHour(0).setMin(0).setSec(0).setMilli(0);
+        return shomoy.datetime;
     }
 
     /**
-     * This static method can calculate the weeks since a month util specified month. It returns
-     * weeks as array of objects. By default, objects have the key of date with month and the value
-     * is an array of the start and end milliseconds of the week.
+     * For a time range, specified by month & year pair in two arrays (since & to), it calculates
+     * start & end times in Shomoy for each week found within the range specified.
      *
-     * Months are not zero based as in JavaScript. January is always 1 in this case. The week days
-     * starts on Monday.
+     * End range it not inclusive.
      *
-     * Optional key and value decorator can be passed as arguments to configure the weeks listing.
-     * Decorator functions take on from and to moment objects.
+     * For each week, it composes objects containing array of time range. Both key & value can be
+     * derived using decorator functions. Decorator functions take on from and to shomoy objects
+     * in order. <b>End range is not inclusive.</b>
      *
-     * @param since {Array} Containing the month and year in order.
-     * @param to {Array} Containing the month and year in order.
-     * @param keyDecFn {Function} Decorator function for keys.
-     * @param valDecFn {Function} Decorator function for values.
+     * If no range is specified, then the current month & year is calculated only.
      *
-     * @return {Array} Containing objects of time values under keys as specified by decorator functions.
+     * Months are not zero. January is always 1 in this case. The week start from Monday.
+     *
+     * @param {Array} since Containing the month and year in order.
+     * @param {Array} to Containing the month and year in order.
+     * @param {function(Shomoy, Shomoy)} keyDecFn Decorator function for keys.
+     * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
+     * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
      * */
     static listWeek(since = [], to = [], keyDecFn = null, valDecFn = null) {
         const WEEK_START = 1;
 
-        let valDecorator = valDecFn || Moment.#valDecorator;
-        let keyDecorator = keyDecFn || Moment.#weekKeyDecorator;
+        let valDecorator = valDecFn || Shomoy.#valDecorator;
+        let keyDecorator = keyDecFn || Shomoy.#weekKeyDecorator;
 
         let weeks = [];
 
@@ -396,19 +437,19 @@ class Moment {
         let monthFrom = Number.isSafeInteger(since[0]) ? (since[0] - 1) : now.getMonth();
         let yearFrom = since[1] || now.getFullYear();
 
-        // build up moment objects for getting start and end limit
-        let end = new Moment(Moment.firstDayOfMonth(monthTo, yearTo)).addSec(-1).valueOf();
+        // build up shomoy objects for getting start and end limit
+        let end = new Shomoy(Shomoy.firstDayOfMonth(monthTo, yearTo)).addSec(-1).valueOf();
 
-        // construct a moment with given month and year
-        let moment  = new Moment(Moment.firstDayOfMonth(monthFrom, yearFrom));
+        // construct a shomoy with given month and year
+        let shomoy  = new Shomoy(Shomoy.firstDayOfMonth(monthFrom, yearFrom));
 
         // start with the 'from' month, where we may find broken week and discard that week
-        let momStartDay = moment.getDay();
+        let momStartDay = shomoy.getDay();
         if (momStartDay !== WEEK_START) {
             // find out how far the next week start day is
             // if it is sunday(0) which is one day to monday.
             let daysTo = (momStartDay === 0) ? 1 : 8 - momStartDay;
-            moment.addDay(daysTo);
+            shomoy.addDay(daysTo);
         }
 
         let makeStop = false;
@@ -416,27 +457,46 @@ class Moment {
         while (true) {
             if (makeStop) break;
 
-            let currentMilli = moment.valueOf();
+            let currentMilli = shomoy.valueOf();
 
             // are we exceeding the limit?
             if (currentMilli >= end) {
                 break;
             }
 
-            let to = Moment.clone(moment);
+            let to = Shomoy.clone(shomoy);
             to.addDay(7).addSec(-1);
 
             let obj = {};
-            let key1 = keyDecorator(moment, to);
-            obj[key1] = valDecorator(moment, to);
+            let key1 = keyDecorator(shomoy, to);
+            obj[key1] = valDecorator(shomoy, to);
             weeks.push(obj);
 
-            moment.addDay(7);
+            shomoy.addDay(7);
         }
 
         return weeks;
     }
 
+    /**
+     * For a time range, specified by month & year pair in two arrays (since & to), it calculates
+     * start & end times in Shomoy for each month found within the range specified. <b>End range
+     * is not inclusive.</b>
+     *
+     * If no range is specified, then the current month & year is calculated only.
+     *
+     * For each month, it composes objects containing array of time range. Both key & value can be
+     * derived using decorator functions. Decorator functions take on from and to shomoy objects
+     * in order.
+     *
+     * Months are not zero. January is always 1 in this case. The week start from Monday.
+     *
+     * @param {Array} since Containing the month and year in order.
+     * @param {Array} to Containing the month and year in order.
+     * @param {function(Shomoy)} keyDecFn Decorator function for keys.
+     * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
+     * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
+     * */
     static listMonth(since = [], to = [], keyDecFn = null, valDecFn = null) {
 
         // get the limit parameters
@@ -448,29 +508,29 @@ class Moment {
         let monthTo = Number.isSafeInteger(to[0]) ? (to[0] - 1) : (now.getMonth()) ;
         let yearTo = to[1] || now.getFullYear();
 
-        let end = new Moment(Moment.lastDayOfMonth(monthTo, yearTo)).addHour(24).addSec(-1).valueOf();
+        let end = new Shomoy(Shomoy.lastDayOfMonth(monthTo, yearTo)).addHour(24).addSec(-1).valueOf();
 
-        let mom = new Moment();
-        mom.setMonth(monthFrom);
-        mom.setYear(yearFrom);
+        let shomoy = new Shomoy();
+        shomoy.setMonth(monthFrom);
+        shomoy.setYear(yearFrom);
 
-        let valDecorator = valDecFn || Moment.#valDecorator;
-        let keyDecorator = keyDecFn || Moment.#dayKeyDecorator;
+        let valDecorator = valDecFn || Shomoy.#valDecorator;
+        let keyDecorator = keyDecFn || Shomoy.#dayKeyDecorator;
         let result = [];
 
         while(true) {
-            let momA = new Moment(Moment.firstDayOfMonth(mom.getMonth(), mom.getYear()));
-            let momB = new Moment(Moment.lastDayOfMonth(mom.getMonth(), mom.getYear())).addHour(24).addSec(-1);
-            momA.valueOf();
-            let b = momB.valueOf();
+            let shoA = new Shomoy(Shomoy.firstDayOfMonth(shomoy.getMonth(), shomoy.getYear()));
+            let shoB = new Shomoy(Shomoy.lastDayOfMonth(shomoy.getMonth(), shomoy.getYear())).addHour(24).addSec(-1);
+            shoA.valueOf();
+            let b = shoB.valueOf();
             if (b > end) break;
 
             let obj = {};
-            obj[keyDecorator(mom)] = valDecorator(momA, momB);
+            obj[keyDecorator(shomoy)] = valDecorator(shoA, shoB);
             result.push(obj);
 
             // keep going until break
-            mom.addMonth(1);
+            shomoy.addMonth(1);
         }
 
         return result;
@@ -487,10 +547,10 @@ class Moment {
      * This method can come in handy in situations like setting cookie value with expiration,
      * calculating future date time etc.
      *
-     * @param sec {number} Number of seconds is to be added to the current time in second.
-     * @param min {number} Number of minutes is to be added to the current time in second.
-     * @param hour {number} Number of hours is to be added to the current time in second.
-     * @param day {number} Number of days is to be added to the current time in second.
+     * @param {number} sec Number of seconds is to be added to the current time in second.
+     * @param {number} min Number of minutes is to be added to the current time in second.
+     * @param {number} hour Number of hours is to be added to the current time in second.
+     * @param {number} day Number of days is to be added to the current time in second.
      *
      * @return {number} Seconds added to the current time as defined by the arguments.
      *
@@ -510,18 +570,35 @@ class Moment {
         return now;
     }
 
+    /**
+     * Default value decorator
+     *
+     * @param {Shomoy} from
+     * @param {Shomoy} to
+     * */
     static #valDecorator(from, to) {
         let start = from.getTimestamp();
         let end = to.getTimestamp();
         return [start, end];
     };
 
+    /**
+     * Default week key decorator
+     *
+     * @param {Shomoy} from
+     * @param {Shomoy} to
+     * */
     static #weekKeyDecorator(from, to) {
         let month = from.getMonth() !== to.getMonth() ? `${from.monthStr()}-${to.monthStr()}` : `${from.monthStr()}`;
         let year = from.getYear() !== to.getYear() ? `${from.year()}-${to.year()}` : `${from.year()}`;
         return `${from.date()}-${to.date()} ${month}, ${year}`;
     };
 
+    /**
+     * Default day key decorator
+     *
+     * @param {Shomoy} month
+     * */
     static #dayKeyDecorator(month) {
         return `${month.monthStr()} ${month.year()}`;
     };

@@ -2,3 +2,7 @@
 /rootdata21/
 /node_modules/
 /.idea/
+composer.json
+composer.lock
+.htaccess
+/api/

@@ -13,11 +13,10 @@ class Num {
      * Any number can be formatted in either currency format with sign or fractional
      * number with specified place.
      *
-     * @param {any} input the number is either in string or number format.
+     * @param {number|string} input the number is either in string or number format.
      * @param {string} money currency sign for the number.
      * @param {boolean} lead0 indicates whether to add leading zero before the number.
      * @param {number} place the fractional place of number.
-     *
      * @return {string} formatted number with currency sign as specified by arguments.
      * */
     static format(input, money = '', lead0 = false, place = 2) {
@@ -51,7 +50,6 @@ class Num {
      *
      * @param {string} input number is in currency format.
      * @param {string} sign currency sign.
-     *
      * @return {number} the parsed floating number.
      * */
     static moneyToNum(input, sign = Num.MONEY_GBP) {
@@ -63,7 +61,6 @@ class Num {
      * Leading zero can be added to any number if it is less than 10.
      *
      * @param {number} number the number.
-     *
      * @return {string} number with leading zero if needed.
      * */
     static lead0(number) {

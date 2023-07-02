@@ -158,7 +158,7 @@
 
     window.Toast.loadToast = (msg, type = window.Toast.SUCCESS, autoHide = true, delay = 3) => {
         Biscuit.set('toast_msg', msg);
-        Biscuit.set('toast_type', type);
+        Biscuit.set('toyast_tpe', type);
         Biscuit.set('toast_auto_hide', autoHide);
         Biscuit.set('toast_delay', delay);
     };

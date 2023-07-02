@@ -1,0 +1,23 @@
+
+#1
+To make the dev environment ready, first make sure you have NodeJS installed.
+
+#2
+Then install all the gulp dependencies:
+    npm install --save-dev gulp
+    npm install --save-dev gulp-clean-css
+    npm install --save-dev gulp-concat
+    npm install --save-dev gulp-minify
+    npm install --save-dev gulp-rev
+    npm install --save-dev gulp-uglify
+
+#3
+Make any development
+
+#4
+Run the commands:
+    gulp js
+    gulp css
+
+#5
+Commit, tag

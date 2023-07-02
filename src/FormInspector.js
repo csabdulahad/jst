@@ -1,26 +1,26 @@
 
 /**
- * Web forms are very verbose in taking user inputs. This Form class can greatly simplify
+ * Web forms are very verbose in taking user inputs. This class can greatly simplify
  * the form validations with nice and easy coding. Each element is marked with an ID or
  * name(where the input type is radio) and elements are registered via the constructor by
  * object. The possible properties that the object can have:
  *
- *       id: 'id of the form element'
- *       name: 'name to the radio input'
- *       min: 'the min value'
- *       max: 'the max value'
- *       minLen: 'the minimum length'
- *       maxLen: 'the maximum length'
- *       inline: 'indicates to show feedback as inline'
- *       msgPos: 'id of where to show the feedback message div'
- *       type: 'can be of type str, int, float, email'
- *       pattern: 'any Form pattern constant or custom patter to match'
- *       place: 'the floating fractional place length'
- *       option: 'array containing the permitted options for the input'
- *      noIcon: 'any value(preferably boolean) indicates not to show icon for the element on error'
+ *   id         : 'id of the form element'
+ *   name       : 'name to the radio input'
+ *   min        : 'the min value'
+ *   max        : 'the max value'
+ *   minLen     : 'the minimum length'
+ *   maxLen     : 'the maximum length'
+ *   inline     : 'indicates to show feedback as inline'
+ *   msgPos     : 'id of where to show the feedback message div'
+ *   type       : 'can be of type str, int, float, email'
+ *   pattern    : 'any Form pattern constant or custom patter to match'
+ *   place      : 'the floating fractional place length'
+ *   option     : 'array containing the permitted options for the input'
+ *   noIcon     : 'any value(preferably boolean) indicates not to show icon for the element on error'
  * */
 
-class Form {
+class FormInspector {
 
     /**
      * Predefined regular expression pattern for filtering input in various formats.
@@ -36,30 +36,57 @@ class Form {
      * C    = Comma
      * D    = Dot
      *
-     * When you any of these pattern they will remove any other characters except the
+     * When you use any of these pattern, they will remove any other characters except the
      * mentioned characters in the pattern names.
      * */
+
+    // a-z, A-Z
     static SAN_A = /[a-zA-Z]/g ;
+
+    // 0-9
     static SAN_N = /[0-9]/g;
+
+    // a-z, A-Z, 0-9
     static SAN_AN = /[a-zA-Z0-9]/g;
+
+    // a-z, A-Z, spaces
     static SAN_AS = /[a-zA-Z\s]/g;
+
+    // a-z, A-Z, commas
     static SAN_AC = /[a-zA-Z,]/g;
+
+    // a-z, A-Z, dots
     static SAN_AD = /[a-zA-Z.]/g;
+
+    // a-z, A-Z, 0-9, spaces
     static SAN_ANS = /[a-zA-Z0-9\s]/g;
+
+    // a-z, A-Z, 0-9, spaces, commas
     static SAN_ASC = /[a-zA-Z\s,]/g;
+
+    // a-z, A-Z, 0-9, dots
     static SAN_AND = /[a-zA-Z0-9.]/g;
+
+    // a-z, A-Z, 0-9, spaces, commas
     static SAN_ANSC = /[a-zA-Z0-9\s,]/g;
+
+    // a-z, A-Z, 0-9, spaces, dots
     static SAN_ANSD = /[a-zA-Z0-9\s.]/g;
+
+    // a-z, A-Z, 0-9, spaces, commas, dots
     static SAN_ANSCD = /[a-zA-Z0-9\s,.]/g;
 
+    // ISO date format YYYY-MM-DD
     static SAN_ISO_DATE = /(\d{4}-\d{2}-\d{2})/g;
+
+    // ISO time format HH:MM:SS
     static SAN_ISO_TIME = /(\d{2}:\d{2}:\d{2})/g;
 
     // form dom
     #form;
 
     // holds the configuration info for each element
-    #eleArr;
+    #eleArr = [];
 
     // indicated whether the feedback message should be inline or block level element
     #inline;
@@ -73,6 +100,7 @@ class Form {
     #noMsg = false;
     #noIcon = false;
     #animateErr = true;
+
     #errAnimation = (ele) => {
         $(ele)
             .animate({opacity: '0.5'}, 200)
@@ -103,47 +131,81 @@ class Form {
         } else return $(ele.dom).val();
     }
 
-    constructor(formId = '', eles, inline = false) {
+    /**
+     *
+     * @param {string|object} form The form id or the form object. If empty, FormInspector tries to
+     * calculate from the elements
+     * @param {boolean=} inline  When true input validation feedback is shown next to input as
+     * inline html element otherwise shown as block level element
+     *
+     * @throws {Error} If the form element can't be found
+     * */
+    constructor(form, inline = false) {
+
         // first make sure we have found the form to work with
-        if (formId.length === 0) {
-            // get the form tag from the element array passed by the argument
-            this.#form = $(`#${eles[0].id}`).closest('form')[0];
-        } else {
-            this.#form = $(`#${formId}`)[0];
+        if(!$(form).is('form') && typeof form !== 'string') {
+            throw new Error('Argument form must be an id or a reference to a form');
         }
 
-        if (jst.isUndef(this.#form)) throw new Error('Form can not validate as it is not of standard HTML.');
+        this.#form = jst.eleId(form);
+        if (jst.isUndef(this.#form) || this.#form === null) throw new Error(`Failed to find the form as specified`);
+
 
         // prevent the form submission automatically and hook to validate method to
         // validate inputs
         $(this.#form).submit((evt) => evt.preventDefault());
 
-        for (const ele of eles) {
-            // get the form input element and see if it is defined
-            let dom = $(this.#form).find(`#${ele.id}`)[0];
+        this.#inline = inline;
+    }
 
-            if (jst.isUndef(dom) && ele.owns('name'))
-                dom =  $(this.#form).find(`[name=${ele.name}]`);
+    /**
+     * Adds rules to perform validation on specified element
+     *
+     *
+     * @param {object|array}                    rules Rules the form is validated against. Each rule is an object
+     * specifying the filters
+     * @param {string}                          rules.id id of the form element
+     * @param {'str'|'int'|'float'|'email'}     rules.type the type of the data must be provided in
+     * @param {string=}                         rules.name 'name to the radio input
+     * @param {number=}                         rules.min the min value
+     * @param {number=}                         rules.max the max value
+     * @param {number=}                         rules.minLen the minimum length
+     * @param {number=}                         rules.maxLen the maximum length
+     * @param {boolean=}                        rules.inline indicates to show feedback as inline
+     * @param {string=}                         rules.msgPos id of where to show the feedback message div
+     * @param {string=}                         rules.pattern any Form pattern constant or custom patter to match
+     * @param {number=}                         rules.place the floating fractional place length
+     * @param {array=}                          rules.option array containing the permitted options for the input
+     * @param {boolean=}                        rules.noIcon indicates not to show icon for the element on error
+     * */
+    addRule(...rules) {
+        // unpack the objects
+        if (Array.isArray(rules[0])) rules = rules[0];
+
+        rules.forEach((rule) => {
+            // get the form input element and see if it is defined
+            let dom = $(this.#form).find(`#${rule.id}`)[0];
+
+            if (jst.isUndef(dom) && rule.owns('name'))
+                dom =  $(this.#form).find(`[name=${rule.name}]`);
 
             if (jst.isUndef(dom)) {
-                console.warn('Undefined form element was ignored');
-                continue;
+                console.warn('Element with no identity(id/name) has been skipped');
+                return;
             }
 
             // add the input dom element to the object
-            ele.dom = dom;
+            rule['dom'] = dom;
 
-            ele.ok = false;
-            ele.firstBlur = true;
-            ele.key = ele.id || ele.name;
+            rule['ok'] = false;
+            rule['firstBlur'] = true;
+            rule['key'] = rule.id || rule.name;
 
-            this.#addListener(ele);
-        }
+            this.#addListener(rule);
 
-        // store ref to all the passed ele configurations after setup
-        this.#eleArr = eles;
-
-        this.#inline = inline;
+            // store ref to all the passed ele configurations after setup
+            this.#eleArr.push(rule);
+        });
     }
 
     // add various types of listeners such as keyup, blur based on the form element
@@ -154,7 +216,7 @@ class Form {
         let nodeName = $(dom).prop('nodeName').toLowerCase();
         let eleType = $(dom).attr('type');
 
-        $(dom).blur(() => { Form.#decorateBlurEvent(ele, this.#filter); });
+        $(dom).on('blur', () => FormInspector.#decorateBlurEvent(ele, this.#filter));
 
         if (eleType === 'radio' || eleType === 'checkbox' || nodeName === 'select')
             $(dom).change(() => this.#filter(ele));
@@ -163,6 +225,7 @@ class Form {
     }
 
     #filter = (ele) => {
+
         let nodeName = $(ele.dom).prop('nodeName').toLowerCase();
         let filterType = ele.type;
         let inputType = $(ele.dom).attr('type');
@@ -171,7 +234,7 @@ class Form {
 
         // stop from selecting first option of the select input
         if (nodeName === 'select') {
-            if(Form.#getValue(ele) === '') {
+            if(FormInspector.#getValue(ele) === '') {
                 ele.ok = this.#showMsg(false, ele, 'Select an option.');
                 return;
             }
@@ -200,17 +263,17 @@ class Form {
     }
 
     #email = (ele) => {
-        let value = Form.#getValue(ele);
+        let value = FormInspector.#getValue(ele);
         if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
 
-        const emailRegEx = /^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/;
-        let result = value.match(emailRegEx) !== null;
+        let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        let result = emailRegex.test(value);
         let msg = result ? 'Email accepted.' : 'Invalid email.';
         return this.#showMsg(result, ele, msg);
     };
 
     #str = (ele) => {
-        let value = Form.#getValue(ele);
+        let value = FormInspector.#getValue(ele);
 
         if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty`);
 
@@ -218,11 +281,11 @@ class Form {
 
         if (!this.#checkLen(ele, value)) return false;
         if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${Form.#getEleName(ele)} accepted.`);
+        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
     };
 
     #int = (ele) => {
-        let value =  Form.#getValue(ele);
+        let value =  FormInspector.#getValue(ele);
 
         // make sure we have actual string input
         if(!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
@@ -238,11 +301,11 @@ class Form {
         if (!this.#checkLen(ele, value)) return false;
         if(!this.#checkRange(ele, value)) return false;
         if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${Form.#getEleName(ele)} accepted.`);
+        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
     };
 
     #float = (ele) => {
-        let value = Form.#getValue(ele);
+        let value = FormInspector.#getValue(ele);
 
         // make sure we have actual string input
         if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
@@ -262,14 +325,14 @@ class Form {
         }
 
         if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${Form.#getEleName(ele)} accepted.`);
+        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
     };
 
     #pattern = (ele) => {
-        let value = Form.#getValue(ele);
+        let value = FormInspector.#getValue(ele);
         if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
         if (value.replaceAll(ele.pattern, '').length !== 0) return this.#showMsg(false, ele, `Invalid input.`);
-        return this.#showMsg(true, ele, `${Form.#getEleName(ele)} accepted.`);
+        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
     };
 
     // Based on the value of the result, it either updates or adds the message element
@@ -329,7 +392,7 @@ class Form {
         let max = ele.max || -1;
 
         if (value < min) return this.#showMsg(false, ele, `Can't be less than ${min}.`);
-        if (max !== -1 && value > max) return this.#showMsg(false, ele, `Can't greater than ${max}.`);
+        if (max !== -1 && value > max) return this.#showMsg(false, ele, `Can't be greater than ${max}.`);
         return true;
     }
 
@@ -348,17 +411,30 @@ class Form {
         return true;
     }
 
+    /**
+     * Submits the form to action set no the form.
+     *
+     * This method can be useful because FormInspector prevents the default
+     * form submission behaviour to validate the form inputs.
+     * */
     submit() {
         $(this.#form).off('submit');
         $(this.#form).submit();
         $(this.#form).on('submit');
     }
 
+    /**
+     * It checks all the inputs against the rules set.
+     *
+     * @return {boolean} True if the form inputs pass the rules, false otherwise
+     * */
     validate() {
         // say, we can submit the form
         this.#canSubmit = true;
 
         this.#eleArr.forEach((ele) => {
+            if (jst.isUndef(ele.dom)) return;
+
             ele.animate = true;
             ele.firstBlur = false;
             this.#filter(ele);
@@ -368,21 +444,65 @@ class Form {
         return this.#canSubmit;
     }
 
+    /**
+     * For feedback, icon will not be shown
+     *
+     * @return {FormInspector}
+     * */
     noIcon() { this.#noIcon = true; return this; }
 
+    /**
+     * Any type of input feedback will not be shown
+     *
+     * @return {FormInspector}
+     * */
     noMsg() { this.#noMsg = true; return this; }
 
+    /**
+     * Change the icon to be shown when input is accepted
+     *
+     * @param html {string} Any HTML value for the icon
+     * @return {FormInspector}
+     * */
     iconOk(html) { this.#iconOk = html; return this; }
 
+    /**
+     * Change the icon to be shown when input has an error
+     *
+     * @param html {string} Any HTML value for the icon
+     * @return {FormInspector}
+     * */
     iconErr(html) { this.#iconErr = html; return this; }
 
+    /**
+     * Disables animation for error highlighting
+     *
+     * @return {FormInspector}
+     * */
     noErrAnim() { this.#animateErr = false; return this; }
 
+    /**
+     * Add custom animation to element when there is any error for the element
+     *
+     * @param fn {function(HTMLElement)} The callback is invoked with the element which has error.
+     * @return {FormInspector}
+     * */
     errAnim(fn) { this.#errAnimation = fn; return this; }
 
+    /**
+     * Change the color of the error message text
+     *
+     * @param color {string} Any color value such hex, rgb, color name
+     * @return {FormInspector}
+     * */
     errColor(color) { this.#colorErr = color; return this; }
 
+    /**
+     * Change the color of accepted input message text
+     *
+     * @param color {string} Any color value such hex, rgb, color name
+     * @return {FormInspector}
+     * */
     okColor(color) { this.#colorOk = color; return this; }
 
 }
-

@@ -63,12 +63,41 @@
             $(obj.icon).html(icon);
         }
 
+        /**
+         * Any element can be animated in pulse motion. The element must have an id and its child
+         * must be classed with .jst-icon-swap.
+         *
+         * @param ele {string|object} It can be the id with/without '#' or the element object which
+         * is to be animated.
+         *
+         * @param icon {string} Any html value which will be shown inside the .jst-icon-swap element
+         * during animation
+         * */
         pulse(ele, icon = 'hourglass_full') { this.#apply(ele, icon, 'jst-anim-pulse'); }
 
+
+        /**
+         * Any element can be animated in spin motion. The element must have an id and its child
+         * must be classed with .jst-icon-swap.
+         *
+         * @param ele {string|object} It can be the id with/without '#' or the element object which
+         * is to be animated.
+         *
+         * @param icon {string} Any html value which will be shown inside the .jst-icon-swap element
+         * during animation
+         * */
         spin(ele, icon = 'loop') { this.#apply(ele, icon, 'jst-anim-spin'); }
 
         still(ele, icon = 'schedule') { this.#apply(ele, icon, ''); }
 
+
+        /**
+         * Any element in animation can be restored. When restored, in-animation content inside element
+         * is also restored.
+         *
+         * @param ele {string|object} It can be the id with/without '#' or the element object which
+         * is to stop animating
+         * */
         restore(ele) {
             let obj = this.#getObj(ele);
 
