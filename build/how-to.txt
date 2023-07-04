@@ -16,7 +16,8 @@ Make any development
 
 #4
 Run the commands:
-    gulp js
+    gulp js-min
+    gulp js-full
     gulp css
 
 #5
