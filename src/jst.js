@@ -14,6 +14,10 @@
  * */
 class jst {
 
+    static version() {
+        return '4.0.0';
+    }
+
     /**
      * It takes a callback function as argument and executes it immediately when the document
      * is ready, otherwise it adds an event listener to the window and runs the callback when
@@ -251,17 +255,22 @@ class jst {
         })
     }
 
+    static addCSS(link) {
+        let cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.type = 'text/css';
+        cssLink.href = link;
+        document.head.appendChild(cssLink);
+    }
+
 }
 
 jst.updateProperties();
 
 /*
-* Add OverlayScrollbars css file
+* Add required css files
 * */
 (() => {
-    let cssLink = document.createElement('link');
-    cssLink.rel = 'stylesheet';
-    cssLink.type = 'text/css';
-    cssLink.href = 'https://cdn.jsdelivr.net/npm/overlayscrollbars/css/OverlayScrollbars.min.css';
-    document.head.appendChild(cssLink);
+    jst.addCSS('https://cdn.jsdelivr.net/npm/overlayscrollbars/css/OverlayScrollbars.min.css');
+    jst.addCSS(`https://cdn.jsdelivr.net/gh/csabdulahad/jst@${jst.version()}/dist/jst-min.css`)
 })();

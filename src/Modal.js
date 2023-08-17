@@ -31,6 +31,7 @@
         #dismissed = false;
         #hidden = false;
 
+        #shownCallback
         #dismissCallback;
         #hideCallback;
 
@@ -156,6 +157,17 @@
         }
 
         /**
+         * Sets a callback to be notified when the modal is being shown for the first time
+         *
+         * @param {function()} callback Function to be invoked
+         * @return Modal
+         * */
+        onShown(callback) {
+            this.#shownCallback = callback;
+            return this;
+        }
+
+        /**
          * This method is invoked when a modal is in display and users hits the escape button.
          * OverlayManager calls this method automatically.
          * <br><b>This method should be called directly.</b>
@@ -185,7 +197,9 @@
 
             // acquire the overlay & show the modal
             OverlayManager.acquire(this);
-            this.#modal.fadeIn(250);
+            this.#modal.fadeIn(250, () => {
+                if (this.#shownCallback) this.#shownCallback();
+            });
 
             this.#hidden = false;
         }
@@ -196,7 +210,7 @@
          * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
          * @param {number|string=} option.w - The width of the modal in px. Max value is 75% of the window's inner width.
          * @param {number|string=} option.h - The height of the modal in px. Max height is 75% of the window's inner height.
-         * @param {string=} option.pad - The padding of the modal in px
+         * @param {number|string=} option.pad - The padding of the modal in px
          * @param {boolean=} option.cancelable - Flag makes the modal cancellation status
          * */
         show(option = {}) {
@@ -214,8 +228,9 @@
             this.#dismissed = true;
 
             OverlayManager.release(this);
-            $(this.#modal).fadeOut(250);
-            if (this.#dismissCallback) this.#dismissCallback();
+            $(this.#modal).fadeOut(250, () => {
+                if (this.#dismissCallback) this.#dismissCallback();
+            });
         }
 
         /**
@@ -226,8 +241,9 @@
 
             this.#hidden = true;
 
-            $(this.#modal).fadeOut(250);
-            if (this.#hideCallback) this.#hideCallback();
+            $(this.#modal).fadeOut(250, () => {
+                if (this.#hideCallback) this.#hideCallback()
+            });
         }
 
         /**
@@ -238,8 +254,9 @@
         makeVisible() {
             this.#hidden = false;
             this.#applyTheme();
-            $(this.#modal).fadeIn(250);
-            if (this.#revivedCallback) this.#revivedCallback();
+            $(this.#modal).fadeIn(250, () => {
+                if (this.#revivedCallback) this.#revivedCallback();
+            });
         }
 
         /**

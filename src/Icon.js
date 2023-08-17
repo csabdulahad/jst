@@ -114,6 +114,26 @@
             $(obj.parent).removeAttr('disabled');
         }
 
+        /**
+         * Sets disabled attribute to the element.
+         *
+         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+         * or can't have # at the beginning.
+         * */
+        disable(ele) {
+            $(jst.eleId(ele)).attr('disabled', 'true');
+        }
+
+        /**
+         * Enables the element by removing disabled attribute
+         *
+         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+         * or can't have # at the beginning.
+         * */
+        enable(ele) {
+            $(jst.eleId(ele)).removeAttr('disabled');
+        }
+
         static #getUId = () => new Date().valueOf();
 
     }

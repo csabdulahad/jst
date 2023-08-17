@@ -688,12 +688,18 @@ class Blogger {
         // json encoded hati server response
         #response;
 
+        // Indicates whether to log the response to the console
+        #logResponse = false;
+
+        // Indicates whether it tries to log in json format then falls back to raw text output
+        #logAsJson = true;
+
         // Various callbacks
         #callbackAny;
         #callbackOk;
         #callbackErr;
 
-        #timeout;
+        #timeoutCallback;
         #unresolvedHost;
         #unknownError;
 
@@ -745,7 +751,6 @@ class Blogger {
         STATUS_OK = 200;
         STATUS_FORBIDDEN = 403;
         STATUS_PAGE_NOT_FOUND = 404;
-        STATUS_REQ_TIMEOUT = 408;
 
         static #contentType = {
             form: 'application/x-www-form-urlencoded',
@@ -755,6 +760,13 @@ class Blogger {
 
         constructor() {
             this.#xHttp = new XMLHttpRequest();
+
+            this.#xHttp.timeout = 30000;
+            this.#xHttp.ontimeout = () => {
+                if (this.#timeoutCallback != null) this.#timeoutCallback();
+                else console.warn(`Connection timed out`);
+            };
+
             this.#xHttp.onreadystatechange = () => {
                 this.#state = this.#xHttp.readyState;
                 this.#status = this.#xHttp.status;
@@ -762,10 +774,24 @@ class Blogger {
 
                 if (this.#state !== this.STATE_REQ_FINISH_AND_READY) return;
 
+                // log the response
+                if (this.#logResponse) {
+                    let data = this.#xHttp.responseText;
+                    if(data.length === 0) {
+                        console.info(`Nothing to log`);
+                    } else if (!this.#logAsJson) {
+                        console.log(data);
+                    } else {
+                        try {
+                            console.log(JSON.parse(data));
+                        } catch {
+                            console.log(data);
+                        }
+                    }
+                }
+
                 if (this.#status === this.STATUS_OK) {
                     this.#callbackMediator(this.#xHttp.responseText);
-                } else if (this.#status === this.STATUS_REQ_TIMEOUT) {
-                    if (this.#timeout != null) this.#timeout();
                 } else if (this.#status === this.STATUS_PAGE_NOT_FOUND) {
                     if (this.#unresolvedHost != null) this.#unresolvedHost();
                 } else {
@@ -781,11 +807,10 @@ class Blogger {
                 this.#noToast = true;
                 this.#invokeRedirect(true);
                 this.#invokeCallback(true);
-                this.#resetConnection();
                 return;
             }
 
-            // invalidate response for hati & store the response
+            // validate response for hati & store the response
             try {
                 this.#response = JSON.parse(response);
                 this.#hatiMsg = this.#response.response['msg'];
@@ -794,14 +819,10 @@ class Blogger {
 
                 if (this.#response.response['delay_time'] !== undefined)
                     console.warn('Hati is running in development mode');
-
-                // delete the response property of the Hati response
-                delete this.#response.response;
             } catch (error) {
                 this.#resetHati();
                 console.error(`${this.#hatiMsg} ${error.message}.\nResponse: ${this.#response}`);
                 this.#invokeCallback(false);
-                this.#resetConnection();
                 return;
             }
 
@@ -813,16 +834,12 @@ class Blogger {
             this.#invokeCallback(success);
 
             // if no toast then we don't go any further down here
-            if (this.#noToast) {
-                this.#resetConnection();
-                return;
-            }
+            if (this.#noToast) return;
 
             // handle sticky toast
             if (!this.#autoHideToast) {
                 Toast.show(this.#hatiStatus, this.#hatiMsg, false);
                 this.#directAfterToast(success);
-                this.#resetConnection();
                 return;
             }
 
@@ -833,7 +850,6 @@ class Blogger {
                 // show toast only it is either success or error
                 if (this.#toastOnSuccess && success) this.#showToast(true);
                 else if (this.#toastOnError && !success) this.#showToast(false);
-                else this.#resetConnection();
             }
         }
 
@@ -845,49 +861,23 @@ class Blogger {
         }
 
         #invokeCallback(success) {
-            if (this.#callbackAny != null) this.#callbackAny(success);
+            if (this.#callbackAny != null) this.#callbackAny(this.#decorateRes());
             else {
-                if (success && this.#callbackOk != null) this.#callbackOk();
-                if (!success && this.#callbackErr != null) this.#callbackErr();
+                if (success && this.#callbackOk != null) this.#callbackOk(this.#decorateRes());
+                if (!success && this.#callbackErr != null) this.#callbackErr(this.#decorateRes());
             }
 
             if (this.#postRun) this.#postRun();
         }
 
-        #resetConnection() {
-            this.#url = null;
-
-            // data buffer variables
-            this.#headers = {};
-            this.#queryParam = {};
-            this.#dataSource = {};
-
-            // various callbacks
-            this.#callbackAny = null;
-            this.#callbackOk = null;
-            this.#callbackErr = null;
-            this.#timeout = null;
-            this.#unresolvedHost = null;
-            this.#unknownError = null;
-            this.#preRedirect = null;
-            this.#postRun = null;
-            this.#preRun = null;
-
-            // redirection paths and theirs flags
-            this.#anyPath = null;
-            this.#successPath = null;
-            this.#errorPath = null;
-            this.#insDirAny = false;
-            this.#insDirOk = false;
-            this.#insDirErr = false;
-
-            // variables for toasting
-            this.#noToast = false;
-            this.#toastOnAny = true;
-            this.#autoHideToast = true;
-            this.#toastOnSuccess = false;
-            this.#toastOnError = false;
-            this.#delay = 2;
+        #decorateRes() {
+            return {
+                txt: this.responseRaw(),
+                json: (() => {
+                    let x = this.response();
+                    return typeof x === 'object' ? x : null
+                })()
+            }
         }
 
         #resetHati() {
@@ -912,8 +902,39 @@ class Blogger {
         #showToast(success) {
             Toast.show(this.#hatiStatus, this.#hatiMsg, true, () => {
                 this.#directAfterToast(success);
-                this.#resetConnection();
             }, this.#delay);
+        }
+
+        #hit(as, method) {
+            as = as.toLowerCase();
+            if (!Connect.#contentType.owns(as))
+                throw new Error(`The argument 'as' must be one of these: form, json, raw`);
+
+            let url = this.#prepareUrl();
+            url = Connect.#removeExtraSign(url);
+
+            this.header('Content-Type', Connect.#contentType[as]);
+
+
+            if (['json', 'form'].owns(as)) {
+                delete this.#dataSource['_raw_data'];
+            }
+
+            let data;
+            if (as === 'json') {
+                data = JSON.stringify(this.#dataSource);
+            } else if (as === 'form') {
+                data = Connect.parameterize(this.#dataSource);
+            } else {
+                data = JSON.stringify(this.#dataSource['_raw_data']);
+            }
+
+            this.#xHttp.open(method, url);
+            this.#setHeaders();
+
+            if (this.#preRun) this.#preRun();
+
+            this.#xHttp.send(data);
         }
 
         /**
@@ -1035,10 +1056,14 @@ class Blogger {
         }
 
         /**
-         * Set the callback to be invoked on server response regardless of status
+         * Set the callback to be invoked on server response regardless any server
+         * response status. This callback can be used as a primary callback for
+         * connecting to server which  doesn't talk Hatish.
+         * <br>For connection error corresponding callbacks are invoked.
          *
-         * @param {function(boolean)} callback With boolean indicating if the server is talking Hatish and response is
-         * success otherwise on any other server, it is always true.
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onAny(callback) {
@@ -1047,9 +1072,13 @@ class Blogger {
         }
 
         /**
-         * Sets the callback to be invoked when the Hati server replied ok response
+         * Sets the callback to be invoked when the Hati server replied ok response.
+         * The callback is invoked for non-hati server, if there is no onAny
+         * callback set.
          *
-         * @param {function()} callback
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onOk(callback) {
@@ -1058,9 +1087,15 @@ class Blogger {
         }
 
         /**
-         * Sets the callback to be invoked when the Hati server replied error response
+         * Sets the callback to be invoked when the <b>Hati</b> server replied error response
+         * <br>
+         * This callback is never invoked when Connect is decorated with withHati() call. For
+         * catching error, use other "on" callback functions such as <b>onTimeout(),
+         * onUnresolvedHost()</b> etc.
          *
-         * @param {function()} callback
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onErr(callback) {
@@ -1101,13 +1136,14 @@ class Blogger {
         }
 
         /**
-         * Sets the callback to be invoked on timeout connecting to the server on specified url
+         * Sets the callback to be invoked on timeout connecting to the server on specified url.
+         * Default is 30 seconds.
          *
          * @param {function ()} callback
          * @return {Connect}
          * */
         onTimeout(callback) {
-            this.#timeout = callback;
+            this.#timeoutCallback = callback;
             return this;
         }
 
@@ -1145,15 +1181,38 @@ class Blogger {
         }
 
         /**
+         * Logs the response for the connection to the console.
+         * @param {boolean} asJson When true, it tries to log response as JSON object. If fails then falls back
+         * to text output.
+         * @return {Connect}
+         * */
+        logResponse(asJson = true) {
+            this.#logResponse = true;
+            this.#logAsJson = asJson;
+            return this;
+        }
+
+        /**
+         * Sets timeout for connection
+         *
+         * @param {int} ms Number of milliseconds
+         * @return {Connect}
+         * */
+        timeout(ms) {
+            this.#xHttp.timeout = ms;
+            return this;
+        }
+
+        /**
          * Makes a GET request to the specified url. It ignores the raw data.
          *
-         * @param {'form'|'json'} sendAs The Content-Type header is set accordingly when data is sent
-         * @throws {Error} When sendAs argument is set as raw data
+         * @param {'form'|'json'} as The Content-Type header is set accordingly when data is sent
+         * @throws {Error} When as argument is set as raw data
          * */
-        get(sendAs = 'form') {
-            sendAs = sendAs.toLowerCase();
-            if (!['form', 'json'].owns(sendAs))
-                throw new Error('The argument sendAs must be one of these: form, json');
+        get(as = 'form') {
+            as = as.toLowerCase();
+            if (!['form', 'json'].owns(as))
+                throw new Error('The argument as must be one of these: form, json');
 
             delete this.#dataSource._raw_data;
 
@@ -1165,7 +1224,7 @@ class Blogger {
             url = Connect.#removeExtraSign(url);
 
 
-            this.header('Content-Type', Connect.#contentType[sendAs]);
+            this.header('Content-Type', Connect.#contentType[as]);
             this.#xHttp.open('GET', url);
             this.#setHeaders();
 
@@ -1177,43 +1236,43 @@ class Blogger {
         /**
          * Makes a POST request to the specified url.
          * <br>
-         * For sendAs argument data will be send as:
+         * For as argument data will be send as:
          * <br>json -- JSON object as part of request body
          * <br>form -- x-www-form-urlencoded as part of the request body
-         * <br>raw  -- raw as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
          *
-         * @param {'form'|'json'|'raw'=} sendAs The Content-Type header is set accordingly when data is sent
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
          * */
-        post(sendAs = 'form') {
-            sendAs = sendAs.toLowerCase();
-            if (!Connect.#contentType.owns(sendAs))
-                throw new Error('The argument sendAs must be one of these: form, json, raw');
+        post(as = 'form') {
+            this.#hit(as, 'POST');
+        }
 
-            let url = this.#prepareUrl();
-            url = Connect.#removeExtraSign(url);
+        /**
+         * Makes a PUT request to the specified url.
+         * <br>
+         * For as argument data will be send as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         * */
+        put(as = 'json') {
+            this.#hit(as, 'PUT');
+        }
 
-            this.header('Content-Type', Connect.#contentType[sendAs]);
-
-
-            if (['json', 'form'].owns(sendAs)) {
-                delete this.#dataSource['_raw_data'];
-            }
-
-            let data;
-            if (sendAs === 'json') {
-                data = JSON.stringify(this.#dataSource);
-            } else if (sendAs === 'form') {
-                data = Connect.parameterize(this.#dataSource);
-            } else {
-                data = JSON.stringify(this.#dataSource['_raw_data']);
-            }
-
-            this.#xHttp.open('POST', url);
-            this.#setHeaders();
-
-            if (this.#preRun) this.#preRun();
-
-            this.#xHttp.send(data);
+        /**
+         * Makes a DELETE request to the specified url.
+         * <br>
+         * For as argument data will be send as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         * */
+        delete(as = 'json') {
+            this.#hit(as, 'DELETE');
         }
 
         /**
@@ -1260,7 +1319,7 @@ class Blogger {
          *
          * @param {string|HTMLFormElement} form The form to be sent as body of the request
          * @return {Connect}
-        * */
+         * */
         form(form) {
             if (typeof form == 'string') {
                 let id = form.startsWith('#') ? form : `#${form}`;
@@ -1354,10 +1413,18 @@ class Blogger {
         /**
          * Returns the response in JSON format
          *
-         * @return {object} JSON decoded response
+         * @return {?object} JSON decoded response
          * */
         response() {
-            return typeof this.#response === 'object' ? this.#response : JSON.parse(this.#response);
+            if (this.#response === 'null') return null;
+
+            if (typeof this.#response === 'object') return this.#response;
+
+            try {
+                return JSON.parse(this.#response);
+            } catch {
+                return null;
+            }
         }
 
         /**
@@ -1402,7 +1469,8 @@ class Blogger {
 
     }
 
-    window.Connect = new Connect();
+
+    window.Connect = () =>  new Connect();
 
     /**
      * Helper function, transfers key-value pair data into query parameters format
@@ -1450,6 +1518,7 @@ class Blogger {
         #callbackHide;
         #callbackDismiss;
         #callbackRevived;
+        #callbackShown;
 
         /**
          * @param {string} id
@@ -1645,6 +1714,17 @@ class Blogger {
         }
 
         /**
+         * Sets a callback to be notified when the dialog is being shown for the first time
+         *
+         * @param {function()} callback Function to be invoked
+         * @return Dialog
+         * */
+        onShown(callback) {
+            this.#callbackShown = callback;
+            return this;
+        }
+
+        /**
          * Sets the dialog title
          *
          * @param title {string} Dialog title
@@ -1684,7 +1764,9 @@ class Blogger {
             $(this.#msgEle).html(msg);
 
             OverlayManager.acquire(this);
-            $(this.#dialog).fadeIn(250);
+            $(this.#dialog).fadeIn(250, () => {
+                if (this.#callbackShown) this.#callbackShown();
+            });
 
             this.#hidden = false;
         }
@@ -1695,7 +1777,7 @@ class Blogger {
          * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
          * @param {number|string=} option.w - The width in px. Max value is 75% of the window's inner width.
          * @param {number|string=} option.h - The height in px. Max height is 75% of the window's inner height.
-         * @param {string=} option.pad - The padding in px
+         * @param {number|string=} option.pad - The padding in px
          * @param {boolean=} option.cancelable - Flag makes the dialog cancellation status
          * */
         show(option = {}) {
@@ -1713,8 +1795,9 @@ class Blogger {
         makeVisible() {
             this.#hidden = false;
             this.#applyTheme();
-            $(this.#dialog).fadeIn(250);
-            if (this.#callbackRevived) this.#callbackRevived();
+            $(this.#dialog).fadeIn(250, () => {
+                if (this.#callbackRevived) this.#callbackRevived();
+            });
         }
 
         /**
@@ -1723,8 +1806,9 @@ class Blogger {
         hide() {
             this.#checkIfDismissed();
             this.#hidden = true;
-            $(this.#dialog).fadeOut(250);
-            if (this.#callbackHide) this.#callbackHide();
+            $(this.#dialog).fadeOut(250, () => {
+                if (this.#callbackHide) this.#callbackHide();
+            });
         }
 
         /*
@@ -1735,12 +1819,12 @@ class Blogger {
             this.#dismissed = true;
 
             OverlayManager.release(this);
-            $(this.#dialog).fadeOut(250);
+            $(this.#dialog).fadeOut(250, () => {
+                // remove the dom
+                $(this.#dialog).remove();
 
-            // remove the dom
-            $(this.#dialog).remove();
-
-            if (this.#callbackDismiss) this.#callbackDismiss();
+                if (this.#callbackDismiss) this.#callbackDismiss();
+            });
         }
 
         /**
@@ -1993,6 +2077,8 @@ class FormInspector {
     // form element is identified by id. ID can be separated by '-' so that it
     // can be split into capitalized word for nice feedback message
     static #getEleName(ele) {
+        if (ele.owns('msgName')) return ele.msgName;
+
         let value = ele.id || ele.name;
         value = value.replaceAll(/-/g, ' ');
         return value.capitalize(true);
@@ -2051,6 +2137,7 @@ class FormInspector {
      * @param {number=}                         rules.maxLen the maximum length
      * @param {boolean=}                        rules.inline indicates to show feedback as inline
      * @param {string=}                         rules.msgPos id of where to show the feedback message div
+     * @param {string=}                         rules.msgName the name to be shown with FI feedback message
      * @param {string=}                         rules.pattern any Form pattern constant or custom patter to match
      * @param {number=}                         rules.place the floating fractional place length
      * @param {array=}                          rules.option array containing the permitted options for the input
@@ -2084,6 +2171,32 @@ class FormInspector {
             // store ref to all the passed ele configurations after setup
             this.#eleArr.push(rule);
         });
+    }
+
+    /**
+    * Resets the form inputs. Optionally it can hide input error/feedback message divs.
+    *
+    * @param {boolean} hideMsg Indicates whether to hide input error/feedback message divs
+    * */
+    resetForm(hideMsg = true) {
+        if (this.#form) this.#form[0].reset();
+
+        if (!hideMsg) return;
+
+        // hide all the message are currently being show
+        for (let ele of this.#eleArr) {
+
+            let msgEle = null;
+            if (ele.owns('msgPos')) {
+                msgEle = $(`#${ele.msgPos}`);
+            } else if (ele.owns('id')) {
+                msgEle = $(`#${ele.id} + div.jst-form-msg`);
+            }
+
+            if (msgEle === null) continue;
+
+            msgEle.css('display', 'none');
+        }
     }
 
     // add various types of listeners such as keyup, blur based on the form element
@@ -2225,9 +2338,7 @@ class FormInspector {
         let havePositionedEle = ele.owns('msgPos');
 
         if (!haveNextEle || havePositionedEle) {
-            let msgEle = inline ?
-                `<div class="jst-d-inline jst-form-msg"><span></span> <span></span></div>` :
-                `<div class="jst-form-msg"><span></span> <span></span></div>`;
+            let msgEle = `<div class="jst-form-msg"><span></span> <span></span></div>`;
 
             // add the message element accordingly
             if(havePositionedEle) $(`#${ele['msgPos']}`).html(msgEle);
@@ -2243,7 +2354,11 @@ class FormInspector {
         let msgSpan = spans[1];
         if (!this.#noIcon && ele.missing('noIcon')) $(iconSpan).html(icon);
         if (!this.#noMsg  && ele.missing('noMsg')) $(msgSpan).html(msg);
+
         $(nextEle).css('color', color);
+
+        // make sure the message element is shown; it could be made hidden by reset function
+        $(nextEle).css('display', inline ? 'inline' : 'block');
 
         // animate if requested by the blur event
         if (ele.owns('animate') && !result) {
@@ -2310,7 +2425,7 @@ class FormInspector {
         // say, we can submit the form
         this.#canSubmit = true;
 
-        this.#eleArr.forEach((ele) => {
+        this.#eleArr.forEach(ele => {
             if (jst.isUndef(ele.dom)) return;
 
             ele.animate = true;
@@ -2501,6 +2616,26 @@ class FormInspector {
             $(obj.parent).removeAttr('disabled');
         }
 
+        /**
+         * Sets disabled attribute to the element.
+         *
+         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+         * or can't have # at the beginning.
+         * */
+        disable(ele) {
+            $(jst.eleId(ele)).attr('disabled', 'true');
+        }
+
+        /**
+         * Enables the element by removing disabled attribute
+         *
+         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+         * or can't have # at the beginning.
+         * */
+        enable(ele) {
+            $(jst.eleId(ele)).removeAttr('disabled');
+        }
+
         static #getUId = () => new Date().valueOf();
 
     }
@@ -2523,6 +2658,10 @@ class FormInspector {
  * environment to the code.
  * */
 class jst {
+
+    static version() {
+        return '4.0.0';
+    }
 
     /**
      * It takes a callback function as argument and executes it immediately when the document
@@ -2761,19 +2900,24 @@ class jst {
         })
     }
 
+    static addCSS(link) {
+        let cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.type = 'text/css';
+        cssLink.href = link;
+        document.head.appendChild(cssLink);
+    }
+
 }
 
 jst.updateProperties();
 
 /*
-* Add OverlayScrollbars css file
+* Add required css files
 * */
 (() => {
-    let cssLink = document.createElement('link');
-    cssLink.rel = 'stylesheet';
-    cssLink.type = 'text/css';
-    cssLink.href = 'https://cdn.jsdelivr.net/npm/overlayscrollbars/css/OverlayScrollbars.min.css';
-    document.head.appendChild(cssLink);
+    jst.addCSS('https://cdn.jsdelivr.net/npm/overlayscrollbars/css/OverlayScrollbars.min.css');
+    jst.addCSS(`https://cdn.jsdelivr.net/gh/csabdulahad/jst@${jst.version()}/dist/jst-min.css`)
 })();
 
 /**
@@ -2809,6 +2953,7 @@ jst.updateProperties();
         #dismissed = false;
         #hidden = false;
 
+        #shownCallback
         #dismissCallback;
         #hideCallback;
 
@@ -2934,6 +3079,17 @@ jst.updateProperties();
         }
 
         /**
+         * Sets a callback to be notified when the modal is being shown for the first time
+         *
+         * @param {function()} callback Function to be invoked
+         * @return Modal
+         * */
+        onShown(callback) {
+            this.#shownCallback = callback;
+            return this;
+        }
+
+        /**
          * This method is invoked when a modal is in display and users hits the escape button.
          * OverlayManager calls this method automatically.
          * <br><b>This method should be called directly.</b>
@@ -2963,7 +3119,9 @@ jst.updateProperties();
 
             // acquire the overlay & show the modal
             OverlayManager.acquire(this);
-            this.#modal.fadeIn(250);
+            this.#modal.fadeIn(250, () => {
+                if (this.#shownCallback) this.#shownCallback();
+            });
 
             this.#hidden = false;
         }
@@ -2974,7 +3132,7 @@ jst.updateProperties();
          * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
          * @param {number|string=} option.w - The width of the modal in px. Max value is 75% of the window's inner width.
          * @param {number|string=} option.h - The height of the modal in px. Max height is 75% of the window's inner height.
-         * @param {string=} option.pad - The padding of the modal in px
+         * @param {number|string=} option.pad - The padding of the modal in px
          * @param {boolean=} option.cancelable - Flag makes the modal cancellation status
          * */
         show(option = {}) {
@@ -2992,8 +3150,9 @@ jst.updateProperties();
             this.#dismissed = true;
 
             OverlayManager.release(this);
-            $(this.#modal).fadeOut(250);
-            if (this.#dismissCallback) this.#dismissCallback();
+            $(this.#modal).fadeOut(250, () => {
+                if (this.#dismissCallback) this.#dismissCallback();
+            });
         }
 
         /**
@@ -3004,8 +3163,9 @@ jst.updateProperties();
 
             this.#hidden = true;
 
-            $(this.#modal).fadeOut(250);
-            if (this.#hideCallback) this.#hideCallback();
+            $(this.#modal).fadeOut(250, () => {
+                if (this.#hideCallback) this.#hideCallback()
+            });
         }
 
         /**
@@ -3016,8 +3176,9 @@ jst.updateProperties();
         makeVisible() {
             this.#hidden = false;
             this.#applyTheme();
-            $(this.#modal).fadeIn(250);
-            if (this.#revivedCallback) this.#revivedCallback();
+            $(this.#modal).fadeIn(250, () => {
+                if (this.#revivedCallback) this.#revivedCallback();
+            });
         }
 
         /**
@@ -10368,6 +10529,10 @@ class Shomoy {
     static secInDay(of) { return 60 * 60 * 24 * of; }
 
     static msInDay(of) { return 1000 * 60 * 60 * 24 * of; }
+
+    static isoDate() { return new Shomoy().isoDate(); }
+
+    static isoTime() { return new Shomoy().isoTime(); }
 
     static clone(shomoy) {
         if (!shomoy instanceof Shomoy) throw new Error('Argument must be instance of Shomoy.');

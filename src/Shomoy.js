@@ -357,6 +357,10 @@ class Shomoy {
 
     static msInDay(of) { return 1000 * 60 * 60 * 24 * of; }
 
+    static isoDate() { return new Shomoy().isoDate(); }
+
+    static isoTime() { return new Shomoy().isoTime(); }
+
     static clone(shomoy) {
         if (!shomoy instanceof Shomoy) throw new Error('Argument must be instance of Shomoy.');
         return new Shomoy(shomoy);

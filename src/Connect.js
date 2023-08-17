@@ -19,12 +19,18 @@
         // json encoded hati server response
         #response;
 
+        // Indicates whether to log the response to the console
+        #logResponse = false;
+
+        // Indicates whether it tries to log in json format then falls back to raw text output
+        #logAsJson = true;
+
         // Various callbacks
         #callbackAny;
         #callbackOk;
         #callbackErr;
 
-        #timeout;
+        #timeoutCallback;
         #unresolvedHost;
         #unknownError;
 
@@ -76,7 +82,6 @@
         STATUS_OK = 200;
         STATUS_FORBIDDEN = 403;
         STATUS_PAGE_NOT_FOUND = 404;
-        STATUS_REQ_TIMEOUT = 408;
 
         static #contentType = {
             form: 'application/x-www-form-urlencoded',
@@ -86,6 +91,13 @@
 
         constructor() {
             this.#xHttp = new XMLHttpRequest();
+
+            this.#xHttp.timeout = 30000;
+            this.#xHttp.ontimeout = () => {
+                if (this.#timeoutCallback != null) this.#timeoutCallback();
+                else console.warn(`Connection timed out`);
+            };
+
             this.#xHttp.onreadystatechange = () => {
                 this.#state = this.#xHttp.readyState;
                 this.#status = this.#xHttp.status;
@@ -93,10 +105,24 @@
 
                 if (this.#state !== this.STATE_REQ_FINISH_AND_READY) return;
 
+                // log the response
+                if (this.#logResponse) {
+                    let data = this.#xHttp.responseText;
+                    if(data.length === 0) {
+                        console.info(`Nothing to log`);
+                    } else if (!this.#logAsJson) {
+                        console.log(data);
+                    } else {
+                        try {
+                            console.log(JSON.parse(data));
+                        } catch {
+                            console.log(data);
+                        }
+                    }
+                }
+
                 if (this.#status === this.STATUS_OK) {
                     this.#callbackMediator(this.#xHttp.responseText);
-                } else if (this.#status === this.STATUS_REQ_TIMEOUT) {
-                    if (this.#timeout != null) this.#timeout();
                 } else if (this.#status === this.STATUS_PAGE_NOT_FOUND) {
                     if (this.#unresolvedHost != null) this.#unresolvedHost();
                 } else {
@@ -112,11 +138,10 @@
                 this.#noToast = true;
                 this.#invokeRedirect(true);
                 this.#invokeCallback(true);
-                this.#resetConnection();
                 return;
             }
 
-            // invalidate response for hati & store the response
+            // validate response for hati & store the response
             try {
                 this.#response = JSON.parse(response);
                 this.#hatiMsg = this.#response.response['msg'];
@@ -125,14 +150,10 @@
 
                 if (this.#response.response['delay_time'] !== undefined)
                     console.warn('Hati is running in development mode');
-
-                // delete the response property of the Hati response
-                delete this.#response.response;
             } catch (error) {
                 this.#resetHati();
                 console.error(`${this.#hatiMsg} ${error.message}.\nResponse: ${this.#response}`);
                 this.#invokeCallback(false);
-                this.#resetConnection();
                 return;
             }
 
@@ -144,16 +165,12 @@
             this.#invokeCallback(success);
 
             // if no toast then we don't go any further down here
-            if (this.#noToast) {
-                this.#resetConnection();
-                return;
-            }
+            if (this.#noToast) return;
 
             // handle sticky toast
             if (!this.#autoHideToast) {
                 Toast.show(this.#hatiStatus, this.#hatiMsg, false);
                 this.#directAfterToast(success);
-                this.#resetConnection();
                 return;
             }
 
@@ -164,7 +181,6 @@
                 // show toast only it is either success or error
                 if (this.#toastOnSuccess && success) this.#showToast(true);
                 else if (this.#toastOnError && !success) this.#showToast(false);
-                else this.#resetConnection();
             }
         }
 
@@ -176,49 +192,23 @@
         }
 
         #invokeCallback(success) {
-            if (this.#callbackAny != null) this.#callbackAny(success);
+            if (this.#callbackAny != null) this.#callbackAny(this.#decorateRes());
             else {
-                if (success && this.#callbackOk != null) this.#callbackOk();
-                if (!success && this.#callbackErr != null) this.#callbackErr();
+                if (success && this.#callbackOk != null) this.#callbackOk(this.#decorateRes());
+                if (!success && this.#callbackErr != null) this.#callbackErr(this.#decorateRes());
             }
 
             if (this.#postRun) this.#postRun();
         }
 
-        #resetConnection() {
-            this.#url = null;
-
-            // data buffer variables
-            this.#headers = {};
-            this.#queryParam = {};
-            this.#dataSource = {};
-
-            // various callbacks
-            this.#callbackAny = null;
-            this.#callbackOk = null;
-            this.#callbackErr = null;
-            this.#timeout = null;
-            this.#unresolvedHost = null;
-            this.#unknownError = null;
-            this.#preRedirect = null;
-            this.#postRun = null;
-            this.#preRun = null;
-
-            // redirection paths and theirs flags
-            this.#anyPath = null;
-            this.#successPath = null;
-            this.#errorPath = null;
-            this.#insDirAny = false;
-            this.#insDirOk = false;
-            this.#insDirErr = false;
-
-            // variables for toasting
-            this.#noToast = false;
-            this.#toastOnAny = true;
-            this.#autoHideToast = true;
-            this.#toastOnSuccess = false;
-            this.#toastOnError = false;
-            this.#delay = 2;
+        #decorateRes() {
+            return {
+                txt: this.responseRaw(),
+                json: (() => {
+                    let x = this.response();
+                    return typeof x === 'object' ? x : null
+                })()
+            }
         }
 
         #resetHati() {
@@ -243,8 +233,39 @@
         #showToast(success) {
             Toast.show(this.#hatiStatus, this.#hatiMsg, true, () => {
                 this.#directAfterToast(success);
-                this.#resetConnection();
             }, this.#delay);
+        }
+
+        #hit(as, method) {
+            as = as.toLowerCase();
+            if (!Connect.#contentType.owns(as))
+                throw new Error(`The argument 'as' must be one of these: form, json, raw`);
+
+            let url = this.#prepareUrl();
+            url = Connect.#removeExtraSign(url);
+
+            this.header('Content-Type', Connect.#contentType[as]);
+
+
+            if (['json', 'form'].owns(as)) {
+                delete this.#dataSource['_raw_data'];
+            }
+
+            let data;
+            if (as === 'json') {
+                data = JSON.stringify(this.#dataSource);
+            } else if (as === 'form') {
+                data = Connect.parameterize(this.#dataSource);
+            } else {
+                data = JSON.stringify(this.#dataSource['_raw_data']);
+            }
+
+            this.#xHttp.open(method, url);
+            this.#setHeaders();
+
+            if (this.#preRun) this.#preRun();
+
+            this.#xHttp.send(data);
         }
 
         /**
@@ -366,10 +387,14 @@
         }
 
         /**
-         * Set the callback to be invoked on server response regardless of status
+         * Set the callback to be invoked on server response regardless any server
+         * response status. This callback can be used as a primary callback for
+         * connecting to server which  doesn't talk Hatish.
+         * <br>For connection error corresponding callbacks are invoked.
          *
-         * @param {function(boolean)} callback With boolean indicating if the server is talking Hatish and response is
-         * success otherwise on any other server, it is always true.
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onAny(callback) {
@@ -378,9 +403,13 @@
         }
 
         /**
-         * Sets the callback to be invoked when the Hati server replied ok response
+         * Sets the callback to be invoked when the Hati server replied ok response.
+         * The callback is invoked for non-hati server, if there is no onAny
+         * callback set.
          *
-         * @param {function()} callback
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onOk(callback) {
@@ -389,9 +418,15 @@
         }
 
         /**
-         * Sets the callback to be invoked when the Hati server replied error response
+         * Sets the callback to be invoked when the <b>Hati</b> server replied error response
+         * <br>
+         * This callback is never invoked when Connect is decorated with withHati() call. For
+         * catching error, use other "on" callback functions such as <b>onTimeout(),
+         * onUnresolvedHost()</b> etc.
          *
-         * @param {function()} callback
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
          * @return {Connect}
          * */
         onErr(callback) {
@@ -432,13 +467,14 @@
         }
 
         /**
-         * Sets the callback to be invoked on timeout connecting to the server on specified url
+         * Sets the callback to be invoked on timeout connecting to the server on specified url.
+         * Default is 30 seconds.
          *
          * @param {function ()} callback
          * @return {Connect}
          * */
         onTimeout(callback) {
-            this.#timeout = callback;
+            this.#timeoutCallback = callback;
             return this;
         }
 
@@ -476,15 +512,38 @@
         }
 
         /**
+         * Logs the response for the connection to the console.
+         * @param {boolean} asJson When true, it tries to log response as JSON object. If fails then falls back
+         * to text output.
+         * @return {Connect}
+         * */
+        logResponse(asJson = true) {
+            this.#logResponse = true;
+            this.#logAsJson = asJson;
+            return this;
+        }
+
+        /**
+         * Sets timeout for connection
+         *
+         * @param {int} ms Number of milliseconds
+         * @return {Connect}
+         * */
+        timeout(ms) {
+            this.#xHttp.timeout = ms;
+            return this;
+        }
+
+        /**
          * Makes a GET request to the specified url. It ignores the raw data.
          *
-         * @param {'form'|'json'} sendAs The Content-Type header is set accordingly when data is sent
-         * @throws {Error} When sendAs argument is set as raw data
+         * @param {'form'|'json'} as The Content-Type header is set accordingly when data is sent
+         * @throws {Error} When as argument is set as raw data
          * */
-        get(sendAs = 'form') {
-            sendAs = sendAs.toLowerCase();
-            if (!['form', 'json'].owns(sendAs))
-                throw new Error('The argument sendAs must be one of these: form, json');
+        get(as = 'form') {
+            as = as.toLowerCase();
+            if (!['form', 'json'].owns(as))
+                throw new Error('The argument as must be one of these: form, json');
 
             delete this.#dataSource._raw_data;
 
@@ -496,7 +555,7 @@
             url = Connect.#removeExtraSign(url);
 
 
-            this.header('Content-Type', Connect.#contentType[sendAs]);
+            this.header('Content-Type', Connect.#contentType[as]);
             this.#xHttp.open('GET', url);
             this.#setHeaders();
 
@@ -508,43 +567,43 @@
         /**
          * Makes a POST request to the specified url.
          * <br>
-         * For sendAs argument data will be send as:
+         * For as argument data will be send as:
          * <br>json -- JSON object as part of request body
          * <br>form -- x-www-form-urlencoded as part of the request body
-         * <br>raw  -- raw as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
          *
-         * @param {'form'|'json'|'raw'=} sendAs The Content-Type header is set accordingly when data is sent
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
          * */
-        post(sendAs = 'form') {
-            sendAs = sendAs.toLowerCase();
-            if (!Connect.#contentType.owns(sendAs))
-                throw new Error('The argument sendAs must be one of these: form, json, raw');
+        post(as = 'form') {
+            this.#hit(as, 'POST');
+        }
 
-            let url = this.#prepareUrl();
-            url = Connect.#removeExtraSign(url);
+        /**
+         * Makes a PUT request to the specified url.
+         * <br>
+         * For as argument data will be send as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         * */
+        put(as = 'json') {
+            this.#hit(as, 'PUT');
+        }
 
-            this.header('Content-Type', Connect.#contentType[sendAs]);
-
-
-            if (['json', 'form'].owns(sendAs)) {
-                delete this.#dataSource['_raw_data'];
-            }
-
-            let data;
-            if (sendAs === 'json') {
-                data = JSON.stringify(this.#dataSource);
-            } else if (sendAs === 'form') {
-                data = Connect.parameterize(this.#dataSource);
-            } else {
-                data = JSON.stringify(this.#dataSource['_raw_data']);
-            }
-
-            this.#xHttp.open('POST', url);
-            this.#setHeaders();
-
-            if (this.#preRun) this.#preRun();
-
-            this.#xHttp.send(data);
+        /**
+         * Makes a DELETE request to the specified url.
+         * <br>
+         * For as argument data will be send as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         * */
+        delete(as = 'json') {
+            this.#hit(as, 'DELETE');
         }
 
         /**
@@ -591,7 +650,7 @@
          *
          * @param {string|HTMLFormElement} form The form to be sent as body of the request
          * @return {Connect}
-        * */
+         * */
         form(form) {
             if (typeof form == 'string') {
                 let id = form.startsWith('#') ? form : `#${form}`;
@@ -685,10 +744,18 @@
         /**
          * Returns the response in JSON format
          *
-         * @return {object} JSON decoded response
+         * @return {?object} JSON decoded response
          * */
         response() {
-            return typeof this.#response === 'object' ? this.#response : JSON.parse(this.#response);
+            if (this.#response === 'null') return null;
+
+            if (typeof this.#response === 'object') return this.#response;
+
+            try {
+                return JSON.parse(this.#response);
+            } catch {
+                return null;
+            }
         }
 
         /**
@@ -733,7 +800,8 @@
 
     }
 
-    window.Connect = new Connect();
+
+    window.Connect = () =>  new Connect();
 
     /**
      * Helper function, transfers key-value pair data into query parameters format

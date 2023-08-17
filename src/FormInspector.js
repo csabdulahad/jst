@@ -115,6 +115,8 @@ class FormInspector {
     // form element is identified by id. ID can be separated by '-' so that it
     // can be split into capitalized word for nice feedback message
     static #getEleName(ele) {
+        if (ele.owns('msgName')) return ele.msgName;
+
         let value = ele.id || ele.name;
         value = value.replaceAll(/-/g, ' ');
         return value.capitalize(true);
@@ -173,6 +175,7 @@ class FormInspector {
      * @param {number=}                         rules.maxLen the maximum length
      * @param {boolean=}                        rules.inline indicates to show feedback as inline
      * @param {string=}                         rules.msgPos id of where to show the feedback message div
+     * @param {string=}                         rules.msgName the name to be shown with FI feedback message
      * @param {string=}                         rules.pattern any Form pattern constant or custom patter to match
      * @param {number=}                         rules.place the floating fractional place length
      * @param {array=}                          rules.option array containing the permitted options for the input
@@ -206,6 +209,32 @@ class FormInspector {
             // store ref to all the passed ele configurations after setup
             this.#eleArr.push(rule);
         });
+    }
+
+    /**
+    * Resets the form inputs. Optionally it can hide input error/feedback message divs.
+    *
+    * @param {boolean} hideMsg Indicates whether to hide input error/feedback message divs
+    * */
+    resetForm(hideMsg = true) {
+        if (this.#form) this.#form[0].reset();
+
+        if (!hideMsg) return;
+
+        // hide all the message are currently being show
+        for (let ele of this.#eleArr) {
+
+            let msgEle = null;
+            if (ele.owns('msgPos')) {
+                msgEle = $(`#${ele.msgPos}`);
+            } else if (ele.owns('id')) {
+                msgEle = $(`#${ele.id} + div.jst-form-msg`);
+            }
+
+            if (msgEle === null) continue;
+
+            msgEle.css('display', 'none');
+        }
     }
 
     // add various types of listeners such as keyup, blur based on the form element
@@ -347,9 +376,7 @@ class FormInspector {
         let havePositionedEle = ele.owns('msgPos');
 
         if (!haveNextEle || havePositionedEle) {
-            let msgEle = inline ?
-                `<div class="jst-d-inline jst-form-msg"><span></span> <span></span></div>` :
-                `<div class="jst-form-msg"><span></span> <span></span></div>`;
+            let msgEle = `<div class="jst-form-msg"><span></span> <span></span></div>`;
 
             // add the message element accordingly
             if(havePositionedEle) $(`#${ele['msgPos']}`).html(msgEle);
@@ -365,7 +392,11 @@ class FormInspector {
         let msgSpan = spans[1];
         if (!this.#noIcon && ele.missing('noIcon')) $(iconSpan).html(icon);
         if (!this.#noMsg  && ele.missing('noMsg')) $(msgSpan).html(msg);
+
         $(nextEle).css('color', color);
+
+        // make sure the message element is shown; it could be made hidden by reset function
+        $(nextEle).css('display', inline ? 'inline' : 'block');
 
         // animate if requested by the blur event
         if (ele.owns('animate') && !result) {
@@ -432,7 +463,7 @@ class FormInspector {
         // say, we can submit the form
         this.#canSubmit = true;
 
-        this.#eleArr.forEach((ele) => {
+        this.#eleArr.forEach(ele => {
             if (jst.isUndef(ele.dom)) return;
 
             ele.animate = true;

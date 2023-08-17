@@ -28,6 +28,7 @@
         #callbackHide;
         #callbackDismiss;
         #callbackRevived;
+        #callbackShown;
 
         /**
          * @param {string} id
@@ -223,6 +224,17 @@
         }
 
         /**
+         * Sets a callback to be notified when the dialog is being shown for the first time
+         *
+         * @param {function()} callback Function to be invoked
+         * @return Dialog
+         * */
+        onShown(callback) {
+            this.#callbackShown = callback;
+            return this;
+        }
+
+        /**
          * Sets the dialog title
          *
          * @param title {string} Dialog title
@@ -262,7 +274,9 @@
             $(this.#msgEle).html(msg);
 
             OverlayManager.acquire(this);
-            $(this.#dialog).fadeIn(250);
+            $(this.#dialog).fadeIn(250, () => {
+                if (this.#callbackShown) this.#callbackShown();
+            });
 
             this.#hidden = false;
         }
@@ -273,7 +287,7 @@
          * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
          * @param {number|string=} option.w - The width in px. Max value is 75% of the window's inner width.
          * @param {number|string=} option.h - The height in px. Max height is 75% of the window's inner height.
-         * @param {string=} option.pad - The padding in px
+         * @param {number|string=} option.pad - The padding in px
          * @param {boolean=} option.cancelable - Flag makes the dialog cancellation status
          * */
         show(option = {}) {
@@ -291,8 +305,9 @@
         makeVisible() {
             this.#hidden = false;
             this.#applyTheme();
-            $(this.#dialog).fadeIn(250);
-            if (this.#callbackRevived) this.#callbackRevived();
+            $(this.#dialog).fadeIn(250, () => {
+                if (this.#callbackRevived) this.#callbackRevived();
+            });
         }
 
         /**
@@ -301,8 +316,9 @@
         hide() {
             this.#checkIfDismissed();
             this.#hidden = true;
-            $(this.#dialog).fadeOut(250);
-            if (this.#callbackHide) this.#callbackHide();
+            $(this.#dialog).fadeOut(250, () => {
+                if (this.#callbackHide) this.#callbackHide();
+            });
         }
 
         /*
@@ -313,12 +329,12 @@
             this.#dismissed = true;
 
             OverlayManager.release(this);
-            $(this.#dialog).fadeOut(250);
+            $(this.#dialog).fadeOut(250, () => {
+                // remove the dom
+                $(this.#dialog).remove();
 
-            // remove the dom
-            $(this.#dialog).remove();
-
-            if (this.#callbackDismiss) this.#callbackDismiss();
+                if (this.#callbackDismiss) this.#callbackDismiss();
+            });
         }
 
         /**
