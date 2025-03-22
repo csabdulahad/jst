@@ -1,679 +1,966 @@
-
 /**
- * It is a generic implementation for active navigation component.
+ * JS-Tea is a collection of JavaScript readable classes and utility functions which
+ * greatly make the web app development easier.
  *
- * It has two callbacks. one of which handles situations such as how it handles
- * the active link styling and expending the category div for that active link it
- * is from a category.
- *
- * Second callback takes responsibility for expending the category div expending,
- * hiding previously expanded category and updating active link styling as this
- * can vastly tackle situations for SPA application.
- *
- * Default marking for wrapper CSS class is 'jst-nav-cat' and default active link
- * highlighting CSS class is 'jst-nav-act'.
+ * This js file includes all the js-tea library files together and provides the library
+ * environment to the code.
  * */
-
-class ActiveNav {
-
-    /** represent different type of animation **/
-    static SLIDE = 1;
-    static FADE = 2;
-    static TOGGLE = 3;
-
-    #navId;
-
-    // indicates the CSS class which is used to mark top-level link of for navigation.
-    #wrapperCls = 'jst-nav-link';
-
-    /**
-     * when an active link can be found inside the nav as specified by navId,
-     * this callback gets called.
-     *
-     * this callback gets the object with various information about the active
-     * link as per the document hyper reference. the main job this callback is
-     * how it can design active link if it is a direct active link or how it
-     * shows the links div of category which has the active link inside.
-     *
-     * The passed object has the following:
-     *
-     *     activeDom    - the 'a' element which is the active link
-     *     wrapper      - holder div of '.jst-nav-cat', inside whom the active link is found
-     *     directChild  - flags whether the active link is single direct link having no category
-     *                    or is from a category.
-    */
-    #decorCallback;
-
-    /**
-     * This callback mainly handles the default behavior for expending the link-to-open-category.
-     * It shows and hides the category based on their click event and visibility(toggling).
-     *
-     * It gets the div element which acts as wrapper div for the links of the category so that it
-     * can toggle, store/restore the active link dom element correctly.
-     * */
-    #navCatHook;
-
-    // holds currently expanded category div element
-    #activeCat = null;
-
-    // animation speed for opening category or hiding
-    #speed = 400;
-
-    // default animation is slide down & slide up
-    #anim = ActiveNav.SLIDE;
-
-    // icons to be show next to the expended category div link
-    #arrowDown = 'expand_more';
-    #arrowUp = 'expand_less';
-
-    constructor(navId) {
-        this.#navId = navId;
-
-        // default active link styling and expending category handler
-        this.#decorCallback = (obj) => {
-
-            // remove active css class from any active element first because
-            // we may have active nav for an SPA(Single Page Application); who knows!
-            let actEle = $($(`#${this.#navId}`).children()).find('.jst-nav-act');
-            $(actEle).removeClass('jst-nav-act');
-            $(obj.actDom).addClass('jst-nav-act');
-
-            if (!obj.directChild) {
-                // look for 2nd child; if we don't have then it is either a direct
-                // link or has no links for the category.
-                let children = $(obj.wrapper).find('.jst-nav-cat');
-                if (!children) return;
-
-                this.#animate(children, true, obj.wrapper);
-            } else {
-                // hide actively shown links of category as it is working for SPA.
-                if (this.#activeCat) {
-                    this.#animate(this.#activeCat, false, obj.wrapper);
-                    this.#activeCat = null;
-                }
-            }
-
-        };
-
-        // default navigation category or direct link click event handler
-        this.#navCatHook = (wrapperCatEle) => {
-
-            // default nav cat hook callback implementation assumes that the second
-            // element holds the links of the category so that it can toggle the
-            // visibility; this implementation can be replaced by providing custom
-            // hook callback.
-
-            // hide there is already an active category
-            if (this.#activeCat) {
-                let parent = $(this.#activeCat).closest('.jst-nav-link');
-                this.#animate(this.#activeCat, false, parent);
-            }
-
-            let children = $(wrapperCatEle).find('.jst-nav-cat');
-            if (!children) return;
-
-            // are we toggling?
-            if ($(children).is(this.#activeCat)) {
-                this.#activeCat = null;
-                return;
-            }
-
-            // it is not toggling so show the requested the links for the category
-            if (!children) return;
-            this.#animate(children, true, wrapperCatEle);
-            this.#activeCat = children;
-        };
-
-        // add click listener to the first element of the wrapperCls marked container
-        // for delegating event to navCatHook callback.
-        $(`#${navId} .${this.#wrapperCls}`).each((index, ele) => {
-            let children = $(ele).children();
-            if (children.length < 1) return;
-
-            $(children).first().click(() => this.#navCatHook(ele));
-        });
-
-        // initialize all the icons into default arrow position
-        $(`#${navId} .jst-nav-arrow`).html(this.#arrowDown);
-    }
-
-    #animate(ele, motion, wrapperDiv) {
-        let arrow = $(wrapperDiv).children().first().find('.jst-nav-arrow');
-        let icon = motion ? this.#arrowUp : this.#arrowDown;
-
-        if (this.#anim === ActiveNav.FADE) {
-            if (motion) $(ele).fadeIn(this.#speed, () => $(arrow).html(icon));
-            else $(ele).fadeOut(this.#speed, () => $(arrow).html(icon));
-        }
-
-        else if (this.#anim === ActiveNav.TOGGLE) {
-            if (motion) $(ele).show(this.#speed, () => $(arrow).html(icon));
-            else $(ele).hide(this.#speed, () => $(arrow).html(icon));
-        }
-
-        else {
-            if (motion) $(ele).slideDown(this.#speed, () => $(arrow).html(icon));
-            else $(ele).slideUp(this.#speed, () => $(arrow).html(icon));
-        }
-    }
-
-    #updateArrow(lastDown, lastUp) {
-        let iconDom = $(`#${this.#navId}`).find('.jst-nav-arrow');
-        $(iconDom).each((index, ele) => {
-            let content = $(ele).html();
-            if (content === lastDown) $(ele).html(this.#arrowDown);
-            else if (content === lastUp) $(ele).html(this.#arrowUp);
-        });
-
-    }
-
-    arrowDown(html) {
-        let lastVal = this.#arrowDown;
-        this.#arrowDown = html;
-        this.#updateArrow(lastVal, null);
-        return this;
-    }
-
-    arrowUp(html) {
-        let lastVal = this.#arrowUp;
-        this.#arrowUp = html;
-        this.#updateArrow(null, lastVal);
-        return this;
-    }
-
-    animFn(type) {
-        this.#anim = type;
-        return this;
-    }
-
-    animSpeed(speed) {
-        this.#speed = speed;
-        return this;
-    }
-
-    decorCallback(callback) {
-        this.#decorCallback = callback;
-        return this;
-    }
-
-    navCatHook(callback) {
-        this.#navCatHook = callback;
-        return this;
-    }
-
-    find (href = '') {
-        // get the path
-        let pathName = new URL(document.location).href;
-
-        if (href.length > 0) pathName = href;
-
-        let dom;
-        for(let a of $(`#${this.#navId} a`)) {
-            if (a.href === pathName) {
-                dom = a;
-                break;
-            }
-        }
-
-        if(!this.#decorCallback) return;
-
-        if (jst.isUndef(dom)) {
-            this.#decorCallback({});
-            return;
-        }
-
-        let obj = {};
-        obj.actDom = dom;
-        obj.wrapper = $(dom).closest(`.${this.#wrapperCls}`);
-        obj.directChild = $(dom).parent().is(obj.wrapper);
-        this.#decorCallback(obj);
-    }
-
+class jst {
+	
+	static version() {
+		return '5.0.0-beta';
+	}
+	
+	/**
+	 * Attribute name to apply theme value to by Theme class.
+	 * Must prepend with "data-" .
+	 * */
+	static themeAttribute = 'data-bs-theme';
+	
+	/**
+	 * It takes a callback function as argument and executes it immediately when the document
+	 * is ready, otherwise it adds an event listener to the window and runs the callback when
+	 * the window is ready. So this method is DOM safe.
+	 *
+	 * @param {function()} fn The callback function.
+	 * */
+	static run(fn) {
+		if (document.readyState === 'complete') fn();
+		else window.addEventListener('load', () => fn());
+	}
+	
+	/**
+	 * Runs a function after a specified amount delay. Internally uses jst.run()
+	 * method. So this method is DOM safe.
+	 *
+	 * @param {number} delay in seconds
+	 * @param {function ()} fn callback to be invoked after the delay specified
+	 * */
+	static runLater(delay, fn) {
+		let d = delay * 1000;
+		let f = fn;
+		jst.run(() => setTimeout(f, d));
+	};
+	
+	/**
+	 * This click function can be called from anywhere within the document. The order is
+	 * not important as the click event attachment happens after the document ready state.
+	 *
+	 * @param {string|HTMLElement} ele It can be the id to the element either with # sign or not.
+	 * The dom element can also be passed as an argument.
+	 *
+	 * @param {function(Event)} fn The callback function to execute on event occurs
+	 *
+	 * */
+	static click(ele, fn) {
+		jst.run(() => {
+			if (Array.isArray(ele)) {
+				ele = ele[0];
+			} else if (typeof ele === 'string') {
+				let id = ele[0] === '#' ? ele.substring(1) : ele;
+				ele = document.getElementById(id);
+			}
+			
+			if (ele == null) return;
+			ele.addEventListener('click', (event) => fn(event));
+		});
+	}
+	
+	static isDef = (val) => val !== undefined;
+	
+	static isUndef = (val) => val === undefined;
+	
+	static isStr = (val) => !(!val || val.length === 0);
+	
+	static isDomEle = (ele) => $(ele).length !== 0;
+	
+	static eleById(val, space = document) {
+		if (typeof val !== 'string') return val;
+		val = val[0] === '#' ? val.substring(1) : val;
+		return space.getElementById(val);
+	}
+	
+	/**
+	 * Sets the property by the key to specified value only if the property
+	 * doesn't already exist in the object.
+	 *
+	 * @param {object} obj
+	 * @param {string} key
+	 * @param {any} value
+	 * */
+	static setProperty(obj, key, value) {
+		if (obj.hasOwnProperty(key)) return
+		
+		obj[key] = value
+	}
+	
+	/**
+	 * Id attribute of a dom element, or a string id with/without "#" can be extracted
+	 * safely. The returned id is the string without the "#" sign in front.
+	 *
+	 * @param id {object|string} It can be a dom element, or the id string
+	 * @param onMissId {null|string} It is added to element if there is no id attribute for the element
+	 * @returns {string|undefined} the provided/extracted id
+	 * @throws {Error} when the passed id is neither a dom element nor a string value
+	 * */
+	static id(id, onMissId = null) {
+		if (jst.isDomEle(id)) {
+			let i = $(id).attr('id');
+			if (jst.isUndef(i) && onMissId !== null) {
+				$(id).attr('id', onMissId);
+				i = onMissId;
+			}
+			return i;
+		}
+		
+		if (typeof id === 'string') {
+			if (id.startsWith('#')) return id.substring(1);
+			return id;
+		}
+		
+		throw new Error('Id must be one of the following types: dom element, id string with/without "#"');
+	}
+	
+	/**
+	 * Generates a random number from pseudorandom generator using Math.random
+	 * method.
+	 *
+	 * @param a {number} random number start range.
+	 * @param b {number} random number end range.
+	 * @return {number} a random number in between a & b inclusive
+	 * */
+	static random = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+	
+	/**
+	 * This keeps the JavaScript execution thread busy in a loop for specified
+	 * amount of seconds
+	 *
+	 * @param {number} sec amount of seconds to be sleeping for
+	 * */
+	static sleep(sec) {
+		sec = (new Date().valueOf()) + (1000 * sec);
+		while (true) if (new Date().valueOf() >= sec) break;
+	}
+	
+	/**
+	 * Returns the first child as specified of the parent.
+	 *
+	 * @param {string} selector CSS selector
+	 * @param {jQuery | HTMLElement} parent The parent element
+	 *
+	 * @return {HTMLElement} the child element
+	 * */
+	static getChildOf = (selector, parent) => $(parent).find(`${selector}`)[0];
+	
+	/**
+	 * Returns the children as specified by CSS selector of the parent.
+	 * @param {string} selector CSS selector
+	 * @param {jQuery | HTMLElement} parent The parent element
+	 *
+	 * @return {[HTMLElement]} the child element
+	 * */
+	static getChildrenOf = (selector, parent) => $(parent).find(`${selector}`).children();
+	
+	/**
+	 * Returns the query parameter value of the URL.
+	 *
+	 * @param {string} key
+	 * @param {?any} defaultValue
+	 * @param {?url} url
+	 *
+	 * @return {string}
+	 * */
+	static queryParam(key, defaultValue = null, url = null) {
+		if (!url) url = document.location;
+		
+		let params = new URL(url).searchParams;
+		let value = params.get(key);
+		
+		return value != null ? value : defaultValue;
+	}
+	
+	/**
+	 * Generates a unique id composed of current time in milliseconds followed by
+	 * a random number between 1-1000 [inclusive].
+	 *
+	 * @return {string}
+	 * */
+	static uniqueId() {
+		let timestamp = Date.now().toString();
+		let random = this.random(1, 1000);
+		return `${timestamp}${random}`;
+	}
+	
+	/**
+	 * Adds or removes a CSS class (cls) from a specified HTML element (ele) based on a given condition.
+	 *  - If true, the class will be added.
+	 *  - If false, the class will be removed.
+	 * @param {boolean} condition
+	 * @param {string} cls CSS class
+	 * @param {HTMLElement | string} ele Any html element, jquery or even a css selector
+	 * */
+	static switchCls(condition, cls, ele) {
+		if (condition) $(ele).addClass(cls);
+		else $(ele).removeClass(cls);
+	}
+	
+	/**
+	 * Converts percentage value to pixels based on the specified axis.
+	 *
+	 * @param {number|string} percent - The percentage value with/without '%' sign at the end.
+	 * @param {string} [axis='x'] - The axis to base the conversion on. Default value is 'x'.
+	 * @return {number} The converted value in pixels.
+	 */
+	static percentToPx(percent, axis = 'x') {
+		percent = parseFloat(`${percent}`.replace('%', ''));
+		
+		let full = axis === 'x' ? window.innerWidth : window.innerHeight
+		let uni = full * .01
+		return percent * uni;
+	}
+	
+	/**
+	 * Converts pixel unit to percentage for the inner height & width of the window
+	 *
+	 * @param {number|string} px The pixel value with/without 'px' at the end.
+	 * @param {'x'|'y'} axis The axis needed to calculate the percentage against either width or height
+	 * of the window
+	 * @return {number} Percentage value for specified pixel
+	 */
+	static pxToPercent(px, axis = 'x') {
+		px = parseFloat(`${px}`.replace('px', ''));
+		
+		let full = axis === 'x' ? window.innerWidth : window.innerHeight
+		let uni = full * .01
+		return px / uni
+	}
+	
+	static _updateProperties() {
+		window.log = (msg) => console.log(msg);
+		window.warn = (msg) => console.warn(msg);
+		window.err = (msg) => console.error(msg);
+		window.info = (msg) => console.info(msg);
+		
+		Object.defineProperty(Array.prototype, 'isEmpty', {
+			value: function () {
+				return this.length === 0
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Array.prototype, 'peek', {
+			value: function () {
+				return this?.[this.length - 1]
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Array.prototype, 'owns', {
+			value: function (item) {
+				if (item === undefined) throw new Error(`Key can't be undefined.`);
+				return this.indexOf(item) !== -1;
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Array.prototype, 'missing', {
+			value: function (item) {
+				if (item === undefined) throw new Error(`Key can't be undefined.`);
+				return this.indexOf(item) === -1;
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Array.prototype, 'erase', {
+			value: function (item) {
+				let index = this.indexOf(item);
+				if (index < 0) return null;
+				let value = this[index];
+				this.splice(index, 1);
+				return value;
+			}, writable: false, configurable: false
+		});
+		
+		Object.defineProperty(Array.prototype, 'eraseAt', {
+			value: function (index) {
+				if (typeof index !== 'number' || index < 0) return null;
+				let value = this[index];
+				this.splice(index, 1);
+				return value;
+			}, writable: false, configurable: false
+		});
+		
+		Object.defineProperty(Object.prototype, 'owns', {
+			value: function (key) {
+				if (key === undefined) throw new Error(`Key can't be undefined.`);
+				return this.hasOwnProperty(key);
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Object.prototype, 'missing', {
+			value: function (key) {
+				if (key === undefined) throw new Error(`Key can't be undefined.`);
+				return !this.owns(key);
+			},
+			writable: false, // no code can rewrite/modify the contain method
+			configurable: false // no one can configure this property
+		});
+		
+		Object.defineProperty(Object.prototype, 'erase', {
+			value: function (key) {
+				let val = {key: key, value: this[key]};
+				delete this[key];
+				return val;
+			}, writable: false, configurable: false
+		});
+		
+		/*
+		 * Add various helpful property methods to objects os Array, String, Object to
+		 * make it easier for code writing and clarity.
+		 */
+		
+		Object.defineProperty(String.prototype, 'capitalize', {
+			value: function (lower = false) {
+				return (lower ? this.toLowerCase() : this).replace(/(?:^|\s|["'([{])+\S/g, match => match.toUpperCase());
+			}
+		});
+		
+		Object.defineProperty(String.prototype, 'isEmpty', {
+			value: function () {
+				return this.length === 0;
+			}
+		});
+	}
+	
+	/**
+	 * Create and returns JstModal instance.
+	 *
+	 * @param {string} id
+	 * @param {object=} option Optional values
+	 * @param {string=} option.title Sets the modal title. It can be html or string value. Default is "jst-Modal".
+	 * @param {boolean=} option.reusable - Whether the modal can be reused. Default is true for non-iFramed modal.
+	 * @param {number|string=} option.width - The width of the modal. Default width is 100% of the parent window.
+	 * @param {number|string=} option.height - The height of the modal. Default height is 100% of the parent window.
+	 * @param {number|string=} option.padding - The padding of the modal. Default is 1rem.
+	 * @param {string=} option.url - Url for the iframe webpage
+	 * @param {object=} option.injectData - Any data to pass to iFramed modal
+	 * @param {boolean=} option.cancelable - Flag makes the modal cancellation status
+	 * @param {boolean=} option.overlay - Flag hides/shows the overlay below the modal
+	 * @param {boolean=} option.decorated - Flag removes the header from the modal
+	 * @param {boolean=} option.showCloseIcon - Whether to show close icon if modal is undecorated
+	 * @param {number=} option.opacity - Opacity value 0 to 1 for the overlay behind the modal
+	 * @param {'light'|'dark'=} option.theme - Modal theme. Light is default theme
+	 * @param {boolean=} option.showLoaderText - Text to display as loader label while fetching iframe paged
+	 * @param {string=} option.loaderText - Text to display as loader label while fetching iframe paged
+	 * */
+	static modal (id, option= {}) {
+		/*
+		 * Check if the modal was cached in the ModalManager
+		 */
+		let cachedModal = JstOverlay.getPopup(id);
+		
+		if (cachedModal) return cachedModal;
+		
+		/*
+		 * Create a new modal
+		 */
+		return new JstModal(id, option);
+	}
+	
+	
+	/**
+	 * @param {string} id
+	 * @param {object=} option Optional values: w=350, h=auto, cancelable=true, padding=1rem
+	 * @param {number|string=} option.title - Title of the alert box
+	 * @param {number|string=} option.msg - Message of the alert box
+	 * @param {'light'|'dark'=} option.theme - Alert theme. Light is default theme.
+	 * @param {number|string=} option.width - Width of alert box. Max value is 75% of the window's inner width.
+	 * @param {number|string=} option.height - Height of the alert box. Max height is 75% of the window's inner height.
+	 * @param {number|string=} option.padding - Padding for the alert message div
+	 * @param {boolean=} option.cancelable - Sets if the alert can be cancelled
+	 * */
+	static alert (id, option = {}) {
+		return new JstAlert(id, option);
+	}
+	
+	/**
+	 * Randomly shuffles the elements of an array using the Fisher-Yates algorithm.
+	 *
+	 * @param {Array} arr - The array to shuffle.
+	 * @returns {Array} - The shuffled array.
+	 *
+	 * @example
+	 * const numbers = [1, 2, 3, 4, 5];
+	 * const shuffled = shuffle(numbers); // e.g., [3, 5, 1, 4, 2]
+	 */
+	static shuffle = (arr) => {
+		for (let i = arr.length - 1; i > 0; i--) {
+			// Generate a random index from 0 to i
+			const j = Math.floor(Math.random() * (i + 1));
+			// Swap elements at i and j
+			[arr[i], arr[j]] = [arr[j], arr[i]];
+		}
+		return arr;
+	};
+	
 }
 
-
-/*
-*   Biscuit is a class which safely accesses and saves the values into the cookie
-*   storage. It has simplified method for each primitive data type for accessing
-*   and storing the value.
-*
-*   Any cookie value can also be deleted too. By default, it save cookie for 1 year
-*   or 365 days.
-* */
-class Biscuit {
-
-    static set(key, value, expDay= 365) {
-        const d = new Date();
-        d.setTime(d.getTime() + (expDay * 24 * 60 * 60 * 1000));
-        let expires = "expires="+ d.toUTCString();
-        document.cookie = key + "=" + value + ";" + expires + ";SameSite=Lax; path=/";
-    }
-
-    static unset(key) {
-        document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;SameSite=Lax`;
-    }
-
-    static getBool(key, defaultValue) {
-        let value = Biscuit.getStr(key, null);
-        if (value == null) return defaultValue;
-        return value === 'true';
-    }
-
-    static getInt(key, defaultValue) {
-        return parseInt(Biscuit.getStr(key, defaultValue));
-    }
-
-    static getFloat(key, defaultValue) {
-        return parseFloat(Biscuit.getStr(key, defaultValue));
-    }
-
-    static getStr(key, defaultValue) {
-        let name = key + "=";
-        let decodedCookie = decodeURIComponent(document.cookie);
-
-        let ca = decodedCookie.split(';');
-        for(let i = 0; i < ca.length; i++) {
-            let c = ca[i];
-            while (c.charAt(0) === ' ') {
-                c = c.substring(1);
-            }
-            if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
-        }
-        return defaultValue;
-    }
-
+jst._updateProperties();
+class JstActiveNav {
+	
+	#navId;
+	#nav;
+	#slidingSpeed;
+	
+	constructor(id, slidingSpeed = 250) {
+		this.#navId = id;
+		this.#nav = $(`#${this.#navId}`);
+		this.#slidingSpeed = slidingSpeed;
+		
+		/*
+		 * Add click listener to all navigation category header
+		 */
+		$(`#${this.#navId} .jst-nav-cat-header`).click((e) => this.#slideToggle(e));
+	}
+	
+	/**
+	 * Toggles arrow icons found in the navigation
+	 *
+	 * @param {boolean} up indicates whether icon should up/down. True indicates menu is expanded.
+	 * @param {HTMLElement} ele element with 'jst-nav-cat-arrow' class which has tbe arrow
+	 */
+	toggleArrowIcon = (up, ele) => {
+		if (up) {
+			$(ele).text('keyboard_arrow_up');
+		} else {
+			$(ele).text('keyboard_arrow_right');
+		}
+	};
+	
+	/**
+	 * Callback which handles how to slide down/up navigation link group when user
+	 * clicks on any navigation category header.
+	 * */
+	#slideToggle (e) {
+		let that = this;
+		
+		let actNavHeader = $(e.currentTarget);
+		
+		let actParent = actNavHeader.parent();
+		let actGrandParent = actParent.parent();
+		
+		let actNavGroup = actNavHeader.next();
+		let actArrowIcon = actNavHeader.find('.jst-nav-cat-arrow');
+		
+		let slidingUp = $(actParent).hasClass('jst-nav-cat-expanded');
+		
+		/*
+		 * We just simply need to close local sibling nav-groups found
+		 * in the grandparent nav! ;)
+		 */
+		let closingNav = actGrandParent.find('.jst-nav-cat.jst-nav-cat-expanded');
+		closingNav.each(function () {
+			let closedNav = this;
+			
+			$(this).find('.jst-nav-link-group').slideUp(that.#slidingSpeed, function () {
+				let icon = $(closedNav).find('.jst-nav-cat-arrow');
+				that.toggleArrowIcon(false, icon);
+			});
+		});
+		
+		// Remove 'jst-nav-cat-expanded' class from all expanded category
+		closingNav.removeClass('jst-nav-cat-expanded');
+		
+		/*
+		 * Slide down the nav link group and update the arrow icon
+		 */
+		if (!slidingUp) {
+			actNavGroup.slideDown(this.#slidingSpeed, () => {
+				actParent.addClass('jst-nav-cat-expanded');
+				that.toggleArrowIcon(true, actArrowIcon);
+			});
+		}
+	}
+	
+	find (pathname = '') {
+		pathname = pathname.trim();
+		
+		if (pathname.isEmpty()) {
+			pathname = new URL(window.location).pathname;
+		}
+		
+		/*
+		 * Let's see which anchor tag matches the current url
+		 */
+		let links = $(`#${this.#navId} a`);
+		let matchedA;
+		
+		for (let a of links) {
+			let aPath = new URL(a.href).pathname;
+			
+			if (pathname.includes(aPath)) {
+				matchedA = a;
+				break;
+			}
+		}
+		
+		if (!matchedA) return;
+		
+		matchedA = $(matchedA);
+		matchedA.addClass('jst-nav-act-link');
+		
+		let routeStartNode = this.#discoverActiveRouteUp(matchedA);
+		this.#slideDownLinkGroup(routeStartNode);
+	}
+	
+	/**
+	 * This method starts from the top most navigation category which was marked
+	 * with 'jst-nav-cat-expanded' previously. For each 'jst-nav-link-group' found
+	 * in expanded nav, it slides down those and update the arrow icon recursively.
+	 *
+	 * @param {any|jQuery} ele
+	 */
+	#slideDownLinkGroup (ele) {
+		let that = this;
+		
+		ele
+			.children('.jst-nav-link-group')
+			.slideDown(this.#slidingSpeed, function () {
+				/*
+				 * Update arrow icons
+				 */
+				let icon = $(this).prev().children('.jst-nav-cat-arrow');
+				that.toggleArrowIcon(true, icon);
+				
+				// Recursion base case
+				let childGroup = $(this).children('.jst-nav-cat.jst-nav-cat-expanded');
+				if (childGroup.length === 0) return;
+				
+				that.#slideDownLinkGroup(childGroup);
+			});
+	}
+	
+	/**
+	 * On getting a match, this method adds 'jst-nav-cat-expanded' to
+	 * each navigation category found down the route to the link recursively.
+	 *
+	 * @param {any|jQuery} ele
+	 * @return {any|jQuery}
+	 */
+	#discoverActiveRouteUp (ele) {
+		let parent = ele.closest('.jst-nav-cat');
+		
+		// Mark it!
+		if (parent.length === 1)
+			parent.addClass('jst-nav-cat-expanded');
+		
+		/*
+		 * Recursion base case.
+		 * We break out of recursion once we hit the nav wrapper!
+		 */
+		if (parent.parent().attr('id') === this.#navId)
+			return parent;
+		
+		// Keep expanding parent
+		return this.#discoverActiveRouteUp(parent.parent());
+	}
+	
 }
 
-
-class Blogger {
-
-    youtube = false;
-
-    #action = {
-        bold: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "**" + sel.middle + "**" + sel.end;
-
-            if (sel.selection.length === 0) {
-                this.#editor.selectionEnd = sel.posStart + 2;
-                return;
-            }
-
-            this.#parsePreview();
-        },
-
-        italic: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "*" + sel.middle + "*" + sel.end;
-
-            if (sel.selection.length === 0) {
-                this.#editor.selectionEnd = sel.posStart + 1;
-                return;
-            }
-
-            this.#parsePreview();
-        },
-
-        code : (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "```\n" + sel.middle + "\n```" + sel.end;
-
-            if (sel.selection.length === 0) {
-                this.#editor.selectionEnd = sel.posStart + 4;
-                return;
-            }
-
-            this.#parsePreview();
-        },
-
-        heading: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "# " + sel.middle + sel.end;
-
-            if (sel.selection.length === 0) {
-                this.#editor.selectionEnd = sel.posStart + 2;
-            }
-
-            this.#parsePreview();
-        },
-
-        list: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "* " + sel.middle + sel.end;
-
-            this.#editor.selectionEnd = sel.posStart + 2;
-
-            this.#parsePreview();
-        },
-
-        divider: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + "\n---\n" + sel.middle + sel.end;
-
-            this.#editor.selectionEnd = sel.posStart + 5;
-
-            this.#parsePreview();
-        },
-
-        link: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-
-            if (sel.selection.length === 0) {
-                this.#editor.value = sel.start + '[]()' + sel.end;
-                this.#editor.selectionEnd = sel.posStart + 1;
-            } else {
-                this.#editor.value = sel.start + '[]('+ sel.middle + ')' + sel.end;
-                this.#editor.selectionEnd = sel.posStart + 1;
-            }
-
-            this.#parsePreview();
-        },
-
-        image: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-
-            if (sel.selection.length === 0) {
-                this.#editor.value = sel.start + '![]()' + sel.end;
-                this.#editor.selectionEnd = sel.posStart + 4;
-            } else {
-                this.#editor.value = sel.start + '![]('+ sel.middle + ')' + sel.end;
-                this.#editor.selectionEnd = sel.posStart + 2;
-            }
-
-            this.#parsePreview();
-        },
-
-        quote: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-
-            if (sel.selection.length === 0) {
-                this.#editor.value = sel.start + '> ' + sel.end;
-                this.#editor.selectionEnd = sel.posStart + 2;
-            } else {
-
-                let buffer = '';
-                let str = sel.middle.split('\n');
-                log(str);
-
-                str.forEach((v) => {
-                    buffer += `> ${v} \n`;
-                });
-                buffer += '\n';
-
-                this.#editor.value = sel.start + buffer + sel.end;
-                this.#editor.selectionEnd = sel.posStart + buffer.length;
-            }
-
-            this.#parsePreview();
-        },
-
-        youtube: (event = null) => {
-            if (event) event.preventDefault();
-
-            let sel = this.#selection();
-            this.#editor.focus();
-            this.#editor.value = sel.start + ":yt " + sel.middle + " yt:" + sel.end;
-
-            if (sel.selection.length === 0) {
-                this.#editor.selectionEnd = sel.posStart + 4;
-                return;
-            }
-
-            this.#parsePreview();
-        }
-
-    };
-
-    #editor;
-    #toolbar;
-    #preview;
-
-    constructor(editor, toolbar, preview) {
-        if (typeof marked === 'undefined') throw new Error('Marked dependency is missing.');
-        if (typeof hljs === 'undefined') throw new Error('Highlight JS dependency is missing.');
-        Blogger.#setupMarked();
-
-        this.#editor = document.getElementById(editor);
-        this.#toolbar = document.getElementById(toolbar);
-        this.#preview = document.getElementById(preview);
-
-        this.#addToolbar();
-        this.#toolbarHook();
-
-        // by default try to parse from the editor
-        let value = this.#editor.value;
-        if (value.length > 0) this.#parsePreview(value);
-
-        this.#editor.addEventListener('keyup', () => this.#parsePreview());
-
-        this.#editor.addEventListener('keydown', (e) => {
-
-            let ctrl = e.ctrlKey;
-            let key = e.key;
-
-            if (key.toLowerCase() === 'tab') {
-                this.#addTab(e);
-                return;
-            }
-
-            if (!ctrl) return;
-
-            switch (key) {
-                case 'b':
-                    this.#action['bold'](e);
-                    break;
-
-                case 'i':
-                    this.#action['italic'](e);
-                    break;
-
-                case 'k':
-                    this.#action['code'](e);
-                    break;
-
-                case 'h':
-                    this.#action['heading'](e);
-                    break;
-
-                case 'l':
-                    this.#action['list'](e);
-                    break;
-
-                case 'd':
-                    this.#action['divider'](e);
-                    break;
-
-                case '.':
-                    this.#action['link'](e);
-                    break;
-
-                case 'p':
-                    this.#action['image'](e);
-                    break;
-
-                case 'q':
-                    this.#action['quote'](e);
-                    break;
-
-                case 'y':
-                    this.#action['youtube'](e);
-                    break;
-            }
-
-        });
-    }
-
-    #addTab(event) {
-        event.preventDefault();
-
-        let sel = this.#selection();
-        this.#editor.focus();
-        this.#editor.value = sel.start + "    " + sel.end;
-
-        this.#editor.selectionEnd = sel.start.length + 4;
-    }
-
-    #parsePreview() {
-        let value = this.#editor.value;
-        if (!this.youtube) {
-            Blogger.#youtubeThumbnail();
-            this.youtube = true;
-        }
-        this.#preview.innerHTML = marked.parse(value);
-    }
-
-    static parse(txt) {
-        Blogger.#youtubeTag();
-        return marked.parse(txt);
-    }
-
-    static lineNumbers() {
-        hljs.highlightAll();
-        hljs.initLineNumbersOnLoad();
-    }
-
-    #selection() {
-        let output = {};
-        let value = this.#editor.value;
-
-        output["posStart"]  = this.#editor.selectionStart;
-        output["posEnd"] = this.#editor.selectionEnd;
-
-        output["selection"] = this.#editor.value.slice(this.#editor.selectionStart, this.#editor.selectionEnd);
-        output["length"] = output["selection"].length;
-
-        output["start"] = value.slice(0, output["posStart"]);
-        output["middle"] = value.slice(output["posStart"], output["posEnd"]);
-        output["end"] = value.slice(output["posEnd"]);
-
-        return  output;
-    }
-
-    static #setupMarked() {
-        marked.setOptions({
-            pedantic: false,
-            gfm: true,
-            breaks: true,
-            sanitize: true,
-            smartLists: true,
-            smartypants: false,
-            xhtml: false
-        });
-
-        let renderer = {
-            code(code) {
-                return  `<pre><code class="hljs">${hljs.highlightAuto(code).value}</code></pre>`;
-            }
-        };
-        marked.use({renderer});
-    }
-
-    static #youtubeTag() {
-        let fn = (id) => {
-            return `<iframe class="youtube" width="560" height="315" src="https://www.youtube.com/embed/${id}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-        };
-        let extensionFn = Blogger.#ytRenderer(fn);
-        marked.use({extensions: [extensionFn]});
-    }
-
-    static #youtubeThumbnail() {
-        let fn = (id) => {
-            return `<img alt="Youtube video" src="https://img.youtube.com/vi/${id}/0.jpg" />`;
-        };
-        let extensionFn = Blogger.#ytRenderer(fn);
-        marked.use({extensions: [extensionFn]});
-    }
-
-    static #ytRenderer(decFn) {
-        return {
-            name: 'youtube',
-            level: 'inline',
-            start(src) { return src.match(/^:yt[^:\n]/)?.index; },
-            tokenizer(src) {
-                const rule = /^:yt([^:\n]+)yt:/;
-                const match = rule.exec(src);
-                if (match) {
-                    const token = {
-                        type: 'youtube',
-                        raw: match[0],
-                        text: match[1].trim(),
-                        tokens: []
-                    };
-                    this.lexer.inline(token.text, token.tokens);
-                    return token;
-                }
-            },
-            renderer(token) {
-                return decFn(this.parser.parseInline(token.tokens));
-            }
-        };
-    }
-
-    #toolbarHook() {
-        for (let k in this.#action) {
-            let dom = document.getElementById(k);
-            dom.addEventListener('click', () => {
-                this.#action[k]();
-            });
-        }
-    }
-
-    #addToolbar() {
-        this.#toolbar.innerHTML = `
-            <div class="jst-blogger-actions">
-                <i id="bold"    class="material-icons" title="Bold (Ctrl+B)">format_bold</i>
-                <i id="italic"  class="material-icons" title="Italic (Ctrl+I)">format_italic</i>
-                <i id="heading" class="material-icons" title="Heading (Ctrl+H)">title</i> 
-                <i id="divider" class="material-icons" title="Horizontal Rule (Ctrl+D)">horizontal_rule</i> 
-                <i id="code"    class="material-icons" title="Code (Ctrl+K)">data_object</i>
-                <i id="list"    class="material-icons" title="Bullet List (Ctrl+L)">format_list_bulleted</i>
-                <i id="quote"   class="material-icons" title="Quotes (Ctrl+Q)">format_quote</i>
-                <i id="link"    class="material-icons" title="Hyperlink (Ctrl+>)">link</i>
-                <i id="image"   class="material-icons" title="Image (Ctrl+P)">image</i>
-                <i id="youtube" class="material-icons" title="Youtube Video (Ctrl+Y)">smart_display</i>
-            </div>        
-        `;
-    }
-
-    markdown() {
-        return this.#editor.value;
-    }
-
+class JstAlert {
+	
+	#id;
+	#selfId;
+	
+	#option;
+	
+	#dismissed = false;
+	
+	#closeIcon;
+	
+	#alertDom;
+	#msgEle;
+	#titleEle;
+	
+	#btnYes;
+	#btnNo;
+	#btnAck;
+	
+	#callbackAck = () => true;
+	#callbackYes;
+	#callbackNo;
+	
+	#callbackDismiss;
+	#callbackShown;
+	
+	get id() {
+		return this.#id;
+	}
+	
+	/**
+	 * @param {string} id
+	 * @param {object=} option Optional values: w=350, h=auto, cancelable=true, padding=1rem
+	 * @param {number|string=} option.title - Title of the alert box
+	 * @param {number|string=} option.msg - Message of the alert box
+	 * @param {'light'|'dark'=} option.theme - Alert theme. Light is default theme.
+	 * @param {number|string=} option.width - Width of alert box. Max value is 75% of the window's inner width.
+	 * @param {number|string=} option.height - Height of the alert box. Max height is 75% of the window's inner height.
+	 * @param {number|string=} option.padding - Padding for the alert message div
+	 * @param {boolean=} option.cancelable - Sets if the alert can be cancelled
+	 * */
+	constructor(id, option = {}) {
+		this.#id = id;
+		this.#selfId = `jst-alert-${id}`;
+		
+		jst.setProperty(option, 'title', 'One sec...');
+		jst.setProperty(option, 'msg', 'A simple warning message here!');
+		jst.setProperty(option, 'width', 350);
+		jst.setProperty(option, 'height', 'auto');
+		jst.setProperty(option, 'padding', '1rem');
+		jst.setProperty(option, 'cancelable', true);
+		jst.setProperty(option, 'theme', JstOverlay.getTheme());
+		
+		this.#option = option;
+		
+		jst.run(() => {
+			this.#injectDOM();
+			this.#prepare();
+			
+			this.#updateCloseIcon(0);
+			this.#updateTitle();
+			this.#updateMsg();
+			
+			this.#setCloseIconListener();
+			this.#setBtnListener();
+			
+			this.#applyTheme(this.#option.theme === 'dark');
+		});
+	}
+	
+	#injectDOM() {
+		const alert = `
+			<div class="jst-modal" id="${this.#selfId}">
+				<div class="jst-modal-d-block">
+					<div class="jst-modal-container" style="max-width: 75%; max-height: 75%;">
+						<div class="jst-modal-header">
+							<h4 id="jst-alert-title"></h4>
+							<span class="jst-modal-icon-close" title="Close window"></span>
+						</div>
+						<div id="jst-alert-msg" class="jst-alert-msg"></div>
+						<div class="jst-alert-btn-wrapper">
+							<button id="jst-alert-btn-yes" class="jst-btn jst-btn-red">Yes</button>
+							<button id="jst-alert-btn-no"  class="jst-btn jst-btn-dark">No</button>
+							<button id="jst-alert-btn-ack" class="jst-btn jst-btn-teal">OK</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+		
+		$('body').prepend(alert);
+		
+		this.#alertDom = $(`#${this.#selfId}`);
+		
+		this.#closeIcon = jst.getChildOf('.jst-modal-icon-close', this.#alertDom);
+		this.#titleEle = jst.getChildOf('#jst-alert-title', this.#alertDom);
+		this.#msgEle = jst.getChildOf('#jst-alert-msg', this.#alertDom);
+		
+		let buttons = jst.getChildrenOf('.jst-alert-btn-wrapper', this.#alertDom);
+		this.#btnYes = buttons[0];
+		this.#btnNo = buttons[1];
+		this.#btnAck = buttons[2];
+	}
+	
+	#prepare() {
+		this.#updateBtnVisibility();
+		
+		// Set the width & height
+		let alertContainer = jst.getChildOf('.jst-modal-container', this.#alertDom);
+		$(alertContainer).css('width', this.#option.width);
+		$(alertContainer).css('height', this.#option.height);
+		
+		$(this.#msgEle).css('padding', this.#option.padding);
+	}
+	
+	#updateBtnVisibility () {
+		// Hide yes & no buttons if it is an acknowledgment alert
+		if (!this.#callbackYes && !this.#callbackNo) {
+			$(this.#btnYes).hide();
+			$(this.#btnNo).hide();
+			$(this.#btnAck).show();
+		} else {
+			$(this.#btnYes).show();
+			$(this.#btnNo).show();
+			$(this.#btnAck).hide();
+		}
+	}
+	
+	#updateCloseIcon(fadeOutTime = 250) {
+		if (!this.#option.cancelable) $(this.#closeIcon).fadeOut(fadeOutTime);
+		else $(this.#closeIcon).fadeIn(fadeOutTime);
+	}
+	
+	#updateTitle() {
+		// Get the alert title
+		let title =  this.#option.title;
+		$(this.#titleEle).html(title);
+	}
+	
+	#updateMsg () {
+		$(this.#msgEle).html(this.#option.msg);
+	}
+	
+	#setCloseIconListener() {
+		$(this.#closeIcon).on('click', () => this.dismiss());
+	}
+	
+	#setBtnListener() {
+		$(this.#btnYes).on('click', ()  => this.#dispatchBtnEvent(1));
+		$(this.#btnNo).on('click',  ()  => this.#dispatchBtnEvent(-1));
+		$(this.#btnAck).on('click', ()  => this.#dispatchBtnEvent(0));
+	}
+	
+	#applyTheme(isDark) {
+		if (isDark) {
+			this.#alertDom.addClass('jst-dark');
+		} else {
+			this.#alertDom.removeClass('jst-dark');
+		}
+	}
+	
+	#show() {
+		/*
+		 * Alerts can always acquire overlay manager since they are critical!
+		 */
+		JstOverlay._acquire(this);
+		
+		$(this.#alertDom).fadeIn(250, () => {
+			this.#callbackShown?.(this.#msgEle);
+		});
+	}
+	
+	/**
+	 * This method is invoked when an alert is in display and users hits the escape button.
+	 * JstOverlay calls this method automatically.
+	 * <br><b>This method should be called directly.</b>
+	 * */
+	_handleEscape() {
+		if (this.#option.cancelable) this.dismiss();
+	}
+	
+	isIFramedModal = () => false;
+	
+	getShowOverlay = () => true;
+	
+	getOpacity = () => -1;
+	
+	show() {
+		if (this.#dismissed) {
+			console.warn('Alert already dismissed');
+			return;
+		}
+		
+		if (JstOverlay.isReady()) {
+			// show after a bit of delay to avoid overlay animation glitch because of caching
+			jst.runLater(0.05, () => this.#show());
+		} else this.#show();
+	}
+	
+	#dispatchBtnEvent(result) {
+		let dismiss;
+		
+		if (result === 0) {
+			dismiss = this.#callbackAck?.() ?? true;
+		}
+		else if (result === 1) {
+			dismiss = this.#callbackYes?.() ?? true;
+		}
+		else if(this.#callbackNo) {
+			dismiss = this.#callbackNo?.() ?? true;
+		}
+		
+		if (dismiss) this.dismiss();
+	}
+	
+	/**
+	 * Sets a callback to be notified when user clicks the ok button on the alert
+	 *
+	 * @param {function() : boolean} callback Function to be invoked. If dismiss the
+	 * alert when the callback returns true.
+	 * @return JstAlert
+	 * */
+	yes(callback) {
+		this.#callbackYes = callback;
+		this.#callbackAck = null;
+		
+		this.#updateBtnVisibility();
+		return this;
+	}
+	
+	/**
+	 * Sets a callback to be notified when user clicks the no button on the alert
+	 *
+	 * @param {function(): boolean} callback Function to be invoked. If dismiss the
+	 * alert when the callback returns true.
+	 * @return JstAlert
+	 * */
+	no(callback) {
+		this.#callbackNo = callback;
+		this.#callbackAck = null;
+		
+		this.#updateBtnVisibility();
+		return this;
+	}
+	
+	/**
+	 * Sets a callback to be notified when user clicks the ok button on the alert.
+	 *
+	 * @param {function(): boolean} callback Function to be invoked. If dismiss the
+	 * alert when the callback returns true.
+	 * @return JstAlert
+	 * */
+	acknowledge(callback) {
+		this.#callbackAck = callback;
+		
+		this.#updateBtnVisibility();
+		return this;
+	}
+	
+	/**
+	 * Sets a callback to be notified when the alert has been dismissed
+	 *
+	 * @param {function()} callback Function to be invoked
+	 * @return JstAlert
+	 * */
+	onDismiss(callback) {
+		this.#callbackDismiss = callback;
+		return this;
+	}
+	
+	/**
+	 * Sets a callback to be notified when the alert is being shown for the first time
+	 *
+	 * @param {function(jQuery|any)} callback Function to be invoked
+	 * @return JstAlert
+	 * */
+	onShown(callback) {
+		this.#callbackShown = callback;
+		return this;
+	}
+	
+	/**
+	* Dismisses the alert and removes its DOM from the document.
+	* */
+	dismiss() {
+		if (this.#dismissed) return;
+		this.#dismissed = true;
+		
+		JstOverlay._release(this);
+		
+		$(this.#alertDom).fadeOut(250, () => {
+			// remove the dom
+			$(this.#alertDom).remove();
+			
+			this.#callbackDismiss?.();
+		});
+	}
+	
+	/**
+	 * Dismisses the alert and removes its DOM from the document.
+	 * */
+	close () {
+		this.dismiss();
+	}
+	
+	/**
+	 * Changes the alert message. It can be html or string value
+	 *
+	 * @param msg {string} Alert message
+	 * */
+	setMsg(msg) {
+		this.#option.msg = msg;
+		this.#updateMsg();
+	}
+	
+	/**
+	 * Sets the alert title. It can be html or string value
+	 *
+	 * @param title {string} Alert title
+	 * */
+	setTitle(title) {
+		this.#option.title =  title;
+		this.#updateTitle();
+	}
+	
+	/**
+	 * Set theme to the alert.
+	 *
+	 * @param {'light'|'dark'} theme
+	 * */
+	setTheme(theme) {
+		/*
+		 * Check if the theme was previously applied!
+		 */
+		if (this.#option.theme === theme) return;
+		
+		this.#option.theme = theme;
+		
+		let dark = theme === 'dark';
+		this.#applyTheme(dark);
+	}
+	
+	/**
+	 * Changes the cancelable status of the alert
+	 * */
+	setCancelable(value) {
+		this.#option.cancelable = value;
+		this.#updateCloseIcon();
+	}
+	
+	/**
+	 * Hides the alert button as specified by argument
+	 *
+	 * @param {'yes' | 'no' | 'ok'} choice
+	 * */
+	hideChoice(choice) {
+		let btn;
+		if (choice === 'yes') btn  = this.#btnYes;
+		else if (choice === 'no') btn  = this.#btnNo;
+		else if (choice === 'ok') btn  = this.#btnAck;
+		if (btn) $(btn).fadeOut(250);
+	}
+	
+	/**
+	 * Shows the alert button as specified by argument
+	 *
+	 * @param {'yes' | 'no' | 'ok'} choice
+	 * */
+	showChoice(choice) {
+		let btn;
+		if (choice === 'yes') btn  = this.#btnYes;
+		else if (choice === 'no') btn  = this.#btnNo;
+		else if (choice === 'ok') btn  = this.#btnAck;
+		if (btn) $(btn).fadeIn(250);
+	}
+	
 }
+
 (() => {
 
-    class Connect {
+    class JstConnect {
 
-        // XHttp buffers
+        #isAsync = false
+        #resolve = null
+
         #url;
-        #xHttp;
+        #segments = [];
+        #timeout; // number of second for the request to timeout
         #state;
         #status;
         #statusText;
@@ -682,6 +969,16 @@ class Blogger {
         #headers = {};
         #queryParam = {};
         #dataSource = {_raw_data: ''};
+        
+        // Data that is sent with the request
+        #reqData = {};
+        
+        // Files data
+        #formData = null
+        
+        // Indicates whether to send data-source as JSON
+        #keepASJSON = false
+        #keepJSONKey = null
 
         // Buffers the server response.
         // If talking hatish, it will have "response" key trimmed from the
@@ -756,260 +1053,14 @@ class Blogger {
             form: 'application/x-www-form-urlencoded',
             json: 'application/json',
             raw: 'text/plain'
-        }
+        };
 
         constructor() {
-            this.#xHttp = new XMLHttpRequest();
+            this.#timeout = 30000;
 
-            this.#xHttp.timeout = 30000;
-            this.#xHttp.ontimeout = () => {
-                if (this.#timeoutCallback != null) this.#timeoutCallback();
-                else console.warn(`Connection timed out`);
+            this.#timeoutCallback = () => {
+                console.warn(`Connection timed out`);
             };
-
-            this.#xHttp.onreadystatechange = () => {
-                this.#state = this.#xHttp.readyState;
-                this.#status = this.#xHttp.status;
-                this.#statusText = this.#xHttp.statusText;
-
-                if (this.#state !== this.STATE_REQ_FINISH_AND_READY) return;
-
-                // log the response
-                if (this.#logResponse) {
-                    let data = this.#xHttp.responseText;
-                    if(data.length === 0) {
-                        console.info(`Nothing to log`);
-                    } else if (!this.#logAsJson) {
-                        console.log(data);
-                    } else {
-                        try {
-                            console.log(JSON.parse(data));
-                        } catch {
-                            console.log(data);
-                        }
-                    }
-                }
-
-                if (this.#status === this.STATUS_OK) {
-                    this.#callbackMediator(this.#xHttp.responseText);
-                } else if (this.#status === this.STATUS_PAGE_NOT_FOUND) {
-                    if (this.#unresolvedHost != null) this.#unresolvedHost();
-                } else {
-                    if (this.#unknownError != null) this.#unknownError();
-                }
-            };
-        }
-
-        #callbackMediator(response) {
-            this.#response = response;
-
-            if (!this.#hati) {
-                this.#noToast = true;
-                this.#invokeRedirect(true);
-                this.#invokeCallback(true);
-                return;
-            }
-
-            // validate response for hati & store the response
-            try {
-                this.#response = JSON.parse(response);
-                this.#hatiMsg = this.#response.response['msg'];
-                this.#hatiStatus = this.#response.response['status'];
-                this.#hatiLevel = this.#response.response['level'];
-
-                if (this.#response.response['delay_time'] !== undefined)
-                    console.warn('Hati is running in development mode');
-            } catch (error) {
-                this.#resetHati();
-                console.error(`${this.#hatiMsg} ${error.message}.\nResponse: ${this.#response}`);
-                this.#invokeCallback(false);
-                return;
-            }
-
-            let success = this.#hatiStatus === Connect.HATI_STATUS_SUCCESS;
-
-            this.#invokeRedirect(success);
-
-            // after any redirection if we are still here yet, then invoke callbacks accordingly
-            this.#invokeCallback(success);
-
-            // if no toast then we don't go any further down here
-            if (this.#noToast) return;
-
-            // handle sticky toast
-            if (!this.#autoHideToast) {
-                Toast.show(this.#hatiStatus, this.#hatiMsg, false);
-                this.#directAfterToast(success);
-                return;
-            }
-
-            if (this.#toastOnAny) {
-                // here we know it is toast for all types of flags.
-                this.#showToast(success);
-            } else {
-                // show toast only it is either success or error
-                if (this.#toastOnSuccess && success) this.#showToast(true);
-                else if (this.#toastOnError && !success) this.#showToast(false);
-            }
-        }
-
-        #invokeRedirect(success) {
-            // firstly process any redirection based on no-toast or instant redirection
-            if ((this.#insDirAny || this.#noToast) && this.#anyPath) Connect.redirect(this.#anyPath);
-            if ((this.#insDirOk || this.#noToast) && success) Connect.redirect(this.#successPath);
-            if ((this.#insDirErr || this.#noToast) && !success) Connect.redirect(this.#errorPath);
-        }
-
-        #invokeCallback(success) {
-            if (this.#callbackAny != null) this.#callbackAny(this.#decorateRes());
-            else {
-                if (success && this.#callbackOk != null) this.#callbackOk(this.#decorateRes());
-                if (!success && this.#callbackErr != null) this.#callbackErr(this.#decorateRes());
-            }
-
-            if (this.#postRun) this.#postRun();
-        }
-
-        #decorateRes() {
-            return {
-                txt: this.responseRaw(),
-                json: (() => {
-                    let x = this.response();
-                    return typeof x === 'object' ? x : null
-                })()
-            }
-        }
-
-        #resetHati() {
-            this.#hatiStatus = Connect.HATI_STATUS_UNKNOWN;
-            this.#hatiLevel = Connect.HATI_LVL_UNKNOWN;
-            this.#hatiMsg = `Server didn't talk Hatish.`;
-        }
-
-        #directAfterToast(success) {
-            if (this.#anyPath) this.#direct(this.#anyPath);
-            else {
-                if (success) this.#direct(this.#successPath);
-                else this.#direct(this.#errorPath);
-            }
-        }
-
-        #direct(path) {
-            if (this.#preRedirect) this.#preRedirect();
-            Connect.redirect(path);
-        }
-
-        #showToast(success) {
-            Toast.show(this.#hatiStatus, this.#hatiMsg, true, () => {
-                this.#directAfterToast(success);
-            }, this.#delay);
-        }
-
-        #hit(as, method) {
-            as = as.toLowerCase();
-            if (!Connect.#contentType.owns(as))
-                throw new Error(`The argument 'as' must be one of these: form, json, raw`);
-
-            let url = this.#prepareUrl();
-            url = Connect.#removeExtraSign(url);
-
-            this.header('Content-Type', Connect.#contentType[as]);
-
-
-            if (['json', 'form'].owns(as)) {
-                delete this.#dataSource['_raw_data'];
-            }
-
-            let data;
-            if (as === 'json') {
-                data = JSON.stringify(this.#dataSource);
-            } else if (as === 'form') {
-                data = Connect.parameterize(this.#dataSource);
-            } else {
-                data = JSON.stringify(this.#dataSource['_raw_data']);
-            }
-
-            this.#xHttp.open(method, url);
-            this.#setHeaders();
-
-            if (this.#preRun) this.#preRun();
-
-            this.#xHttp.send(data);
-        }
-
-        /**
-         * Removes the & and ? marks if it is happened to be
-         * */
-        static #removeExtraSign(url) {
-            if (url.endsWith('&')) url = url.substring(0, url.length - 1);
-            if (url.endsWith('?')) url = url.substring(0, url.length - 1);
-            return url;
-        }
-
-        #prepareUrl() {
-            let url = this.#url + '?';
-            Object.entries(this.#queryParam).forEach(([k, v]) =>
-                url += `${k}=${v}&`
-            )
-            return url;
-        }
-
-        #setHeaders() {
-            Object.entries(this.#headers).forEach(([k, v]) =>
-                this.#xHttp.setRequestHeader(k, String(v))
-            );
-        }
-
-        /**
-         * Sets the Toast to be sticky when Hati send in a toast
-         *
-         * @return {Connect}
-         * */
-        stickyToast() {
-            this.#autoHideToast = false;
-            return this;
-        }
-
-        /**
-         * Sets flag to not show any toast sent by Hati
-         *
-         * @return {Connect}
-         * */
-        noToast() {
-            this.#noToast = true;
-            return this;
-        }
-
-        /**
-         * Flags to show only Success response by Hati
-         *
-         * @return {Connect}
-         * */
-        toastSuccess() {
-            this.#toastOnAny = false;
-            this.#toastOnSuccess = true;
-            return this;
-        }
-
-        /**
-         * Flags to show only Error response by Hati
-         *
-         * @return {Connect}
-         * */
-        toastError() {
-            this.#toastOnAny = false;
-            this.#toastOnError = true;
-            return this;
-        }
-
-        /**
-         * Sets the duration for toast to be shown
-         *
-         * @return {Connect}
-         * */
-        toastTime(time) {
-            this.#delay = time;
-            return this;
         }
 
         /**
@@ -1017,7 +1068,7 @@ class Blogger {
          *
          * @param {string} path The path to redirect to
          * @param {boolean} instant Indicates whether to redirect instantly after receiving the response
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         direct(path, instant = false) {
             this.#anyPath = path;
@@ -1032,7 +1083,7 @@ class Blogger {
          *
          * @param {string} path The path to be redirected to
          * @param {boolean} instant Indicates whether to redirect instantly after receiving the response
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         directSuccess(path, instant = false) {
             this.#anyPath = null;
@@ -1046,7 +1097,7 @@ class Blogger {
          *
          * @param {string} path The path to be redirected to
          * @param {boolean} instant Indicates whether to redirect instantly after receiving the response
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         directError(path, instant = false) {
             this.#anyPath = null;
@@ -1064,7 +1115,7 @@ class Blogger {
          * @param {function({txt:string, json:object})} callback receives connection
          * result in both raw text format and json format. For json object, it tries
          * to parse the response. If fails then returns null as json value.
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onAny(callback) {
             this.#callbackAny = callback;
@@ -1079,7 +1130,7 @@ class Blogger {
          * @param {function({txt:string, json:object})} callback receives connection
          * result in both raw text format and json format. For json object, it tries
          * to parse the response. If fails then returns null as json value.
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onOk(callback) {
             this.#callbackOk = callback;
@@ -1089,14 +1140,14 @@ class Blogger {
         /**
          * Sets the callback to be invoked when the <b>Hati</b> server replied error response
          * <br>
-         * This callback is never invoked when Connect is decorated with withHati() call. For
+         * This callback is never invoked when JstConnect is decorated with withHati() call. For
          * catching error, use other "on" callback functions such as <b>onTimeout(),
          * onUnresolvedHost()</b> etc.
          *
          * @param {function({txt:string, json:object})} callback receives connection
          * result in both raw text format and json format. For json object, it tries
          * to parse the response. If fails then returns null as json value.
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onErr(callback) {
             this.#callbackErr = callback;
@@ -1107,7 +1158,7 @@ class Blogger {
          * Sets the callback to be invoked before connecting to the server
          *
          * @param {function ()} callback
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         preRun(callback) {
             this.#preRun = callback;
@@ -1118,7 +1169,7 @@ class Blogger {
          * Sets the callback to be invoked after receiving server response
          *
          * @param {function ()} callback
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         postRun(callback) {
             this.#postRun = callback;
@@ -1140,7 +1191,7 @@ class Blogger {
          * Default is 30 seconds.
          *
          * @param {function ()} callback
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onTimeout(callback) {
             this.#timeoutCallback = callback;
@@ -1151,7 +1202,7 @@ class Blogger {
          * Sets the callback to be invoked on encountering unresolved host error
          *
          * @param {function ()} callback
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onUnresolvedHost(callback) {
             this.#unresolvedHost = callback;
@@ -1162,7 +1213,7 @@ class Blogger {
          * Sets the callback to be invoked when any unknown error happened
          *
          * @param {function ()} callback
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         onUnknownError(callback) {
             this.#unknownError = callback;
@@ -1173,10 +1224,305 @@ class Blogger {
          * Does further the processing after server replied, and extract Hati API related information accordingly.
          * Also display any Toast was sent by Hati.
          *
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         withHati() {
             this.#hati = true;
+            return this;
+        }
+
+        #callbackMediator(response) {
+            this.#response = response;
+
+            if (!this.#hati) {
+                this.#noToast = true;
+
+                /*
+                 * Check if http response code starts with 4 or 5 to consider it error!
+                 * */
+                let firstDigit = this.#status.toString()[0];
+                let result = !['4', '5'].includes(firstDigit);
+
+                this.#invokeRedirect(result);
+                this.#invokeCallback(result);
+                return;
+            }
+
+            // validate response for hati & store the response
+            try {
+                this.#response = JSON.parse(response);
+                this.#hatiMsg = this.#response.response['msg'];
+                this.#hatiStatus = this.#response.response['status'];
+
+                if (this.#response.response['delay_time'] !== undefined)
+                    console.warn('Hati is running in development mode');
+            } catch (error) {
+                this.#resetHati();
+                console.error(`${this.#hatiMsg} ${error.message}.\nResponse: ${this.#response}`);
+                this.#invokeCallback(false);
+                return;
+            }
+
+            let success = this.#hatiStatus === JstConnect.HATI_STATUS_SUCCESS;
+
+            this.#invokeRedirect(success);
+
+            // after any redirection if we are still here yet, then invoke callbacks accordingly
+            this.#invokeCallback(success);
+
+            // if no toast then we don't go any further down here
+            if (this.#noToast) return;
+
+            // handle sticky toast
+            if (!this.#autoHideToast) {
+                JstToast.show(this.#hatiStatus, this.#hatiMsg, false);
+                this.#directAfterToast(success);
+                return;
+            }
+
+            if (this.#toastOnAny) {
+                // here we know it is toast for all types of flags.
+                this.#showToast(success);
+            } else {
+                // show toast only it is either success or error
+                if (this.#toastOnSuccess && success) this.#showToast(true);
+                else if (this.#toastOnError && !success) this.#showToast(false);
+            }
+        }
+
+        #invokeRedirect(success) {
+            // firstly process any redirection based on no-toast or instant redirection
+            if ((this.#insDirAny || this.#noToast) && this.#anyPath) JstConnect.redirect(this.#anyPath);
+            if ((this.#insDirOk || this.#noToast) && success) JstConnect.redirect(this.#successPath);
+            if ((this.#insDirErr || this.#noToast) && !success) JstConnect.redirect(this.#errorPath);
+        }
+
+        #invokeCallback(success) {
+            if (this.#callbackAny != null) {
+                this.#callbackAny(this.#decorateRes());
+            }
+            else {
+                if (success && this.#callbackOk != null) this.#callbackOk(this.#decorateRes());
+                if (!success && this.#callbackErr != null) this.#callbackErr(this.#decorateRes());
+            }
+
+            if (this.#postRun) this.#postRun();
+        }
+
+        #decorateRes() {
+            return {
+                txt: this.responseRaw(),
+                json: (() => {
+                    let x = this.response();
+                    return typeof x === 'object' ? x : null
+                })()
+            }
+        }
+
+        #resetHati() {
+            this.#hatiStatus = JstConnect.HATI_STATUS_UNKNOWN;
+            this.#hatiLevel = JstConnect.HATI_LVL_UNKNOWN;
+            this.#hatiMsg = `Server didn't talk Hatish.`;
+        }
+
+        #directAfterToast(success) {
+            if (this.#anyPath) this.#direct(this.#anyPath);
+            else {
+                if (success) this.#direct(this.#successPath);
+                else this.#direct(this.#errorPath);
+            }
+        }
+
+        #direct(path) {
+            if (this.#preRedirect) this.#preRedirect();
+            JstConnect.redirect(path);
+        }
+
+        #showToast(success) {
+            JstToast.show(this.#hatiStatus, this.#hatiMsg, true, () => {
+                this.#directAfterToast(success);
+            }, this.#delay);
+        }
+
+        #hit(as, method) {
+            as = as.toLowerCase();
+            if (!JstConnect.#contentType.owns(as))
+                throw new Error(`The argument 'as' must be one of these: form, json, raw`);
+
+            let url = this.#prepareUrl();
+            url = JstConnect.#removeExtraSign(url);
+
+            if (!this.#formData) {
+                // Otherwise it would interfere with file upload!
+                this.header('Content-Type', JstConnect.#contentType[as]);
+            }
+
+            if (['json', 'form'].owns(as)) {
+                delete this.#dataSource['_raw_data'];
+            }
+
+            let data;
+            
+            if (this.#formData) {
+                if (this.#keepASJSON) {
+                    this.#formData.append(this.#keepJSONKey ?? 'json', JSON.stringify(this.#dataSource));
+                } else {
+                    for (let i in this.#dataSource) {
+                        this.#formData.append(i, this.#dataSource[i]);
+                    }
+                }
+                
+                data = this.#formData;
+            } else {
+                if (as === 'json') {
+                    data = JSON.stringify(this.#dataSource);
+                } else if (as === 'form') {
+                    data = JstConnect.parameterize(this.#dataSource);
+                } else {
+                    data = JSON.stringify(this.#dataSource['_raw_data']);
+                }
+            }
+            
+            // Cache the request data
+            this.#reqData = data;
+
+            if (this.#preRun) this.#preRun();
+
+            let jqxhr = $.ajax({
+                url: url,
+                method: method,
+                crossDomain: true,
+                timeout: this.#timeout,
+                contentType: false,
+                headers: this.#headers,
+                data: data,
+                xhrFields: {
+                    withCredentials: true
+                },
+                processData: false
+            });
+
+            jqxhr.done((data, textStatus, jqXHR) => {
+                this.#handle(jqXHR, textStatus);
+            });
+
+            jqxhr.fail((jqXHR, textStatus) => {
+                this.#handle(jqXHR, textStatus);
+            });
+        }
+
+        #handle(jqXHR, textStatus) {
+            this.#state = jqXHR.readyState;
+            this.#status = jqXHR.status;
+            this.#statusText = textStatus;
+
+            // log the response
+            if (this.#logResponse) {
+                let data = jqXHR.responseText ?? '';
+                if(data.length === 0) {
+                    console.info(`Nothing to log`);
+                } else if (!this.#logAsJson) {
+                    console.log(data);
+                } else {
+                    try {
+                        console.log(JSON.parse(data));
+                    } catch {
+                        console.log(data);
+                    }
+                }
+            }
+
+            if (this.#status === this.STATUS_PAGE_NOT_FOUND) {
+                if (this.#unresolvedHost != null) this.#unresolvedHost();
+            } else if (this.#statusText === 'timeout') {
+                if (this.#timeoutCallback != null) this.#timeoutCallback();
+            } else {
+                this.#callbackMediator(jqXHR.responseText);
+            }
+
+            if (this.#isAsync && this.#resolve) {
+                this.#resolve();
+
+                this.#isAsync = false;
+                this.#resolve = null;
+            }
+        }
+
+        /**
+         * Removes the & and ? marks if it is happened to be
+         * */
+        static #removeExtraSign(url) {
+            if (url.endsWith('&')) url = url.substring(0, url.length - 1);
+            if (url.endsWith('?')) url = url.substring(0, url.length - 1);
+            return url;
+        }
+
+        #prepareUrl() {
+            let url = this.#url;
+
+            if (this.#segments.length > 0) {
+                if (!url.endsWith('/')) url += '/';
+
+                url += this.#segments.join('/');
+            }
+
+            url = url + '?'
+            Object.entries(this.#queryParam).forEach(([k, v]) =>
+                url += `${k}=${v}&`
+            )
+
+            return url;
+        }
+
+        /**
+         * Sets the Toast to be sticky when Hati send in a toast
+         *
+         * @return {JstConnect}
+         * */
+        stickyToast() {
+            this.#autoHideToast = false;
+            return this;
+        }
+
+        /**
+         * Sets flag to not show any toast sent by Hati
+         *
+         * @return {JstConnect}
+         * */
+        noToast() {
+            this.#noToast = true;
+            return this;
+        }
+
+        /**
+         * Flags to show only Success response by Hati
+         *
+         * @return {JstConnect}
+         * */
+        toastSuccess() {
+            this.#toastOnAny = false;
+            this.#toastOnSuccess = true;
+            return this;
+        }
+
+        /**
+         * Flags to show only Error response by Hati
+         *
+         * @return {JstConnect}
+         * */
+        toastError() {
+            this.#toastOnAny = false;
+            this.#toastOnError = true;
+            return this;
+        }
+
+        /**
+         * Sets the duration for toast to be shown
+         *
+         * @return {JstConnect}
+         * */
+        toastTime(time) {
+            this.#delay = time;
             return this;
         }
 
@@ -1184,7 +1530,7 @@ class Blogger {
          * Logs the response for the connection to the console.
          * @param {boolean} asJson When true, it tries to log response as JSON object. If fails then falls back
          * to text output.
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         logResponse(asJson = true) {
             this.#logResponse = true;
@@ -1196,10 +1542,10 @@ class Blogger {
          * Sets timeout for connection
          *
          * @param {int} ms Number of milliseconds
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         timeout(ms) {
-            this.#xHttp.timeout = ms;
+            this.#timeout = ms;
             return this;
         }
 
@@ -1218,25 +1564,75 @@ class Blogger {
 
             // serialize the data source
             let url = this.#prepareUrl();
-            Object.entries(this.#dataSource).forEach(([k, v]) =>
-                url += `${k}=${v}&`
-            );
-            url = Connect.#removeExtraSign(url);
+            this.#reqData = '';
+            
+            Object.entries(this.#dataSource).forEach(([k, v]) => {
+                let data = `${k}=${v}&`;
+                
+                this.#reqData += data;
+                url += data;
+            });
+            
+            url = JstConnect.#removeExtraSign(url);
+            
+            /*
+             * Remove extra # sign from data
+             * */
+            if (this.#reqData.endsWith('&')) {
+                this.#reqData = this.#reqData.substring(0, this.#reqData.length - 1);
+            }
 
-
-            this.header('Content-Type', Connect.#contentType[as]);
-            this.#xHttp.open('GET', url);
-            this.#setHeaders();
+            this.header('Content-Type', JstConnect.#contentType[as]);
 
             if (this.#preRun) this.#preRun();
 
-            this.#xHttp.send();
+            let jqxhr = $.ajax({
+                url: url,
+                method: 'GET',
+                crossDomain: true,
+                timeout: this.#timeout,
+                contentType: false,
+                headers: this.#headers,
+                xhrFields: {
+                    withCredentials: true
+                },
+                processData: false
+            });
+
+            jqxhr.done((data, textStatus, jqXHR) => {
+                this.#handle(jqXHR, textStatus);
+            });
+
+            jqxhr.fail((jqXHR, textStatus) => {
+                this.#handle(jqXHR, textStatus);
+            });
         }
 
         /**
-         * Makes a POST request to the specified url.
+         * Async version of {@link JstConnect.get()}. Callbacks which have been added
+         * using on** methods will always run in order first, before the promise is
+         * considered fulfilled.
+         *
+         * @param {'form'|'json'} as The Content-Type header is set accordingly when data is sent
+         * @throws {Error} When as argument is set as raw data
+         *
+         * */
+        async getAsync(as = 'form') {
+            return new Promise((resolve) => {
+                this.#isAsync = true;
+                this.#resolve = resolve;
+
+                this.get(as);
+            });
+        }
+
+        /**
+         * Makes a POST request to the specified url. If there is any files already attached with this request
+         * using {@link files()} method, then 'Content-Type' header will be ignored and any JSON data will
+         * be sent as key-value pairs form-data. The encoding and required headers will be handled by browser.
+         *
          * <br>
-         * For as argument data will be send as:
+         * For as argument data will be sent as:
          * <br>json -- JSON object as part of request body
          * <br>form -- x-www-form-urlencoded as part of the request body
          * <br>raw  -- raw as part of the request body. Use raw() function to add data.
@@ -1248,9 +1644,34 @@ class Blogger {
         }
 
         /**
+         * Async version of {@link JstConnect.post()}. Callbacks which have been added
+         * using on** methods will always run in order first, before the promise is
+         * considered fulfilled. Promise is always resolved, not rejected!<br>
+         * If there is any files already attached with this request using {@link files()}
+         * method, then 'Content-Type' header will be ignored and any JSON data will be sent
+         * as key-value pairs form-data. The encoding and required headers will be handled
+         * by browser.
+         *
+         * For as argument data will be sent as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         * */
+        postAsync(as = 'form') {
+            return new Promise((resolve) => {
+                this.#isAsync = true
+                this.#resolve = resolve
+
+                this.#hit(as, 'POST');
+            })
+        }
+
+        /**
          * Makes a PUT request to the specified url.
          * <br>
-         * For as argument data will be send as:
+         * For as argument data will be sent as:
          * <br>json -- JSON object as part of request body
          * <br>form -- x-www-form-urlencoded as part of the request body
          * <br>raw  -- raw as part of the request body. Use raw() function to add data.
@@ -1262,9 +1683,31 @@ class Blogger {
         }
 
         /**
+         * Async version of {@link JstConnect.put()}. Callbacks which have been added
+         * using on** methods will always run in order first, before the promise is
+         * considered fulfilled. Promise is always resolved, not rejected!<br>
+         *
+         * For as argument data will be sent as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         *
+         * */
+        putAsync(as = 'json') {
+            return new Promise((resolve) => {
+                this.#isAsync = true
+                this.#resolve = resolve
+
+                this.#hit(as, 'PUT');
+            })
+        }
+
+        /**
          * Makes a DELETE request to the specified url.
          * <br>
-         * For as argument data will be send as:
+         * For as argument data will be sent as:
          * <br>json -- JSON object as part of request body
          * <br>form -- x-www-form-urlencoded as part of the request body
          * <br>raw  -- raw as part of the request body. Use raw() function to add data.
@@ -1276,10 +1719,32 @@ class Blogger {
         }
 
         /**
+         * Async version of {@link JstConnect.delete()}. Callbacks which have been added
+         * using on** methods will always run in order first, before the promise is
+         * considered fulfilled. Promise is always resolved, not rejected!<br>
+         *
+         * For as argument data will be sent as:
+         * <br>json -- JSON object as part of request body
+         * <br>form -- x-www-form-urlencoded as part of the request body
+         * <br>raw  -- raw as part of the request body. Use raw() function to add data.
+         *
+         * @param {'form'|'json'|'raw'=} as The Content-Type header is set accordingly when data is sent
+         *
+         * */
+        deleteAsync(as = 'json') {
+            return new Promise((resolve) => {
+                this.#isAsync = true
+                this.#resolve = resolve
+
+                this.#hit(as, 'DELETE');
+            })
+        }
+
+        /**
          * Sets the url the connection is going to be made to
          *
          * @param {string} url API url
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         to(url) {
             this.#url = url;
@@ -1291,7 +1756,7 @@ class Blogger {
          *
          * @param {string} key Header key
          * @param {string} value Header value
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         header(key, value) {
             this.#headers[key] = value;
@@ -1302,7 +1767,7 @@ class Blogger {
          * Sends as raw data as part of request body
          *
          * @param {string|number} data Any value to be sent as a raw data
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         raw(data) {
             if (typeof data === 'object')
@@ -1318,11 +1783,11 @@ class Blogger {
          * can either be an id(with/without # sign) or the form object.
          *
          * @param {string|HTMLFormElement} form The form to be sent as body of the request
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         form(form) {
             if (typeof form == 'string') {
-                let id = form.startsWith('#') ? form : `#${form}`;
+                let id = form.startsWith('#') ? form.substring(1) : form;
                 form = document.getElementById(id);
             }
 
@@ -1341,7 +1806,7 @@ class Blogger {
          * the object's key-value pair translates into encoded url query param.
          *
          * @param {string|object} data The JSON data either in object or string form
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         json(data) {
             if (typeof data === 'string') data = JSON.parse(data);
@@ -1352,17 +1817,62 @@ class Blogger {
 
             return this;
         }
+        
+        /**
+         * Submits any files with the request. When a FormData is set, it will ignore
+         * 'Content-Type' header and allow browser to handler form data encoding with
+         * proper content type.
+         * <br>
+         * Data source object is sent as key-value pairs (form-data) and raw data-source
+         * is ignored. To keep the data source as JSON stringify object, make a call to
+         * {@link sendDataSourceAsJSON} method.
+         *
+         * @param {FormData} data The data to be sent as part of request
+         * @return {JstConnect}
+         * */
+        files(data) {
+            this.#formData = data
+            return this
+        }
+        
+        /**
+         * When any file is attached using {@link files} method to the request,
+         * JstConnect ignores 'Content-Type' for sending request data as JSON stringify object
+         * and whatever the data source object holds will be sent as key-value pairs (form-data)
+         * to allow the browser to take care of setting proper form-data encoding & content
+         * type. However, this method instructs JstConnect to keep the data source as stringify object
+         * as send it under the specified key.
+         *
+         * @param {string} key The key to send the data under. 'json' is the default key
+         * @return {JstConnect}
+         * */
+        sendDataSourceAsJSON(key = 'json') {
+            this.#keepJSONKey = key
+            this.#keepASJSON = true
+            return this
+        }
 
         /**
          * Sets query parameter to the url
          *
          * @param {string} key The parameter name
          * @param {string|number} value The parameter value
-         * @return {Connect}
+         * @return {JstConnect}
          * */
         queryParam(key, value) {
             this.#queryParam[key] = value;
             return this;
+        }
+
+        /**
+         * Add segments to URL path
+         *
+         * @param {string|number} value The segment value
+         * @return {JstConnect}
+         * */
+        segment(value) {
+            this.#segments.push(value)
+            return this
         }
 
         /**
@@ -1451,7 +1961,77 @@ class Blogger {
          * @return {boolean} True if hati functioned & responded correctly, false otherwise.
          * */
         hatiResponse() {
-            return this.serverReplied() && this.#hatiLevel !== Connect.HATI_LVL_UNKNOWN;
+            return this.serverReplied() && this.#hatiLevel !== JstConnect.HATI_LVL_UNKNOWN;
+        }
+
+        /**
+         * Returns whether the outcome of this connection was successful, reported by server
+         * header response with either 200 or 204 code. If it is a hati server response, then
+         * it will do further check for the status value found in the response object.
+         *
+         * @param {number} code Hati status code to match found in the response object. 0, 1 & 2 are
+         * considered a successful hati response by default.
+         * @return {boolean} True if the connection meets the conditions above, false otherwise.
+         * */
+        isOk (...code) {
+            let firstDigit = this.#status.toString()[0]
+            let failed = ['4', '5'].includes(firstDigit)
+
+            if (failed) return false
+
+            if (!this.#hati) return true
+
+            if (code.length === 0) code = [0, 1, 2]
+
+            return code.includes[this.status]
+        }
+
+        /**
+         * On getting an HTTP response code starting with either 4 or 5 is considered an error.
+         * If it passes that condition, it is then checked if the connection was made to a hati
+         * server. If so, then hati status code is also evaluated to see it was -1.
+         *
+         * @return {boolean} True if the connection meets the conditions above, false otherwise.
+         * */
+        isErr () {
+            let firstDigit = this.#status.toString()[0]
+            let notErr = !['4', '5'].includes(firstDigit)
+
+            if (notErr) return false
+
+            if (!this.#hati) return true
+
+            return this.status === -1
+        }
+
+        /**
+         * Runs a callback if the connection returned a successful response which particularly doesn't start
+         * with 4, 5 and in case of a response from hati server then also it is not status -1.
+         *
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
+         * */
+        ifOk (callback) {
+            if (!this.isOk()) return
+            callback(this.#decorateRes())
+        }
+
+        /**
+         * Runs a callback if the connection was unsuccessful meaning the HTTP response code started
+         * with 4, 5 or in case of a response from hati server then also it is status -1.
+         *
+         * @param {function({txt:string, json:object})} callback receives connection
+         * result in both raw text format and json format. For json object, it tries
+         * to parse the response. If fails then returns null as json value.
+         * */
+        ifErr (callback) {
+            if (!this.isErr()) return
+            callback(this.#decorateRes())
+        }
+        
+        get reqData () {
+            return this.#reqData;
         }
 
         static parameterize(obj) {
@@ -1469,8 +2049,46 @@ class Blogger {
 
     }
 
-
-    window.Connect = () =>  new Connect();
+    window.JstConnect = () =>  new JstConnect();
+    
+    /**
+     * Retrieves a query parameter or path segment from the current URL.
+     *
+     * @param {string | number} keyOrPos - When `what` is `'query'`, this is the name of the query parameter to retrieve.
+     *                                     When `what` is `'path'`, this is the 1-based position of the path segment to retrieve.
+     * @param {string} [what='query'] - Specifies the type of data to retrieve:
+     *                                  - `'query'`: retrieves a query parameter by name.
+     *                                  - `'path'`: retrieves a path segment by position.
+     * @param {*} [defValue=null] - The default value to return if the query parameter or path segment is not found.
+     *
+     * @returns {*} - The value of the specified query parameter or path segment.
+     *                Returns `defValue` if the specified key or position is not found.
+     *
+     * @example
+     * // Example 1: Retrieve a query parameter
+     * // URL: https://example.com?page=3
+     * getUrl('page'); // Returns: '3'
+     *
+     * @example
+     * // Example 2: Retrieve a path segment
+     * // URL: https://example.com/products/electronics
+     * getUrl(2, 'path'); // Returns: 'electronics'
+     */
+    window.JstConnect.getUrl = (keyOrPos, what = 'query', defValue = null) => {
+        if (what === 'query') {
+            // Parsing query parameters using URLSearchParams
+            const params = new URLSearchParams(window.location.search);
+            return params.get(keyOrPos) ?? defValue;
+        } else if (what === 'path') {
+            // Handling URL path segments
+            const segments = window.location.pathname.replace(/^\//, '').split('/');
+            // Adjusting position to 0-based index
+            const position = parseInt(keyOrPos, 10) - 1;
+            return segments[position] ?? defValue;
+        } else {
+            return defValue;
+        }
+    };
 
     /**
      * Helper function, transfers key-value pair data into query parameters format
@@ -1478,9708 +2096,2738 @@ class Blogger {
      * @param {object} obj JSON object key-value pair to convert to query parameters
      * @returns {string} Query parameterized string
      * */
-    window.Connect.parameterize = (obj) => Connect.parameterize(obj);
+    window.JstConnect.parameterize = (obj) => JstConnect.parameterize(obj);
 
     /**
      * Redirects to specified path. Performs checks if the path is defined.
      *
      * @param {string} path
      * */
-    window.Connect.redirect = (path) => Connect.redirect(path);
+    window.JstConnect.redirect = (path) => JstConnect.redirect(path);
 
 })();
-(() => {
-    class Dialog {
-
-        #id;
-        #selfId;
-
-        #dismissed = false;
-        #hidden = false;
-        #cancelable = true;
-
-        // indicates whether it is a dark themed dialog
-        #dark;
-
-        #close;
-        #title;
-        #msg;
-
-        #dialog;
-        #msgEle;
-        #titleEle;
-        #btnYes;
-        #btnNo;
-        #btnAck;
-
-        #callbackYes;
-        #callbackNo;
-        #callbackAck;
-        #callbackHide;
-        #callbackDismiss;
-        #callbackRevived;
-        #callbackShown;
-
-        /**
-         * @param {string} id
-         * */
-        constructor(id) {
-            this.#id = id;
-            this.#selfId = `jst-dialog-${id}`;
-            jst.run(() => this.#injectDOM());
-        }
-
-        #checkIfDismissed() {
-            if (this.#dismissed) throw new Error('Dialog was dismissed. Create a fresh one!');
-        }
-
-        #injectDOM() {
-            const dialog = `
-                <div class="jst-modal" id="${this.#selfId}">
-                    <div class="jst-modal-flex">
-                        <div class="jst-modal-flex-child">
-                            <div class="jst-modal-header">
-                                <h5 id="jst-dialog-title"></h5>
-                                <span class="material-icons jst-modal-icon-close" title="Close window">close</span>
-                            </div>
-                            <div class="jst-modal-content">
-                                <div id="jst-dialog-msg"></div>
-                            </div>
-                            <div class="jst-dialog-btn">
-                                <button id="jst-dialog-btn-yes" class="jst-btn jst-btn-sm jst-btn-red">Yes</button>
-                                <button id="jst-dialog-btn-no"  class="jst-btn jst-btn-sm jst-btn-dark">No</button>
-                                <button id="jst-dialog-btn-ack" class="jst-btn jst-btn-sm jst-btn-teal">OK</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            $('body').prepend(dialog);
-
-            this.#dialog = $(`#${this.#selfId}`);
-
-            this.#close = jst.getChildOf('.jst-modal-icon-close', this.#dialog);
-            this.#titleEle = jst.getChildOf('#jst-dialog-title', this.#dialog);
-            this.#msgEle = jst.getChildOf('#jst-dialog-msg', this.#dialog);
-
-            let buttons = jst.getChildrenOf('.jst-dialog-btn', this.#dialog);
-            this.#btnYes = buttons[0];
-            this.#btnNo = buttons[1];
-            this.#btnAck = buttons[2];
-        }
-
-        #prepare(width, height, padding) {
-            // hide yes & no buttons if it is an acknowledgment dialog
-            if (!this.#callbackYes && !this.#callbackNo) {
-                $(this.#btnYes).hide();
-                $(this.#btnNo).hide();
-                $(this.#btnAck).show();
-            } else {
-                $(this.#btnYes).show();
-                $(this.#btnNo).show();
-                $(this.#btnAck).hide();
-            }
-
-            // set the width & height
-            let dialogFlexChild = jst.getChildOf('.jst-modal-flex-child', this.#dialog);
-            $(dialogFlexChild).css('width', width);
-            $(dialogFlexChild).css('height', height);
-
-            $(this.#msgEle).css('padding', padding);
-
-            let cntWrapper = jst.getChildOf('.jst-modal-content', this.#dialog)
-            jst.overlayScrollbar(cntWrapper);
-        }
-
-        #applyTheme() {
-            OverlayManager.theme(this.#dark);
-
-            let ele = jst.getChildOf('.jst-modal-flex-child', this.#dialog);
-            jst.switchCls(this.#dark, 'jst-modal-flex-child-dark', ele);
-
-            ele = jst.getChildOf('.jst-modal-header', this.#dialog);
-            jst.switchCls(this.#dark, 'jst-modal-header-dark', ele);
-
-            ele = jst.getChildOf('.jst-modal-icon-close', this.#dialog);
-            jst.switchCls(this.#dark, 'jst-modal-icon-close-dark', ele);
-
-            ele = jst.getChildOf('.jst-dialog-btn', this.#dialog);
-            jst.switchCls(this.#dark, 'jst-dialog-btn-dark', ele);
-        }
-
-        #setCloseIconListener() {
-            $(this.#close).on('click', () => this.dismiss());
-        }
-
-        #setBtnListener() {
-            $(this.#btnYes).on('click', () => { this.#dispatchBtnEvent(1); });
-            $(this.#btnNo).on('click', () => { this.#dispatchBtnEvent(-1); });
-            $(this.#btnAck).on('click', () => { this.#dispatchBtnEvent(0); });
-        }
-
-        #dispatchBtnEvent(result) {
-            if (result === 0 && this.#callbackAck) this.#callbackAck();
-            else if (result === 1 && this.#callbackYes) this.#callbackYes();
-            else if(this.#callbackNo) this.#callbackNo();
-        }
-
-        #updateCloseIcon() {
-            let closeIcon = jst.getChildOf('.jst-modal-icon-close', this.#dialog);
-            if (!this.#cancelable) $(closeIcon).fadeOut(250);
-            else $(closeIcon).fadeIn(250);
-        }
-
-        #updateTitle() {
-            // get the dialog title
-            let title =  this.#title || 'jstea Dialog 😎';
-            $(this.#titleEle).html(title);
-        }
-
-        /**
-         * Sets a callback to be notified when user clicks the ok button on the dialog
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        yes(callback) {
-            this.#callbackYes = callback;
-            this.#callbackAck = null;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when user clicks the no button on the dialog
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        no(callback) {
-            this.#callbackNo = callback;
-            this.#callbackAck = null;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when user clicks the ok button on the dialog
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        acknowledge(callback) {
-            this.#callbackAck = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the dialog has been hidden
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        onHide(callback) {
-            this.#callbackHide = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the dialog has been dismissed
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        onDismiss(callback) {
-            this.#callbackDismiss = callback;
-            return this;
-        }
-
-        /**
-         * This method is invoked when a dialog is in display and users hits the escape button.
-         * OverlayManager calls this method automatically.
-         * <br><b>This method should be called directly.</b>
-         *
-         * @param event {Event} Keyup event object passed in by the OverlayManger
-         * */
-        onEscapeEvent(event) {
-            if (this.#cancelable) this.dismiss();
-        }
-
-        /**
-         * Sets a callback to be notified when the dialog is being shown from hidden state.
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        onRevived(callback) {
-            this.#callbackRevived = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the dialog is being shown for the first time
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Dialog
-         * */
-        onShown(callback) {
-            this.#callbackShown = callback;
-            return this;
-        }
-
-        /**
-         * Sets the dialog title
-         *
-         * @param title {string} Dialog title
-         * @return Dialog
-         * */
-        title(title) {
-            this.#title = title;
-            return this;
-        }
-
-        /**
-         * Sets the dialog message. It can be html or string value
-         *
-         * @param msg {string} Dialog title
-         * @return Dialog
-         * */
-        msg(msg) {
-            this.#msg = msg;
-            return this;
-        }
-
-        #show(option) {
-            this.#checkIfDismissed();
-
-            let {w = 430, h = 'auto', pad = '1rem', cancelable = true} = option;
-            this.#cancelable = cancelable;
-
-            this.#prepare(w, h, pad);
-            this.#setCloseIconListener();
-            this.#setBtnListener();
-            this.#applyTheme();
-
-            this.#updateCloseIcon();
-            this.#updateTitle();
-
-            let msg = this.#msg ?? 'No dialog message.';
-            $(this.#msgEle).html(msg);
-
-            OverlayManager.acquire(this);
-            $(this.#dialog).fadeIn(250, () => {
-                if (this.#callbackShown) this.#callbackShown();
-            });
-
-            this.#hidden = false;
-        }
-
-        /**
-         * Shows the dialog
-         *
-         * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
-         * @param {number|string=} option.w - The width in px. Max value is 75% of the window's inner width.
-         * @param {number|string=} option.h - The height in px. Max height is 75% of the window's inner height.
-         * @param {number|string=} option.pad - The padding in px
-         * @param {boolean=} option.cancelable - Flag makes the dialog cancellation status
-         * */
-        show(option = {}) {
-            if (OverlayManager.notReady()) {
-                // show after a bit of delay to avoid overlay animation glitch because of caching
-                jst.runLater(0.05, () => this.#show(option));
-            } else this.#show(option);
-        }
-
-        /**
-         * OverlayManager invokes this method when the dialog is being shown from hidden
-         * state.
-         * <br><b>It should be called directly.</b>
-         * */
-        makeVisible() {
-            this.#hidden = false;
-            this.#applyTheme();
-            $(this.#dialog).fadeIn(250, () => {
-                if (this.#callbackRevived) this.#callbackRevived();
-            });
-        }
-
-        /**
-         * Hides the dialog
-         * */
-        hide() {
-            this.#checkIfDismissed();
-            this.#hidden = true;
-            $(this.#dialog).fadeOut(250, () => {
-                if (this.#callbackHide) this.#callbackHide();
-            });
-        }
-
-        /*
-        * Dismisses the dialog
-        * */
-        dismiss() {
-            if (this.#dismissed) return;
-            this.#dismissed = true;
-
-            OverlayManager.release(this);
-            $(this.#dialog).fadeOut(250, () => {
-                // remove the dom
-                $(this.#dialog).remove();
-
-                if (this.#callbackDismiss) this.#callbackDismiss();
-            });
-        }
-
-        /**
-         * Set the dialog cancelable. UI element gets updated behind the scene.
-         *
-         * @return {Dialog}
-         * */
-        cancelable() {
-            this.#cancelable = true;
-            return this;
-        }
-
-        /**
-         * Sets the dialog not cancelable. UI element gets updated automatically.
-         *
-         * @return {Dialog}
-         * */
-        notCancelable() {
-            this.#cancelable = false;
-            return this;
-        }
-
-        /**
-         * Sets dark theme to the dialog
-         *
-         * @return Dialog
-         * */
-        dark() {
-            this.#dark = true;
-            return this;
-        }
-
-        /**
-         * Sets light theme to the dialog
-         *
-         * @return Dialog
-         * */
-        light() {
-            this.#dark = false;
-            return this;
-        }
-
-        get id() {
-            return this.#id;
-        }
-
-        /**
-         * Changes the dialog message. It can be html or string value
-         *
-         * @param msg {string} Dialog message
-         * */
-        setMsg(msg) {
-            this.#msg = msg;
-            $(this.#msgEle).html(msg);
-        }
-
-        /**
-         * Sets the dialog title. It can be html or string value
-         *
-         * @param title {string} Dialog title
-         * */
-        setTitle(title) {
-            this.#title =  title;
-            this.#updateTitle();
-        }
-
-        /**
-         * Applies dark theme to the dialog
-         * */
-        makeDark() {
-            this.#dark = true;
-            this.#applyTheme();
-        }
-
-        /**
-         * Applies light theme to the dialog
-         * */
-        makeLight() {
-            this.#dark = false;
-            this.#applyTheme();
-        }
-
-        /**
-         * Changes the non-cancelable dialog to cancelable
-         * */
-        makeCancelable() {
-            this.#cancelable = true;
-            this.#updateCloseIcon();
-        }
-
-        /**
-         * Changes the cancelable dialog to non-cancelable
-         * */
-        makeNotCancelable() {
-            this.#cancelable = false;
-            this.#updateCloseIcon();
-        }
-
-        /**
-         * Hides the dialog button as specified by argument
-         *
-         * @param {'yes' | 'no' | 'ok'} choice
-         * */
-        hideChoice(choice) {
-            let btn;
-            if (choice === 'yes') btn  = this.#btnYes;
-            else if (choice === 'no') btn  = this.#btnNo;
-            else if (choice === 'ok') btn  = this.#btnAck;
-            if (btn) $(btn).fadeOut(500);
-        }
-
-        /**
-         * Shows the dialog button as specified by argument
-         *
-         * @param {'yes' | 'no' | 'ok'} choice
-         * */
-        showChoice(choice) {
-            let btn;
-            if (choice === 'yes') btn  = this.#btnYes;
-            else if (choice === 'no') btn  = this.#btnNo;
-            else if (choice === 'ok') btn  = this.#btnAck;
-            if (btn) $(btn).fadeIn(500);
-        }
-
-    }
-
-    /**
-     * Creates a new dialog and gets added to DOM
-     *
-     * @param {string} id The dialog id. It can be used later to dismiss the dialog
-     * @return {Dialog} new dialog
-     * */
-    window.Dialog = (id) => new Dialog(id);
-
-})();
-
 /**
  * Web forms are very verbose in taking user inputs. This class can greatly simplify
  * the form validations with nice and easy coding. Each element is marked with an ID or
  * name(where the input type is radio) and elements are registered via the constructor by
- * object. The possible properties that the object can have:
- *
- *   id         : 'id of the form element'
- *   name       : 'name to the radio input'
- *   min        : 'the min value'
- *   max        : 'the max value'
- *   minLen     : 'the minimum length'
- *   maxLen     : 'the maximum length'
- *   inline     : 'indicates to show feedback as inline'
- *   msgPos     : 'id of where to show the feedback message div'
- *   type       : 'can be of type str, int, float, email'
- *   pattern    : 'any Form pattern constant or custom patter to match'
- *   place      : 'the floating fractional place length'
- *   option     : 'array containing the permitted options for the input'
- *   noIcon     : 'any value(preferably boolean) indicates not to show icon for the element on error'
+ * object.
  * */
-
-class FormInspector {
-
-    /**
-     * Predefined regular expression pattern for filtering input in various formats.
-     * This list has a useful pattern which can be used in general for any project.
-     * However, any required pattern can be passed as an argument to the object using
-     * the key 'Pattern'.
-     *
-     * In the naming of these constants, they have meaning like regular expression.
-     * A    = Alphabets(including capital & small letters)
-     * N    = Numbers
-     * AN   = Alphabets & Numbers
-     * S    = Space
-     * C    = Comma
-     * D    = Dot
-     *
-     * When you use any of these pattern, they will remove any other characters except the
-     * mentioned characters in the pattern names.
-     * */
-
-    // a-z, A-Z
-    static SAN_A = /[a-zA-Z]/g ;
-
-    // 0-9
-    static SAN_N = /[0-9]/g;
-
-    // a-z, A-Z, 0-9
-    static SAN_AN = /[a-zA-Z0-9]/g;
-
-    // a-z, A-Z, spaces
-    static SAN_AS = /[a-zA-Z\s]/g;
-
-    // a-z, A-Z, commas
-    static SAN_AC = /[a-zA-Z,]/g;
-
-    // a-z, A-Z, dots
-    static SAN_AD = /[a-zA-Z.]/g;
-
-    // a-z, A-Z, 0-9, spaces
-    static SAN_ANS = /[a-zA-Z0-9\s]/g;
-
-    // a-z, A-Z, 0-9, spaces, commas
-    static SAN_ASC = /[a-zA-Z\s,]/g;
-
-    // a-z, A-Z, 0-9, dots
-    static SAN_AND = /[a-zA-Z0-9.]/g;
-
-    // a-z, A-Z, 0-9, spaces, commas
-    static SAN_ANSC = /[a-zA-Z0-9\s,]/g;
-
-    // a-z, A-Z, 0-9, spaces, dots
-    static SAN_ANSD = /[a-zA-Z0-9\s.]/g;
-
-    // a-z, A-Z, 0-9, spaces, commas, dots
-    static SAN_ANSCD = /[a-zA-Z0-9\s,.]/g;
-
-    // ISO date format YYYY-MM-DD
-    static SAN_ISO_DATE = /(\d{4}-\d{2}-\d{2})/g;
-
-    // ISO time format HH:MM:SS
-    static SAN_ISO_TIME = /(\d{2}:\d{2}:\d{2})/g;
-
-    // form dom
-    #form;
-
-    // holds the configuration info for each element
-    #eleArr = [];
-
-    // indicated whether the feedback message should be inline or block level element
-    #inline;
-
-    #iconOk = '&#10004;';
-    #iconErr = '&#10060;';
-
-    #colorOk = 'green';
-    #colorErr = 'red';
-
-    #noMsg = false;
-    #noIcon = false;
-    #animateErr = true;
-
-    #errAnimation = (ele) => {
-        $(ele)
-            .animate({opacity: '0.5'}, 200)
-            .animate({opacity: '1'}, 200)
-            .animate({opacity: '0.5'}, 200)
-            .animate({opacity: '1'}, 200);
-    };
-
-    // indicates whether the form inputs are resolved and ready to be submitted
-    #canSubmit = true;
-
-    // form element is identified by id. ID can be separated by '-' so that it
-    // can be split into capitalized word for nice feedback message
-    static #getEleName(ele) {
-        if (ele.owns('msgName')) return ele.msgName;
-
-        let value = ele.id || ele.name;
-        value = value.replaceAll(/-/g, ' ');
-        return value.capitalize(true);
-    }
-
-    // form element can be of various types such as input, select, textarea etc.
-    // this method can detect these types and return the value based on types.
-    static #getValue(ele) {
-        let type = $(ele.dom).attr('type');
-        if (type === 'radio') {
-            return $(`input[name="${ele.name}"]:checked`).val();
-        } else if (type === 'checkbox') {
-            return $(ele.dom).is(":checked") ? $(ele.dom).val() : false;
-        } else return $(ele.dom).val();
-    }
-
-    /**
-     *
-     * @param {string|object} form The form id or the form object. If empty, FormInspector tries to
-     * calculate from the elements
-     * @param {boolean=} inline  When true input validation feedback is shown next to input as
-     * inline html element otherwise shown as block level element
-     *
-     * @throws {Error} If the form element can't be found
-     * */
-    constructor(form, inline = false) {
-
-        // first make sure we have found the form to work with
-        if(!$(form).is('form') && typeof form !== 'string') {
-            throw new Error('Argument form must be an id or a reference to a form');
-        }
-
-        this.#form = jst.eleId(form);
-        if (jst.isUndef(this.#form) || this.#form === null) throw new Error(`Failed to find the form as specified`);
-
-
-        // prevent the form submission automatically and hook to validate method to
-        // validate inputs
-        $(this.#form).submit((evt) => evt.preventDefault());
-
-        this.#inline = inline;
-    }
-
-    /**
-     * Adds rules to perform validation on specified element
-     *
-     *
-     * @param {object|array}                    rules Rules the form is validated against. Each rule is an object
-     * specifying the filters
-     * @param {string}                          rules.id id of the form element
-     * @param {'str'|'int'|'float'|'email'}     rules.type the type of the data must be provided in
-     * @param {string=}                         rules.name 'name to the radio input
-     * @param {number=}                         rules.min the min value
-     * @param {number=}                         rules.max the max value
-     * @param {number=}                         rules.minLen the minimum length
-     * @param {number=}                         rules.maxLen the maximum length
-     * @param {boolean=}                        rules.inline indicates to show feedback as inline
-     * @param {string=}                         rules.msgPos id of where to show the feedback message div
-     * @param {string=}                         rules.msgName the name to be shown with FI feedback message
-     * @param {string=}                         rules.pattern any Form pattern constant or custom patter to match
-     * @param {number=}                         rules.place the floating fractional place length
-     * @param {array=}                          rules.option array containing the permitted options for the input
-     * @param {boolean=}                        rules.noIcon indicates not to show icon for the element on error
-     * */
-    addRule(...rules) {
-        // unpack the objects
-        if (Array.isArray(rules[0])) rules = rules[0];
-
-        rules.forEach((rule) => {
-            // get the form input element and see if it is defined
-            let dom = $(this.#form).find(`#${rule.id}`)[0];
-
-            if (jst.isUndef(dom) && rule.owns('name'))
-                dom =  $(this.#form).find(`[name=${rule.name}]`);
-
-            if (jst.isUndef(dom)) {
-                console.warn('Element with no identity(id/name) has been skipped');
-                return;
-            }
-
-            // add the input dom element to the object
-            rule['dom'] = dom;
-
-            rule['ok'] = false;
-            rule['firstBlur'] = true;
-            rule['key'] = rule.id || rule.name;
-
-            this.#addListener(rule);
-
-            // store ref to all the passed ele configurations after setup
-            this.#eleArr.push(rule);
-        });
-    }
-
-    /**
-    * Resets the form inputs. Optionally it can hide input error/feedback message divs.
-    *
-    * @param {boolean} hideMsg Indicates whether to hide input error/feedback message divs
-    * */
-    resetForm(hideMsg = true) {
-        if (this.#form) this.#form[0].reset();
-
-        if (!hideMsg) return;
-
-        // hide all the message are currently being show
-        for (let ele of this.#eleArr) {
-
-            let msgEle = null;
-            if (ele.owns('msgPos')) {
-                msgEle = $(`#${ele.msgPos}`);
-            } else if (ele.owns('id')) {
-                msgEle = $(`#${ele.id} + div.jst-form-msg`);
-            }
-
-            if (msgEle === null) continue;
-
-            msgEle.css('display', 'none');
-        }
-    }
-
-    // add various types of listeners such as keyup, blur based on the form element
-    // type. It can also perform any needed logic before handing over the listener
-    // callback function to verify the input.
-    #addListener(ele) {
-        let dom = ele.dom;
-        let nodeName = $(dom).prop('nodeName').toLowerCase();
-        let eleType = $(dom).attr('type');
-
-        $(dom).on('blur', () => FormInspector.#decorateBlurEvent(ele, this.#filter));
-
-        if (eleType === 'radio' || eleType === 'checkbox' || nodeName === 'select')
-            $(dom).change(() => this.#filter(ele));
-        else
-            $(dom).keyup(() => { if (!ele.firstBlur) this.#filter(ele); });
-    }
-
-    #filter = (ele) => {
-
-        let nodeName = $(ele.dom).prop('nodeName').toLowerCase();
-        let filterType = ele.type;
-        let inputType = $(ele.dom).attr('type');
-
-        let ok;
-
-        // stop from selecting first option of the select input
-        if (nodeName === 'select') {
-            if(FormInspector.#getValue(ele) === '') {
-                ele.ok = this.#showMsg(false, ele, 'Select an option.');
-                return;
-            }
-        }
-
-        if (filterType === 'email' || inputType === 'email') ok = this.#email(ele);
-        else if (filterType === 'str') ok = this.#str(ele);
-        else if (filterType === 'int') ok = this.#int(ele);
-        else if (filterType === 'float') ok = this.#float(ele);
-
-        // check if we need to match any pattern
-        if (ok && ele.owns('pattern')) ok = this.#pattern(ele);
-
-        ele.ok = ok;
-    };
-
-    // we don't want to disturb the user with the error message when they are
-    // filling out the input for the first time. With constructions, we have
-    // already said that it is first blur. Now on this blur callback event we
-    // tell this is not first blur anymore to indicate to show the error message
-    // as user types in after the first blur has already been taken place.
-    static #decorateBlurEvent(ele, fn) {
-        ele.firstBlur = false;
-        ele.animate = true;
-        if (!ele.ok) fn(ele);
-    }
-
-    #email = (ele) => {
-        let value = FormInspector.#getValue(ele);
-        if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
-
-        let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        let result = emailRegex.test(value);
-        let msg = result ? 'Email accepted.' : 'Invalid email.';
-        return this.#showMsg(result, ele, msg);
-    };
-
-    #str = (ele) => {
-        let value = FormInspector.#getValue(ele);
-
-        if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty`);
-
-        value = value.trim();
-
-        if (!this.#checkLen(ele, value)) return false;
-        if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
-    };
-
-    #int = (ele) => {
-        let value =  FormInspector.#getValue(ele);
-
-        // make sure we have actual string input
-        if(!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
-
-        // keep anything except numbers from the input then see if it has invalid character
-        let iChar = value.replace(/[0-9]/g, '');
-        if (iChar.length > 0) return this.#showMsg(false, ele, 'Invalid number.');
-
-        // get the number
-        value = parseInt(value);
-
-        if (!Number.isSafeInteger(value)) return this.#showMsg(false, ele, `Must be an integer.`);
-        if (!this.#checkLen(ele, value)) return false;
-        if(!this.#checkRange(ele, value)) return false;
-        if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
-    };
-
-    #float = (ele) => {
-        let value = FormInspector.#getValue(ele);
-
-        // make sure we have actual string input
-        if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
-
-        // add the floating point place if it has not
-        if (value.match(/\./g) == null) value += '.0';
-
-        if (value.replaceAll(/-?\d+\.\d+/g, '').length !== 0) return this.#showMsg(false, ele, 'Illegal input.');
-
-        if (!this.#checkLen(ele, value)) return false;
-
-        if (!this.#checkRange(ele, value)) return false;
-
-        if (ele.owns('place')) {
-            if (value.split('.')[1].length !== ele['place'])
-                return this.#showMsg(false, ele, `Fractional place must be of ${ele['place']}.`);
-        }
-
-        if (!this.#checkInOption(ele, value)) return false;
-        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
-    };
-
-    #pattern = (ele) => {
-        let value = FormInspector.#getValue(ele);
-        if (!jst.isStr(value)) return this.#showMsg(false, ele, `Can't be empty.`);
-        if (value.replaceAll(ele.pattern, '').length !== 0) return this.#showMsg(false, ele, `Invalid input.`);
-        return this.#showMsg(true, ele, `${FormInspector.#getEleName(ele)} accepted.`);
-    };
-
-    // Based on the value of the result, it either updates or adds the message element
-    // into the specified element or to the next of the input element by default.
-    #showMsg(result, ele, msg) {
-        let inline =  ele.owns('inline') ? ele.inline : this.#inline;
-        let icon = result ? this.#iconOk : this.#iconErr;
-        let color = result ? this.#colorOk : this.#colorErr;
-
-        // add the msg element if we have none
-        let haveNextEle = $(ele.dom).next().hasClass('jst-form-msg');
-        let havePositionedEle = ele.owns('msgPos');
-
-        if (!haveNextEle || havePositionedEle) {
-            let msgEle = `<div class="jst-form-msg"><span></span> <span></span></div>`;
-
-            // add the message element accordingly
-            if(havePositionedEle) $(`#${ele['msgPos']}`).html(msgEle);
-            else $(ele.dom).after(msgEle);
-        }
-
-        // update the nextEle to newly inserted one since we have just updated
-        let nextEle = havePositionedEle ? $('#' + ele['msgPos']) : $(ele.dom).next();
-
-        // update the icon, message and the color class
-        let spans = $(nextEle).find('span');
-        let iconSpan = spans[0];
-        let msgSpan = spans[1];
-        if (!this.#noIcon && ele.missing('noIcon')) $(iconSpan).html(icon);
-        if (!this.#noMsg  && ele.missing('noMsg')) $(msgSpan).html(msg);
-
-        $(nextEle).css('color', color);
-
-        // make sure the message element is shown; it could be made hidden by reset function
-        $(nextEle).css('display', inline ? 'inline' : 'block');
-
-        // animate if requested by the blur event
-        if (ele.owns('animate') && !result) {
-            if (this.#animateErr) this.#errAnimation(nextEle);
-            ele.erase('animate');
-        }
-
-        return result;
-    }
-
-    #checkLen(ele, value) {
-        if ((typeof value).toLowerCase() !== 'string') value = String(value);
-
-        let min = ele.minLen || 0;
-        let max = ele.maxLen || -1;
-
-        if (value.length < min) return this.#showMsg(false, ele, `Must be ${min} in length.`);
-        if (max !== -1 && value.length > max) return this.#showMsg(false, ele, `Exceeded maximum length of ${max}.`);
-        return true;
-    }
-
-    #checkRange(ele, value) {
-        let min = ele.min || 0;
-        let max = ele.max || -1;
-
-        if (value < min) return this.#showMsg(false, ele, `Can't be less than ${min}.`);
-        if (max !== -1 && value > max) return this.#showMsg(false, ele, `Can't be greater than ${max}.`);
-        return true;
-    }
-
-    #checkInOption(ele, value) {
-        let inOption = false;
-        if (ele.owns('option')) {
-            for (const opValue of ele['option']) {
-                if (opValue === value) {
-                    inOption = true;
-                    break;
-                }
-            }
-        } else return true;
-        let msg = $(ele.dom).attr('type') === 'checkbox' ? `Must be acknowledged.` : `Must be of valid options.`;
-        if (!inOption) return this.#showMsg(false, ele, msg);
-        return true;
-    }
-
-    /**
-     * Submits the form to action set no the form.
-     *
-     * This method can be useful because FormInspector prevents the default
-     * form submission behaviour to validate the form inputs.
-     * */
-    submit() {
-        $(this.#form).off('submit');
-        $(this.#form).submit();
-        $(this.#form).on('submit');
-    }
-
-    /**
-     * It checks all the inputs against the rules set.
-     *
-     * @return {boolean} True if the form inputs pass the rules, false otherwise
-     * */
-    validate() {
-        // say, we can submit the form
-        this.#canSubmit = true;
-
-        this.#eleArr.forEach(ele => {
-            if (jst.isUndef(ele.dom)) return;
-
-            ele.animate = true;
-            ele.firstBlur = false;
-            this.#filter(ele);
-            if (this.#canSubmit) this.#canSubmit = ele.ok;
-        });
-
-        return this.#canSubmit;
-    }
-
-    /**
-     * For feedback, icon will not be shown
-     *
-     * @return {FormInspector}
-     * */
-    noIcon() { this.#noIcon = true; return this; }
-
-    /**
-     * Any type of input feedback will not be shown
-     *
-     * @return {FormInspector}
-     * */
-    noMsg() { this.#noMsg = true; return this; }
-
-    /**
-     * Change the icon to be shown when input is accepted
-     *
-     * @param html {string} Any HTML value for the icon
-     * @return {FormInspector}
-     * */
-    iconOk(html) { this.#iconOk = html; return this; }
-
-    /**
-     * Change the icon to be shown when input has an error
-     *
-     * @param html {string} Any HTML value for the icon
-     * @return {FormInspector}
-     * */
-    iconErr(html) { this.#iconErr = html; return this; }
-
-    /**
-     * Disables animation for error highlighting
-     *
-     * @return {FormInspector}
-     * */
-    noErrAnim() { this.#animateErr = false; return this; }
-
-    /**
-     * Add custom animation to element when there is any error for the element
-     *
-     * @param fn {function(HTMLElement)} The callback is invoked with the element which has error.
-     * @return {FormInspector}
-     * */
-    errAnim(fn) { this.#errAnimation = fn; return this; }
-
-    /**
-     * Change the color of the error message text
-     *
-     * @param color {string} Any color value such hex, rgb, color name
-     * @return {FormInspector}
-     * */
-    errColor(color) { this.#colorErr = color; return this; }
-
-    /**
-     * Change the color of accepted input message text
-     *
-     * @param color {string} Any color value such hex, rgb, color name
-     * @return {FormInspector}
-     * */
-    okColor(color) { this.#colorOk = color; return this; }
-
+class JstFormInspector {
+	
+	/*
+	 * Predefined regular expression patterns for filtering input in various formats.
+	 * This list has a useful pattern which can be used in general for any project.
+	 * However, any required pattern can be passed as an argument to the object using
+	 * the key 'Pattern'.
+	 *
+	 * In the naming of these constants, they have meaning like regular expression.
+	 * A    = Alphabets(including capital & small letters)
+	 * N    = Numbers
+	 * AN   = Alphabets & Numbers
+	 * S    = Space
+	 * C    = Comma
+	 * D    = Dot
+	 *
+	 * When you use any of these pattern, they will remove any other characters except the
+	 * mentioned characters in the pattern names.
+	 */
+		
+	/**
+	 * a-z, A-Z
+	 * */
+	static SAN_A = /[a-zA-Z]/g ;
+	
+	/*
+	 * 0-9
+	 * */
+	static SAN_N = /[0-9]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9
+	 * */
+	static SAN_AN = /[a-zA-Z0-9]/g;
+	
+	/*
+	 * a-z, A-Z, spaces
+	 * */
+	static SAN_AS = /[a-zA-Z\s]/g;
+	
+	/*
+	 * a-z, A-Z, commas
+	 * */
+	static SAN_AC = /[a-zA-Z,]/g;
+	
+	/*
+	 * a-z, A-Z, dots
+	 * */
+	static SAN_AD = /[a-zA-Z.]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, spaces
+	 * */
+	static SAN_ANS = /[a-zA-Z0-9\s]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, spaces, commas
+	 * */
+	static SAN_ASC = /[a-zA-Z\s,]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, dots
+	 * */
+	static SAN_AND = /[a-zA-Z0-9.]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, spaces, commas
+	 * */
+	static SAN_ANSC = /[a-zA-Z0-9\s,]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, spaces, dots
+	 * */
+	static SAN_ANSD = /[a-zA-Z0-9\s.]/g;
+	
+	/*
+	 * a-z, A-Z, 0-9, spaces, commas, dots
+	 * */
+	static SAN_ANSCD = /[a-zA-Z0-9\s,.]/g;
+	
+	/**
+	 * ISO date format YYYY-MM-DD
+	 * */
+	static SAN_ISO_DATE = /(\d{4}-\d{2}-\d{2})/g;
+	
+	/**
+	 * ISO time format HH:MM:SS
+	 * */
+	static SAN_ISO_TIME = /(\d{2}:\d{2}:\d{2})/g;
+	
+	#option;
+	
+	// Form dom
+	#form;
+	
+	// Flags if the form submission came from one of non-designated buttons
+	#fromUnauthorized = false;
+	
+	// Indicates whether the form inputs are resolved and ready to be submitted
+	#canSubmit = true;
+	
+	// Holds the configuration info for each element
+	#eleConfigArr = [];
+	
+	#iconOk = '&#10004;';
+	#iconErr = '&#10060;';
+	
+	// Callback invoked when validation is done and ready for consumer code
+	#validationConsumer;
+	
+	// Default validation handler callback
+	#validationHandler = (success, eleConfig) => {
+		if (this.#option.resettingForm) {
+			return;
+		}
+		
+		let inline =  eleConfig.owns('inline') ? eleConfig.inline : this.#option.inline;
+		let icon = success ? this.#iconOk : this.#iconErr;
+		
+		// add the msg element if we have none
+		let haveNextEle = $(eleConfig.ele).next().hasClass('jst-form-msg');
+		let havePositionedEle = eleConfig.owns('msgPos');
+		
+		if (!haveNextEle || havePositionedEle) {
+			let msgEle = `<div class="jst-form-msg"><span></span> <span></span></div>`;
+			
+			// add the message element accordingly
+			if(havePositionedEle) $(`#${eleConfig['msgPos']}`).html(msgEle);
+			else $(eleConfig.ele).after(msgEle);
+		}
+		
+		// update the nextEle to newly inserted one since we have just updated
+		let nextEle = havePositionedEle ? $('#' + eleConfig['msgPos']) : $(eleConfig.ele).next();
+		
+		if (success && this.#option.feedbackErrOnly) {
+			nextEle.hide();
+			return;
+		} else {
+			nextEle.show();
+		}
+		
+		/*
+		 * Update the icon, message and the color class
+		 */
+		let spans = $(nextEle).find('span');
+		let iconSpan = spans[0];
+		let msgSpan = spans[1];
+		
+		if (eleConfig.owns('showIcon') ? eleConfig.showIcon : this.#option.showIcon) {
+			$(iconSpan).html(icon);
+		}
+		
+		if (eleConfig.owns('showMsg') ? eleConfig.showMsg : this.#option.showMsg) {
+			$(msgSpan).html(eleConfig.msg);
+		}
+		
+		let addColorCls = success	? 'jst-form-msg-success' : 'jst-form-msg-error';
+		$(nextEle)
+			.removeClass('jst-form-msg-error jst-form-msg-success')
+			.addClass(addColorCls);
+		
+		// make sure the message element is shown; it could be made hidden by reset function
+		$(nextEle).css('display', inline ? 'inline' : 'block');
+	};
+	
+	/**
+	 *
+	 * @param {string|object} form The form id or the form object.
+	 *
+	 * @param {object} option
+	 * @param {boolean=false} option.inline When true input validation feedback is shown next to input as inline html element otherwise
+	 * 										shown as block level element
+	 * @param {boolean=true} option.showIcon Whether to show icon on feedback handled by default validation handler.
+	 * @param {boolean=true} option.showMsg Whether to show feedback message if validation handled by default validation handler.
+	 * @param {boolean=false} option.feedbackErrOnly Whether to show validation error feedback message to the user.
+	 * @throws {Error} If the form element can't be found
+	 * */
+	constructor(form, option = {}) {
+		// Indicated whether the feedback message should be inline or block level element
+		jst.setProperty(option, 'inline', false);
+		
+		jst.setProperty(option, 'showIcon', true);
+		jst.setProperty(option, 'showMsg', true);
+		jst.setProperty(option, 'feedbackErrOnly', false);
+		
+		// Indicates if the form has already been attempted to be submitted
+		option['firstSubmission'] = true;
+		
+		this.#option = option;
+		
+		// First make sure we have found the form to work with
+		if(!$(form).is('form') && typeof form !== 'string') {
+			throw new Error('Argument form must be an id or a reference to a form');
+		}
+		
+		this.#form = jst.eleById(form);
+		
+		if (jst.isUndef(this.#form) || this.#form === null) {
+			throw new Error(`Failed to find the form`);
+		}
+		
+		// Prevent the form submission automatically and hook to validate method to validate inputs
+		let formJQ = $(this.#form);
+		formJQ.submit((evt) => {
+			evt.preventDefault();
+			this.validate();
+		});
+		
+		/*
+		 * Clicking on buttons with `data-jst-form-submitter` attribute
+		 * can submit the form automatically
+		 */
+		formJQ
+			.find(`input[type="submit"]:not([data-jst-form-submitter]), button:not([data-jst-form-submitter])`)
+			.click(() => {
+				this.#fromUnauthorized = true;
+			});
+		
+		formJQ
+			.find('input[data-jst-form-submitter], button[data-jst-form-submitter]')
+			.click(() => {
+				this.#fromUnauthorized = false;
+			});
+	}
+	
+	/**
+	 * Form element is identified by id. ID can be separated by '-' so that it
+	 * can be split into capitalized word for nice feedback message
+	 *
+	 * @param {object} eleConfig
+	 * @return {string}
+	 * */
+	static #getEleName(eleConfig) {
+		if (eleConfig.owns('alias')) return eleConfig.alias;
+		
+		let value = eleConfig.id || eleConfig.name;
+		value = value.replaceAll(/-/g, ' ');
+		return value.capitalize(true);
+	}
+	
+	/**
+	 * Form element can be of various types such as input, select, textarea etc.
+	 * This method can detect these types and return the value based on types.
+	 *
+	 * @param {object} eleConfig
+	 * @return {boolean|string|number}
+	 * */
+	static #getValue(eleConfig) {
+		let type = $(eleConfig.ele).attr('type');
+		
+		if (type === 'radio') {
+			return $(`input[name="${eleConfig.name}"]:checked`).val();
+		} else if (type === 'checkbox') {
+			return $(eleConfig.ele).is(":checked") ? $(eleConfig.ele).val() : false;
+		} else return $(eleConfig.ele).val();
+	}
+	
+	/**
+	 * Adds rules to perform validation on specified element
+	 *
+	 *
+	 * @param {object|array}                    rules Rules the form is validated against. Each rule is an object
+	 * 												  specifying the filters
+	 * @param {string}                          rules.id id of the form element
+	 * @param {'str'|'int'|'float'|'email'}     rules.type the type of the data must be provided in
+	 * @param {string=}                         rules.name 'name to the radio input
+	 * @param {number=}                         rules.min the min value
+	 * @param {number=}                         rules.max the max value
+	 * @param {number=}                         rules.minLen the minimum length
+	 * @param {number=}                         rules.maxLen the maximum length
+	 * @param {boolean=}                        rules.inline indicates to show feedback as inline
+	 * @param {string=}                         rules.msgPos id of where to show the feedback message div
+	 * @param {string=}                         rules.alias friendly name to be shown to call the element in feedback message
+	 * @param {string=}                         rules.pattern any Form pattern constant or custom patter to match
+	 * @param {number=}                         rules.place the floating fractional place length
+	 * @param {array=}                          rules.option array containing the permitted options for the input
+	 * @param {boolean=}                        rules.showIcon whether to show icon on feedback if handled by default validation handler. Default is true.
+	 * @param {boolean=}                        rules.showMsg whether to show feedback message if handled by default validation handler. Default is true.
+	 * */
+	addRule(...rules) {
+		// unpack the objects
+		if (Array.isArray(rules[0])) rules = rules[0];
+		
+		rules.forEach((rule) => {
+			// Get the form input element and see if it is defined
+			let ele = $(this.#form).find(`#${rule.id}`)[0];
+			
+			if (jst.isUndef(ele) && rule.owns('name'))
+				ele =  $(this.#form).find(`[name=${rule.name}]`);
+			
+			if (jst.isUndef(ele)) {
+				console.warn('Element with no identity(id/name) has been skipped');
+				return;
+			}
+			
+			// Add the form element to the object
+			rule['ele'] = ele;
+			
+			rule['ok'] = false;
+			rule['lastCheckPassed'] = true;
+			rule['key'] = rule.id || rule.name;
+			
+			// Holds last error handled by validationHandler callback
+			rule['msg'] = null;
+			
+			// Indicates if the element previously had errors
+			rule['dirty'] = false;
+			
+			this.#addListener(rule);
+			
+			// Store ref to all the passed ele configurations after setup
+			this.#eleConfigArr.push(rule);
+		});
+	}
+	
+	/**
+	 * Resets the form inputs. Optionally it can hide input error/feedback message divs.
+	 * */
+	resetForm() {
+		this.#form?.reset();
+		
+		this.#option.firstSubmission = true;
+		this.#option.resettingForm = true;
+		
+		let formJQ = $(this.#form);
+		
+		// Reset element config data
+		for (let eleConfig of this.#eleConfigArr) {
+			eleConfig.ok = false;
+			eleConfig.msg = null;
+			eleConfig.dirty = false;
+			eleConfig.lastCheckPassed = true;
+			
+			let msgEle;
+			
+			if (eleConfig.owns('msgPos')) {
+				msgEle = $(`#${eleConfig.msgPos}`);
+			} else if (eleConfig.owns('id')) {
+				msgEle = formJQ.find(`#${eleConfig.id} + .jst-form-msg`);
+			}
+			
+			msgEle?.css('display', 'none');
+			
+			/*
+			 * If validation feedback handler is custom one, then allow them
+			 * to reset the form UI be at initial state!
+			 * */
+			eleConfig.reset = true;
+			this.#validationHandler(null, eleConfig);
+			delete eleConfig.reset;
+		}
+		
+		this.#option.resettingForm = false;
+	}
+	
+	/**
+	 * Submits the form to action set on the form.
+	 *
+	 * This method can be useful because FormInspector prevents the default
+	 * form submission behaviour in order to validate the form inputs.
+	 * */
+	submit() {
+		if (this.#fromUnauthorized) return;
+		
+		// Disable our submit listener first!
+		$(this.#form).off('submit');
+		
+		// Then submit it
+		$(this.#form).submit();
+		
+		// Prepare if submission failed somehow!
+		$(this.#form).on('submit');
+	}
+	
+	/**
+	 * It checks all the inputs against the rules set.
+	 *
+	 * @param {boolean=true} submitOnPass Whether to submit the form on validation pass
+	 * */
+	validate(submitOnPass = true) {
+		/*
+		 * Stop validating if it came from an unauthorized button!
+		 * And prepare for next time!
+		 */
+		if (this.#fromUnauthorized) {
+			this.#fromUnauthorized = false;
+			return;
+		}
+		// say, we can submit the form
+		this.#canSubmit = true;
+		
+		this.#eleConfigArr.forEach(ele => {
+			if (jst.isUndef(ele.ele)) return;
+			
+			this.#filter(ele);
+			
+			if (this.#canSubmit) this.#canSubmit = ele.ok;
+		});
+		
+		// Form is no longer submitted as a first timer next time!
+		this.#option.firstSubmission = false;
+		
+		// Stop if it is set not to submit!
+		if (this.#canSubmit && !submitOnPass) {
+			return this.#canSubmit;
+		}
+		
+		/*
+		 * If no one cares about the validation outcome, then submit the form!
+		 * Otherwise notify them!
+		 * */
+		if (!this.#validationConsumer && this.#canSubmit) {
+			this.submit();
+		} else {
+			this.#validationConsumer?.(this.#canSubmit);
+		}
+		
+		return this.#canSubmit;
+	}
+	
+	/**
+	 * Sets a custom validation handler which will be invoked on form submit or as user interacts with the
+	 * form elements.
+	 *
+	 * Callback functions receives 2 arguments. A boolean indicating if validation passed, followed by the
+	 * element's validation config object which has `msg` property telling about the inspector's feedback.
+	 *
+	 * Importantly, config object will have a property called 'reset' , if the form is being reset allowing
+	 * the callback to put the element at initial state.
+	 *
+	 * @param {function (status:boolean, config:object)} fn
+	 * */
+	setFeedbackHandler = (fn) => {
+		this.#validationHandler = fn;
+	}
+	
+	/**
+	 * Add various types of listeners such as keyup, blur based on the form element type.
+	 * It can also perform any needed logic before handing over the listener callback
+	 * function to verify the input.
+	 *
+	 * @param {object} eleConfig
+	 * */
+	#addListener(eleConfig) {
+		let ele = eleConfig.ele;
+		let nodeName = $(ele).prop('nodeName').toLowerCase();
+		let eleType = $(ele).attr('type');
+		
+		$(ele).on('blur', () => {
+			this.#filter(eleConfig);
+			
+			/*
+			 * Flag on blur whether the validation passed!
+			 * If so, then we would allow users modifying input without distracting
+			 * with feedback message!
+			 * */
+			eleConfig.lastCheckPassed = eleConfig.ok;
+		});
+		
+		if (eleType === 'radio' || eleType === 'checkbox' || nodeName === 'select') {
+			$(ele).change(() => this.#filter(eleConfig) );
+		} else {
+			$(ele).keyup(() => {
+				/*
+				 * No distracting user with feedback message!
+				 */
+				if (eleConfig.lastCheckPassed) return;
+				
+				this.#filter(eleConfig);
+			});
+		}
+	}
+	
+	#filter = (eleConfig) => {
+		let nodeName = $(eleConfig.ele).prop('nodeName').toLowerCase();
+		let filterType = eleConfig.type;
+		let inputType = $(eleConfig.ele).attr('type');
+		
+		let ok;
+		
+		// stop from selecting first option of the select input
+		if (nodeName === 'select') {
+			if(JstFormInspector.#getValue(eleConfig) === '') {
+				eleConfig.ok = this.#handleValidation(false, eleConfig, 'Required');
+				return;
+			}
+		}
+		
+		if (filterType === 'email' || inputType === 'email') ok = this.#email(eleConfig);
+		else if (filterType === 'str') 	 ok = this.#str(eleConfig);
+		else if (filterType === 'int') 	 ok = this.#int(eleConfig);
+		else if (filterType === 'float') ok = this.#float(eleConfig);
+		
+		// check if we need to match any pattern
+		if (ok && eleConfig.owns('pattern')) ok = this.#pattern(eleConfig);
+		
+		eleConfig.ok = ok;
+	};
+	
+	#email = (eleConfig) => {
+		let value = JstFormInspector.#getValue(eleConfig);
+		if (!jst.isStr(value)) return this.#handleValidation(false, eleConfig, `Required`);
+		
+		let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		let result = emailRegex.test(value);
+		let msg = result ? 'Email accepted' : 'Invalid email';
+		return this.#handleValidation(result, eleConfig, msg);
+	};
+	
+	#str = (eleConfig) => {
+		let value = JstFormInspector.#getValue(eleConfig);
+		
+		if (!jst.isStr(value)) return this.#handleValidation(false, eleConfig, `Required`);
+		
+		value = value.trim();
+		
+		if (!this.#checkLen(eleConfig, value)) return false;
+		if (!this.#checkInOption(eleConfig, value)) return false;
+		return this.#handleValidation(true, eleConfig, `${JstFormInspector.#getEleName(eleConfig)} accepted`);
+	};
+	
+	#int = (eleConfig) => {
+		let value =  JstFormInspector.#getValue(eleConfig);
+		
+		// make sure we have actual string input
+		if(!jst.isStr(value)) return this.#handleValidation(false, eleConfig, `Required`);
+		
+		// keep anything except numbers from the input then see if it has invalid character
+		let iChar = value.replace(/[0-9]/g, '');
+		if (iChar.length > 0) return this.#handleValidation(false, eleConfig, 'Invalid number');
+		
+		// get the number
+		value = parseInt(value);
+		
+		if (!Number.isSafeInteger(value)) return this.#handleValidation(false, eleConfig, `Must be an integer`);
+		if (!this.#checkLen(eleConfig, value)) return false;
+		if(!this.#checkRange(eleConfig, value)) return false;
+		if (!this.#checkInOption(eleConfig, value)) return false;
+		return this.#handleValidation(true, eleConfig, `${JstFormInspector.#getEleName(eleConfig)} accepted`);
+	};
+	
+	#float = (eleConfig) => {
+		let value = JstFormInspector.#getValue(eleConfig);
+		
+		// make sure we have actual string input
+		if (!jst.isStr(value)) return this.#handleValidation(false, eleConfig, `Required`);
+		
+		// add the floating point place if it has not
+		if (value.match(/\./g) == null) value += '.0';
+		
+		if (value.replaceAll(/-?\d+\.\d+/g, '').length !== 0) return this.#handleValidation(false, eleConfig, 'Illegal input');
+		
+		if (!this.#checkLen(eleConfig, value)) return false;
+		
+		if (!this.#checkRange(eleConfig, value)) return false;
+		
+		if (eleConfig.owns('place')) {
+			if (value.split('.')[1].length !== eleConfig['place'])
+				return this.#handleValidation(false, eleConfig, `Fractional place must be of ${eleConfig['place']}`);
+		}
+		
+		if (!this.#checkInOption(eleConfig, value)) return false;
+		return this.#handleValidation(true, eleConfig, `${JstFormInspector.#getEleName(eleConfig)} accepted`);
+	};
+	
+	#pattern = (eleConfig) => {
+		let value = JstFormInspector.#getValue(eleConfig);
+		if (!jst.isStr(value)) return this.#handleValidation(false, eleConfig, `Required`);
+		if (value.replaceAll(eleConfig.pattern, '').length !== 0) return this.#handleValidation(false, eleConfig, `Invalid input`);
+		return this.#handleValidation(true, eleConfig, `${JstFormInspector.#getEleName(eleConfig)} accepted`);
+	};
+	
+	#checkLen(eleConfig, value) {
+		if ((typeof value).toLowerCase() !== 'string') value = String(value);
+		
+		let min = eleConfig.minLen || 0;
+		let max = eleConfig.maxLen || -1;
+		
+		if (value.length < min) return this.#handleValidation(false, eleConfig, `Must be ${min} in length`);
+		if (max !== -1 && value.length > max) return this.#handleValidation(false, eleConfig, `Exceeded maximum length of ${max}`);
+		return true;
+	}
+	
+	#checkRange(eleConfig, value) {
+		let min = eleConfig.min || 0;
+		let max = eleConfig.max || -1;
+		
+		if (value < min) return this.#handleValidation(false, eleConfig, `Can't be less than ${min}`);
+		if (max !== -1 && value > max) return this.#handleValidation(false, eleConfig, `Can't be greater than ${max}`);
+		return true;
+	}
+	
+	#checkInOption(eleConfig, value) {
+		let inOption = false;
+		if (eleConfig.owns('option')) {
+			for (const opValue of eleConfig['option']) {
+				if (opValue === value) {
+					inOption = true;
+					break;
+				}
+			}
+		} else return true;
+		
+		let msg = $(eleConfig.ele).attr('type') === 'checkbox' ? `Must be acknowledged` : `Must be of valid options`;
+		if (!inOption) return this.#handleValidation(false, eleConfig, msg);
+		return true;
+	}
+	
+	// Based on the value of the result, it either updates or adds the message element
+	// into the specified element or to the next of the input element by default.
+	#handleValidation(success, eleConfig, msg) {
+		// Update dirty flag
+		if (!success && !eleConfig.dirty) {
+			eleConfig.dirty = true;
+		}
+		
+		/*
+		 * No drawing attention for successful input on first form submission!
+		 * Also consider if form was reset as well as dirty flag!
+		 */
+		if (success && this.#option.firstSubmission && !eleConfig.dirty) {
+			return success;
+		}
+		
+		/*
+		 * Always send error, if it hasn't been handled!
+		 */
+		if (!success && eleConfig.msg !== msg) {
+			eleConfig.msg = msg;
+			this.#validationHandler(success, eleConfig);
+			return success;
+		}
+		
+		/*
+		 * User didn't correct the input
+		 */
+		if (!success && eleConfig.msg === msg) {
+			return success;
+		}
+		
+		/*
+		 * Here it means that the element is dirty (previously had errors) and user fixed it
+		 */
+		if (success && eleConfig.dirty && eleConfig.msg !== msg) {
+			eleConfig.msg = msg;
+			this.#validationHandler(success, eleConfig);
+		}
+		
+		return success;
+	}
+	
+	/**
+	 * Change the icon to be shown when input is accepted
+	 *
+	 * @param html {string} Any HTML value for the icon
+	 * @return {JstFormInspector}
+	 * */
+	setIconOk(html) { this.#iconOk = html; return this; }
+	
+	/**
+	 * Change the icon to be shown when input has an error
+	 *
+	 * @param html {string} Any HTML value for the icon
+	 * @return {JstFormInspector}
+	 * */
+	setIconErr(html) { this.#iconErr = html; return this; }
+	
+	/**
+	 * Callback to be invoked when validation is done.
+	 *
+	 * @param {function (success: boolean)} fn function invoked, passing the validation outcome as boolean.
+	 */
+	onValidate (fn) {
+		this.#validationConsumer = fn;
+	}
+	
+	/**
+	 * Returns the form element.
+	 *
+	 * @return HTMLFormElement
+	 * */
+	getForm() {
+		return this.#form;
+	}
 }
-
 (() => {
-
-    class Icon {
-
-        #iconPool = {};
-
-        #prepare(ele) {
-            ele = jst.eleId(ele);
-            if (!ele) throw new Error(`No icon element found for ${ele}`);
-
-            // get the unique id for the icon element so that we can track its animation class
-            // and restore it back to the original state. if no id attribute is found; so give
-            // it a unique id and save it in the pool.
-            let id = $(ele).attr('id');
-            if (!id) {
-                id = 'jst-id-' + Icon.#getUId();
-                $(ele).attr('id', id);
-            }
-
-            // define an object for holding various information for the icon and its state, parent.
-            let obj = {};
-
-            obj.id = id;
-            obj.parent = ele;
-            obj.icon = jst.getChildOf('.jst-icon-swap', ele);
-            obj.original = $(obj.icon).html();
-
-            // before returning the obj modify the parent opacity
-            $(obj.parent).animate({opacity: 0.6});
-
-            // also make it disable
-            $(obj.parent).attr('disabled', 'true');
-
-            // now save it in the icon pool
-            this.#iconPool[id] = obj;
-
-            return obj;
-        }
-
-        #getObj(ele) {
-            ele = jst.eleId(ele);
-
-            if (!ele) throw new Error(`No element found in the document as specified by the argument.`);
-
-            let id = $(ele).attr('id');
-            if (!id) throw new Error('This element did not go through icon methods yet.');
-
-            if (this.#iconPool.missing(id)) throw new Error('This element was not found in the icon pool.');
-
-            return this.#iconPool[id];
-        }
-
-        #apply(ele, icon, animType) {
-            let obj = this.#prepare(ele);
-
-            // store the animation type into the obj for removing the css class later
-            obj.anim_type = animType;
-
-            // set the animation class
-            $(obj.icon).addClass(animType);
-
-            // set the icon value
-            $(obj.icon).html(icon);
-        }
-
-        /**
-         * Any element can be animated in pulse motion. The element must have an id and its child
-         * must be classed with .jst-icon-swap.
-         *
-         * @param ele {string|object} It can be the id with/without '#' or the element object which
-         * is to be animated.
-         *
-         * @param icon {string} Any html value which will be shown inside the .jst-icon-swap element
-         * during animation
-         * */
-        pulse(ele, icon = 'hourglass_full') { this.#apply(ele, icon, 'jst-anim-pulse'); }
-
-
-        /**
-         * Any element can be animated in spin motion. The element must have an id and its child
-         * must be classed with .jst-icon-swap.
-         *
-         * @param ele {string|object} It can be the id with/without '#' or the element object which
-         * is to be animated.
-         *
-         * @param icon {string} Any html value which will be shown inside the .jst-icon-swap element
-         * during animation
-         * */
-        spin(ele, icon = 'loop') { this.#apply(ele, icon, 'jst-anim-spin'); }
-
-        still(ele, icon = 'schedule') { this.#apply(ele, icon, ''); }
-
-
-        /**
-         * Any element in animation can be restored. When restored, in-animation content inside element
-         * is also restored.
-         *
-         * @param ele {string|object} It can be the id with/without '#' or the element object which
-         * is to stop animating
-         * */
-        restore(ele) {
-            let obj = this.#getObj(ele);
-
-            // remove the animation class
-            $(obj.icon).removeClass(obj.anim_type);
-
-            // restore back the original content
-            $(obj.icon).html(obj.original);
-
-            // restore parent opacity
-            $(obj.parent).animate({opacity: '1'});
-
-            // make parent intractable
-            $(obj.parent).removeAttr('disabled');
-        }
-
-        /**
-         * Sets disabled attribute to the element.
-         *
-         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
-         * or can't have # at the beginning.
-         * */
-        disable(ele) {
-            $(jst.eleId(ele)).attr('disabled', 'true');
-        }
-
-        /**
-         * Enables the element by removing disabled attribute
-         *
-         * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
-         * or can't have # at the beginning.
-         * */
-        enable(ele) {
-            $(jst.eleId(ele)).removeAttr('disabled');
-        }
-
-        static #getUId = () => new Date().valueOf();
-
-    }
-
-    window.Icon = new Icon();
-
-})();
-/**********************************************************************************************
- *                                        WARNING:                                             *
- *           PLEASE DON'T MODIFY THIS UNLESS YOU KNOW WHAT YOU ARE DOING. ANY IN APPROPRIATE   *
- *           CHANGE TO THIS CLASS MAY LEAD TO MALFUNCTIONING OR CODE BREAKING.                 *
- ************************************************************************************************/
-
-
-/**
- * JS-Tea is a collection of JavaScript readable classes and utility functions which
- * greatly make the web app development easier.
- *
- * This js file includes all the js-tea library files together and provides the library
- * environment to the code.
- * */
-class jst {
-
-    static version() {
-        return '4.0.0';
-    }
-
-    /**
-     * It takes a callback function as argument and executes it immediately when the document
-     * is ready, otherwise it adds an event listener to the window and runs the callback when
-     * the window is ready. So this method is DOM safe.
-     *
-     * @param {function()} fn The callback function.
-     * */
-    static run(fn) {
-        if (document.readyState === 'complete') fn();
-        else window.addEventListener('load', () => fn());
-    }
-
-    /**
-     * Runs a function after a specified amount delay. Internally uses jst.run()
-     * method. So this method is DOM safe.
-     *
-     * @param {number} delay in seconds
-     * @param {function ()} fn callback to be invoked after the delay specified
-     * */
-    static runLater(delay, fn) {
-        let d = delay * 1000;
-        let f = fn;
-        jst.run(() => setTimeout(f, d));
-    };
-
-    /**
-     * This click function can be called from anywhere within the document. The order is
-     * not important as the click event attachment happens after the document ready state.
-     *
-     * @param {string|HTMLElement} ele It can be the id to the element either with # sign or not.
-     * The dom element can also be passed as an argument.
-     *
-     * @param {function(Event)} fn The callback function to execute on event occurs
-     *
-     * */
-    static click(ele, fn) {
-        jst.run(() => {
-            if (Array.isArray(ele)) {
-                ele = ele[0];
-            } else if (typeof ele === 'string') {
-                let id = ele[0] === '#' ? ele.substring(1) : ele;
-                ele = document.getElementById(id);
-            }
-
-            if (ele == null) return;
-            ele.addEventListener('click', (event) => fn(event));
-        });
-    }
-
-    static isDef = (val) => val !== undefined;
-
-    static isUndef = (val) => val === undefined;
-
-    static isStr = (val) => !(!val || val.length === 0);
-
-    static isDomEle = (ele) => $(ele).length !== 0;
-
-    static eleId(val, space = document) {
-        if (typeof val !== 'string') return val;
-        val = val[0] === '#' ? val.substring(1) : val;
-        return space.getElementById(val);
-    }
-
-    /**
-     * Id attribute of a dom element, or a string id with/without "#" can be extracted
-     * safely. The returned id is the string without the "#" sign in front.
-     *
-     * @param id {object|string} It can be a dom element, or the id string
-     * @param onMissId {null|string} It is added to element if there is no id attribute for the element
-     * @returns {string|undefined} the provided/extracted id
-     * @throws {Error} when the passed id is neither a dom element nor a string value
-     * */
-    static id(id, onMissId = null) {
-        if (jst.isDomEle(id)) {
-            let i = $(id).attr('id');
-            if (jst.isUndef(i) && onMissId !== null) {
-                $(id).attr('id', onMissId);
-                i = onMissId;
-            }
-            return i;
-        }
-
-        if (typeof id === 'string') {
-            if (id.startsWith('#')) return id.substring(1);
-            return id;
-        }
-
-        throw new Error('Id must be one of the following types: dom element, id string with/without "#"');
-    }
-
-    /**
-     * Generates a random number from pseudorandom generator using Math.random
-     * method.
-     *
-     * @param a {number} random number start range.
-     * @param b {number} random number end range.
-     * @return {number} a random number in between a & b.
-     * */
-    static random = (a, b) => Math.floor(Math.random() * b) + a;
-
-    static jqueryuiISO = (id) => $(`#${id}`).datepicker({dateFormat: "yy-mm-dd"});
-
-    /**
-     * This keeps the only JS EXECUTION THREAD busy in a loop for specified
-     * amount of seconds
-     *
-     * @param {number} sec amount of seconds to be sleeping for
-     * */
-    static sleep(sec) {
-        sec = (new Date().valueOf()) + (1000 * sec);
-        while (true) if (new Date().valueOf() >= sec) break;
-    }
-
-    static getChildOf = (selector, parent) => $(parent).find(`${selector}`)[0];
-
-    static getChildrenOf = (id, parent) => $(parent).find(`${id}`).children();
-
-    static queryParam(key, defaultValue) {
-        let params = new URL(document.location).searchParams;
-        let value = params.get(key);
-        return value != null ? value : defaultValue;
-    }
-
-    static uniqueId() {
-        let timestamp = Date.now().toString();
-        let random = this.random(1, 1000);
-        return `${timestamp}${random}`;
-    }
-
-    static switchCls(condition, cls, ele) {
-        if (condition) $(ele).addClass(cls);
-        else $(ele).removeClass(cls);
-    }
-
-    static updateProperties() {
-
-        window.log = (msg) => console.log(msg);
-        window.warn = (msg) => console.warn(msg);
-        window.err = (msg) => console.error(msg);
-        window.info = (msg) => console.info(msg);
-
-        Object.defineProperty(Array.prototype, 'owns', {
-            value: function (item) {
-                if (item === undefined) throw new Error(`Key can't be undefined.`);
-                return this.indexOf(item) !== -1;
-            },
-            writable: false, // no code can rewrite/modify the contain method
-            configurable: false // no one can configure this property
-        });
-
-        Object.defineProperty(Array.prototype, 'missing', {
-            value: function (item) {
-                if (item === undefined) throw new Error(`Key can't be undefined.`);
-                return this.indexOf(item) === -1;
-            },
-            writable: false, // no code can rewrite/modify the contain method
-            configurable: false // no one can configure this property
-        });
-
-        Object.defineProperty(Array.prototype, 'erase', {
-            value: function (item) {
-                let index = this.indexOf(item);
-                if (index < 0) return null;
-                let value = this[index];
-                this.splice(index, 1);
-                return value;
-            }, writable: false, configurable: false
-        });
-
-        Object.defineProperty(Array.prototype, 'eraseAt', {
-            value: function (index) {
-                if (typeof index !== 'number' || index < 0) return null;
-                let value = this[index];
-                this.splice(index, 1);
-                return value;
-            }, writable: false, configurable: false
-        });
-
-        Object.defineProperty(Object.prototype, 'owns', {
-            value: function (key) {
-                if (key === undefined) throw new Error(`Key can't be undefined.`);
-                return this.hasOwnProperty(key);
-            },
-            writable: false, // no code can rewrite/modify the contain method
-            configurable: false // no one can configure this property
-        });
-
-        Object.defineProperty(Object.prototype, 'missing', {
-            value: function (key) {
-                if (key === undefined) throw new Error(`Key can't be undefined.`);
-                return !this.owns(key);
-            },
-            writable: false, // no code can rewrite/modify the contain method
-            configurable: false // no one can configure this property
-        });
-
-        Object.defineProperty(Object.prototype, 'erase', {
-            value: function (key) {
-                let val = {key: key, value: this[key]};
-                delete this[key];
-                return val;
-            }, writable: false, configurable: false
-        });
-
-        /*
-        * Add various helpful property methods to objects os Array, String, Object to
-        * make it easier for code writing and clarity.
-        * */
-
-        Object.defineProperty(String.prototype, 'capitalize', {
-            value: function (lower = false) {
-                return (lower ? this.toLowerCase() : this).replace(/(?:^|\s|["'([{])+\S/g, match => match.toUpperCase());
-            }
-        });
-    }
-
-    /**
-     * Adds OverlayScrollbars to specified element
-     *
-     * @param {HTMLElement} ele
-     * */
-    static overlayScrollbar(ele) {
-        if (typeof OverlayScrollbars !== 'function') {
-            warn(`OverlayScrollbars is not working properly. Popup can't scroll their content.`);
-            return;
-        }
-
-        OverlayScrollbars(ele, {
-            scrollbars: {
-                clickScrolling: true,
-                dragScrolling: true,
-                autoHide: 'move',
-                autoHideDelay: 1500
-            },
-        })
-    }
-
-    static addCSS(link) {
-        let cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.type = 'text/css';
-        cssLink.href = link;
-        document.head.appendChild(cssLink);
-    }
-
-}
-
-jst.updateProperties();
-
-/*
-* Add required css files
-* */
-(() => {
-    jst.addCSS('https://cdn.jsdelivr.net/npm/overlayscrollbars/css/OverlayScrollbars.min.css');
-    jst.addCSS(`https://cdn.jsdelivr.net/gh/csabdulahad/jst@${jst.version()}/dist/jst-min.css`)
-})();
-
-/**
-* Modal class really simplifies showing modal in the web page. It adds overlay div
-* on construction. Method show and hide can be configured with object-config and callback
-* functions.
-*
-* Any div marked with jst-modal will become ready to be shown as modal.
-* data-jst-modal-title attribute can add the title to the modal from HTML markup.
-* optionally Modal.title() can be invoked for title.
-*
-* Modal can also be configured with dark() and light() method where appropriate styles are
-* applied behind the scene.
-*
-* The overall layout structure is like the following.
-*
-*       <div .jst-overlay>
-*       <div.jst-modal>
-*           <div.jst-modal-flex>
-*               <div.jst-modal-flex-child>
-*                   <div.jst-modal-header>
-*                       <h5.jst-modal-title>
-*                       <span.jst-modal-icon-close>
-*                   <div.jst-modal-content>
-* */
-
-(() => {
-
-    class Modal {
-
-        #id;
-
-        #dismissed = false;
-        #hidden = false;
-
-        #shownCallback
-        #dismissCallback;
-        #hideCallback;
-
-        // callback invoked when modal is shown from hidden state
-        #revivedCallback;
-
-        // whether the modal will be closeable by Esc keyup event or clicking outside the modal
-        #cancelable = false;
-
-        #dark = false;
-        #title;
-        #padding;
-
-        #modal = null;
-
-        /**
-        * @param {string} id
-        * */
-        constructor(id) {
-            this.#id = id;
-        }
-
-        #checkIfDismissed() {
-            if (this.#dismissed) throw new Error('Modal was dismissed. Create a fresh one!');
-        }
-
-        #adjustModalSize(width, height) {
-            let ele = jst.getChildOf('.jst-modal-flex-child', this.#modal);
-            $(ele).css('width', width);
-            $(ele).css('height', height);
-        }
-
-        #applyTheme() {
-            OverlayManager.theme(this.#dark);
-
-            let  ele = jst.getChildOf('.jst-modal-flex-child', this.#modal);
-            jst.switchCls(this.#dark, 'jst-modal-flex-child-dark', ele);
-
-            ele = jst.getChildOf('.jst-modal-header', this.#modal);
-            jst.switchCls(this.#dark, 'jst-modal-header-dark', ele);
-
-            ele = jst.getChildOf('.jst-modal-icon-close', this.#modal);
-            jst.switchCls(this.#dark, 'jst-modal-icon-close-dark', ele);
-        }
-
-        #updateCloseIcon() {
-            let closeIcon = jst.getChildOf('.jst-modal-icon-close', this.#modal);
-            if (!this.#cancelable) $(closeIcon).fadeOut(250);
-            else $(closeIcon).fadeIn(250);
-        }
-
-        #updateTitle() {
-            // get the modal title
-            let title =  this.#title || 'jstea Modal 😎';
-            $(jst.getChildOf('.jst-modal-title', this.#modal)).html(title);
-        }
-
-        #setCloseIconCallback() {
-            let btn = jst.getChildOf('.jst-modal-icon-close', this.#modal);
-            jst.click(btn, () => this.dismiss());
-        }
-
-        #injectDOM() {
-            let modalFlex = jst.getChildOf('.jst-modal-flex', this.#modal);
-
-            // check whether the modal dom has already been injected
-            if (jst.isDef(modalFlex)) return;
-
-            // wrap all the content of the div of class jst-modal inside the jst-modal-flex
-            // so that we can show the modal as display flex where the position x & y will be automatic.
-            let modalFlexHtml = `<div class="jst-modal-flex"><div class="jst-modal-flex-child"><div  class="jst-modal-content"></div></div></div>`;
-            $($(this.#modal).contents()).wrapAll(modalFlexHtml);
-
-            // adjust padding
-            $(this.#modal).find('.jst-modal-content').css('padding', this.#padding);
-
-            let modalFlexChild = jst.getChildOf('.jst-modal-flex-child', this.#modal);
-            let modalHeader = `
-                <div class="jst-modal-header">
-                    <h5 class="jst-m-0 jst-p-0 jst-modal-title"></h5>
-                    <span class="material-icons jst-modal-icon-close" title="Close window">close</span>
-                </div>
+	class JstIcon  {
+		
+		#iconPool = {};
+		
+		#apply(ele, animType, text) {
+			ele = jst.eleById(ele);
+			if (!ele) throw new Error(`No icon element found for ${ele}`);
+			
+			// Get the unique id for the icon element so that we can track its animation class
+			// and restore it back to the original state. If no id attribute is found; so give
+			// it a unique id and save it in the pool.
+			let id = $(ele).attr('id');
+			if (!id) {
+				id = 'jst-id-' + JstIcon.#getUId();
+				$(ele).attr('id', id);
+			}
+			
+			// Define an object for holding various information for the icon and its state, parent.
+			const obj = {};
+			
+			obj.id = id;
+			obj.ele = ele;
+			
+			/*
+			 * Catch innerHTML
+			 */
+			obj.innerHTML = ele.innerHTML;
+			
+			let element = $(ele);
+			
+			obj.padding = element.css('padding');
+			
+			/*
+			 * Decide the class type & attributes
+			 */
+			let emptyTxt = (text?.length ?? 0) === 0;
+			let txt = emptyTxt ? '' : `&nbsp;${text}`;
+			let pad = emptyTxt ? '' : 'jst-px-8';
+			let layout = emptyTxt ? 'jst-lay-center' : 'jst-lay-xs-yc jst-gap-4';
+			let w = emptyTxt ? `min-width: ${element.innerWidth()}px;` : '';
+			let h = element.innerHeight() + 'px';
+			
+			let iconCls;
+			
+			switch (animType) {
+				case 'spin':
+					iconCls = 'jst-anim-spin';
+					break;
+				
+				case 'spin-color':
+					iconCls = 'jst-anim-spin-color'
+					break;
+
+				default:
+					iconCls = 'jst-anim-pulse';
+			}
+			
+			let loaderIconDom = `
+				<div class="${layout} ${pad}" style="${w} height: ${h};">
+					<span class="jst-icon-swap ${iconCls}"></span>${txt}
+				</div>
+			`;
+			
+			element.css('padding', 0);
+			element.empty().html(loaderIconDom);
+			
+			// Before returning the obj modify the parent opacity
+			element.animate({opacity: 0.7});
+			
+			// Also make it disable
+			element.attr('disabled', 'true');
+			
+			// Now save it in the icon pool
+			this.#iconPool[id] = obj;
+			
+			return obj;
+		}
+		
+		#getObj(ele) {
+			ele = jst.eleById(ele);
+			
+			if (!ele) throw new Error(`No element found in the document as specified by the argument.`);
+			
+			let id = $(ele).attr('id');
+			if (!id) throw new Error('This element did not go through icon methods yet.');
+			
+			if (this.#iconPool.missing(id)) throw new Error('This element was not found in the icon pool.');
+			
+			return this.#iconPool[id];
+		}
+		
+		/**
+		 * Any element can be animated in pulse motion. The element must have an id and its child
+		 * must be classed with .jst-icon-swap.
+		 *
+		 * @param {string|object} ele It can be the id with/without '#' or the element object which
+		 * is to be animated.
+		 *
+		 * @param {string} text Text to show next to icon
+		 * */
+		pulse(ele, text = '') {
+			this.#apply(ele, 'pulse', text);
+		}
+		
+		/**
+		 * Any element can be animated in spin motion. The element must have an id and its child
+		 * must be classed with .jst-icon-swap.
+		 *
+		 * @param {string|object} ele It can be the id with/without '#' or the element object which
+		 * is to be animated.
+		 *
+		 * @param {string} text Text to show next to icon
+		 * */
+		spin(ele, text = '') {
+			this.#apply(ele, 'spin', text);
+		}
+		
+		spinColor(ele, text = '') {
+			this.#apply(ele, 'spin-color', text);
+		}
+
+		/**
+		 * Any element in animation can be restored. When restored, in-animation content inside element
+		 * is also restored.
+		 *
+		 * @param ele {string|object} It can be the id with/without '#' or the element object which
+		 * is to stop animating
+		 * */
+		restore(ele) {
+			let obj = this.#getObj(ele);
+			let element = $(obj.ele);
+			
+			// Apply padding
+			element.css('padding', obj.padding);
+			
+			// Remove innerHTMl and then put back what was before
+			element.empty().html(obj.innerHTML);
+			
+			// Restore parent opacity
+			element.animate({opacity: '1'});
+			
+			// Make parent intractable
+			element.removeAttr('disabled');
+			
+			// Clear from the icon pool!
+			delete this.#iconPool[obj.id];
+		}
+		
+		/**
+		 * Sets disabled attribute to the element.
+		 *
+		 * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+		 * or can't have # at the beginning.
+		 * */
+		disable(ele) {
+			$(jst.eleById(ele)).attr('disabled', 'true');
+		}
+		
+		/**
+		 * Enables the element by removing disabled attribute
+		 *
+		 * @param {string | HTMLInputElement} ele Input field id or the element itself. Id can
+		 * or can't have # at the beginning.
+		 * */
+		enable(ele) {
+			$(jst.eleById(ele)).removeAttr('disabled');
+		}
+		
+		static #getUId = () => new Date().valueOf();
+		
+	}
+	
+	window.JstIcon = new JstIcon();
+	
+})()
+class JstModal {
+	
+	#id;
+	#option;
+	
+	// Indicates whether to run the one time setup callback!
+	#runSetupFn = true;
+	
+	#initialized = false;
+	#hidden = false;
+	
+	/**
+	 * Indicates whether the modal is shown for the first time.
+	 * It is then always false after every time the modal is shown
+	 */
+	#firstBoot = true;
+	
+	#modal = null;
+	
+	/*
+	 * Holds callback for topic event handling
+	 * */
+	#topicCallback = {};
+	
+	#injectDataId;
+	
+	/**
+	 * @param {string} id
+	 * @param {object=} options Optional values
+	 * @param {string=} options.title Sets the modal title. It can be html or string value. Default is "jst-Modal".
+	 * @param {boolean=} options.reusable - Whether the modal can be reused. Default is true for non-iFramed modal.
+	 * @param {number|string=} options.width - The width of the modal. Default width is 100% of the parent window.
+	 * @param {number|string=} options.height - The height of the modal. Default height is 100% of the parent window.
+	 * @param {number|string=} options.padding - The padding of the modal. Default is 1rem.
+	 * @param {string=} options.url - Url for the iframe webpage
+	 * @param {object=} options.injectData - Any data to pass to iFramed modal
+	 * @param {boolean=} options.cancelable - Flag makes the modal cancellation status
+	 * @param {boolean=} options.overlay - Flag hides/shows the overlay below the modal
+	 * @param {boolean=} options.decorated - Flag removes the header from the modal
+	 * @param {boolean=} options.showCloseIcon - Whether to show close icon if modal is undecorated
+	 * @param {number=} options.opacity - Opacity value 0 to 1 for the overlay behind the modal
+	 * @param {'light'|'dark'=} options.theme - Modal theme. Light is default theme
+	 * @param {boolean=} options.showLoaderText - Text to display as loader label while fetching iframe paged
+	 * @param {string=} options.loaderText - Text to display as loader label while fetching iframe paged
+	 * */
+	constructor(id, options = {}) {
+		this.#id = id;
+		
+		jst.setProperty(options, 'title', 'jst-Modal');
+		jst.setProperty(options, 'width', '100%');
+		jst.setProperty(options, 'height', '100%');
+		jst.setProperty(options, 'padding', '1rem');
+		jst.setProperty(options, 'cancelable', true);
+		jst.setProperty(options, 'overlay', true);
+		jst.setProperty(options, 'decorated', true);
+		jst.setProperty(options, 'showCloseIcon', true);
+		jst.setProperty(options, 'theme', JstOverlay.getTheme());
+		jst.setProperty(options, 'opacity', -1);
+		jst.setProperty(options, 'url', null);
+		jst.setProperty(options, 'reusable', !options['url']);
+		jst.setProperty(options, 'showLoaderText', true);
+		jst.setProperty(options, 'loaderText', 'Loading...');
+		jst.setProperty(options, 'injectData', null);
+		
+		this.#option = options;
+		
+		// Cache the modal so that we don't waste memory, if possible!
+		JstOverlay._cacheClient(this);
+		
+		// We deferred injecting into DOM since this iFramed modal could cover its parent
+		// iFramed modal. So we need to check if parent allows this when showing!
+		if (this.isIFramedModal() && JstOverlay.hasParent()) {
+			return;
+		}
+		
+		this.#init();
+	}
+	
+	#init () {
+		this.#injectDOM();
+		this.#attachCloseIconListener();
+		this.#adjustModalSize();
+		this.#updateCloseIcon();
+		
+		this.#applyTheme(this.#option.theme === 'dark');
+		
+		this.#initialized = true;
+	}
+	
+	#injectDOM() {
+		let modalContainer;
+		
+		if (this.#option.url) {
+			modalContainer = this.#iframeModal();
+		} else {
+			modalContainer = this.#pageContentModal();
+		}
+		
+		// Adjust padding
+		$(this.#modal)
+			.find('.jst-modal-content')
+			.css('padding', this.#option.padding);
+		
+		/*
+		 * Inject decorated header, if asked
+		 */
+		if (!this.#option.url && this.#option.decorated) {
+			let modalHeader = `
+				<div class="jst-modal-header">
+					<h4 class="jst-modal-title">${this.#option.title}</h4>
+					<span class="jst-modal-icon-close" title="Close"></span>
+				</div>
             `;
-            $(modalFlexChild).prepend(modalHeader);
+			
+			$(modalContainer).prepend(modalHeader);
+			return;
+		}
+		
+		/*
+		 * Or it is only to show the close icon?
+		 */
+		if (this.#option.showCloseIcon) {
+			let headerIcon = `
+				<div class="jst-modal-header-less">
+					<span class="jst-modal-icon-close" title="Close"></span>
+				</div>
+			`;
+			
+			$(modalContainer).prepend(headerIcon);
+		}
+	}
+	
+	#iframeModal() {
+		let iframeThemeCls = this.#option.theme === 'dark' ? 'jst-dark' : '';
+		let loaderText = this.#option.showLoaderText ? `<h4 class="jst-modal-loader-label">${this.#option.loaderText}</h4>` : '';
+		
+		//Add iframe overlay background class to hide its parent modal
+		let iframeOverlayBG = JstOverlay.hasParent() ? 'jst-modal-iframe-overlay-bg' : '';
+		
+		/*
+		 * Set inject data in GOD-parent with a unique id for this modal
+		 */
+		let dataAttr = '';
+		
+		if (this.#option.injectData && this.#option.url) {
+			this.#injectDataId = jst.uniqueId();
+			dataAttr = `data-data-id="${this.#injectDataId}"`;
+			JstOverlay._setClientData(this.#injectDataId, this.#option.injectData);
+		}
+		
+		let content = `
+			<div class="jst-modal" id="${this.#id}">
+				<div class="jst-modal-d-block ${iframeOverlayBG}">
+					<div class="jst-modal-loader-wrapper" style="width: ${this.#option.width}; height: ${this.#option.height}">
+						<div class="jst-modal-loader"></div>
+						${loaderText}
+					</div>
+	
+					<div class="jst-modal-iframe-overlay-bg"></div>
+					
+					<div class="jst-modal-container" style="display: none;">
+						<iframe ${dataAttr}
+								id="${this.#id}-frame"
+								style="z-index: 1;"
+								src="${this.#option.url}">
+						</iframe>
+						
+						<script>
+							(() => {
+								const iframe = document.getElementById('${this.#id}-frame');
+								
+								const loaderDiv = $(iframe).parent().prev().prev();
+								loaderDiv.css({
+									width: '${this.#option.width}',
+									height: '${this.#option.height}'
+								});
+								
+								iframe.addEventListener('load', () => {
+									let iDoc = iframe.contentDocument || iframe.contentWindow.document;
+								
+									// Append theme class to the iframe body so that client can apply colors correcntly
+									$(iDoc.body).addClass('${iframeThemeCls}');
+									
+									/*
+									 * Set first boot flag to false and then invoke onResume method!
+									 */
+									const parent = window.parent.JstOverlay.getPopup('${this.#id}');
+									parent?.onResume(true);
+									
+									// Fade-out the loader
+									$(loaderDiv).fadeOut(250, () => {
+										// Show the iframe body
+										$(iframe).parent().fadeIn(250);
+										
+										parent?.onShown(true);
+										parent?._setFirstBootComplete();
+									});
+									
+									$(iDoc).on('keydown', (e) => {
+										let keyboard = e.type === 'keydown' && e.key === 'Escape';
+										if (!keyboard) return;
+										
+										JstOverlay._handleEscapeEvent(e);
+									});
+								});
+							})();
+						</script>
+					</div>
+				</div>
+			</div>
+		`;
+		
+		$('body').append(content);
+		
+		this.#modal = $(`#${this.#id}`);
+		return jst.getChildOf('.jst-modal-container', this.#modal);
+	}
+	
+	#pageContentModal() {
+		this.#modal = $(jst.eleById(this.#id));
+		
+		/*
+		 * Wrap the content of div.jst-modal in div.modal-content.
+		 * And then wrap that div.modal-content in div.modal-container
+		 */
+		let content = `
+			<div class="jst-modal-d-block">
+				<div class="jst-modal-container">
+					<div class="jst-modal-content" id="${this.#id}-content"></div>
+				</div>
+			</div>
+		`;
+		
+		$($(this.#modal).contents()).wrapAll(content);
+		return jst.getChildOf('.jst-modal-container', this.#modal);
+	}
+	
+	#attachCloseIconListener () {
+		let btn = jst.getChildOf('.jst-modal-icon-close', this.#modal);
+		$(btn).click(() => this.close());
+	}
+	
+	#adjustModalSize() {
+		let ele = jst.getChildOf('.jst-modal-container', this.#modal);
+		
+		$(ele).css({
+			width: this.#option.width,
+			height: this.#option.height
+		});
+	}
+	
+	#updateCloseIcon() {
+		let closeIcon = jst.getChildOf('.jst-modal-icon-close', this.#modal);
+		closeIcon = $(closeIcon);
+		
+		if (!this.#option.showCloseIcon) $(closeIcon).fadeOut(250);
+		else $(closeIcon).fadeIn(250);
+		
+		/*
+		 * Apply position `absolute` to modal content to show it from
+		 * the top-left position within the modal.
+		 */
+		let modalContent = jst.getChildOf('.jst-modal-content', this.#modal);
+		modalContent = $(modalContent);
+		
+		if (!this.#option.decorated) {
+			$(modalContent).css({
+				position: 'absolute',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0
+			});
+		} else {
+			$(modalContent).css({
+				position: 'initial'
+			});
+		}
+	}
+	
+	#applyTheme(isDark) {
+		if (isDark) {
+			this.#modal.addClass('jst-dark');
+		} else {
+			this.#modal.removeClass('jst-dark');
+		}
+		
+		if (!this.isIFramedModal()) return;
+		
+		if (isDark) {
+			$(this.getIframeBody()).addClass('jst-dark');
+		} else {
+			$(this.getIframeBody()).removeClass('jst-dark');
+		}
+	}
+	
+	#updateTitle() {
+		let titleDOM = jst.getChildOf('.jst-modal-title', this.#modal);
+		$(titleDOM).html(this.#option.title);
+	}
+	
+	#show() {
+		// #1 - Try to take over the overlay
+		let acquired = JstOverlay._acquire(this);
+		
+		if (!acquired) return;
+		
+		/*
+		 * #2
+		 * Only invoke onResume if it is iFramed modal but not the first
+		 * or it is not an iFramed modal!
+		 * */
+		let a = this.isIFramedModal() && !this.#firstBoot;
+		let b = !this.isIFramedModal();
+		let invoke = a || b;
+		if (invoke) {
+			this.onResume(this.#firstBoot);
+		}
+		
+		// #3 - Figure out the right callback to invoke on modal shown/resumed
+		$(this.#modal).fadeIn(250, () => {
+			/*
+			 * onShown method will be handled by iframe onLoad event callback
+			 * and first boot flag will be set to false. So only call onShown
+			 * if it not an iFramed modal or the first boot flag has been set
+			 * false!
+			 */
+			if (this.isIFramedModal() && this.#firstBoot) return;
+			
+			this.onShown(this.#firstBoot);
+			
+			if (this.#firstBoot) this.#firstBoot = false;
+		})
+		
+		// #3 - Set hidden status
+		this.#hidden = false;
+	}
+	
+	_setFirstBootComplete () {
+		this.#firstBoot = false;
+	}
+	
+	/**
+	 * This method is invoked when a modal is in display and users hits the escape button.
+	 * JstOverlay calls this method automatically.
+	 * <br><b>Warning: This method should be called directly.</b>
+	 */
+	_handleEscape() {
+		if (!this.#option.cancelable) return;
+		
+		this.close();
+	}
+	
+	/**
+	 * JstOverlay invokes this method when the modal is being shown from hidden
+	 * state.
+	 * <br><b>Warning: It should be called directly.</b>
+	 */
+	_makeVisible() {
+		this.#hidden = false;
+		
+		this.onResume(false);
+		
+		$(this.#modal).fadeIn(250, () => this.onShown(false));
+	}
+	
+	/**
+	 * JstOverlay invokes this method when the modal needs to be hidden on another modal requesting
+	 * it to be hidden.
+	 * <br><b>Warning: It should be called directly.</b>
+	 */
+	_hide() {
+		if (this.#hidden) {
+			warn(`Visible popups must be closed first`);
+			return;
+		}
+		
+		this.#hidden = true;
+		$(this.#modal).fadeOut(250, () => this.onHidden());
+	}
+	
+	/**
+	 * When there is an iframe modal to come, then parent modal needs to hide
+	 * its header and stop scrolling its content to avoid capturing child's
+	 * event!
+	 *
+	 * @param {boolean} value whether to set/restore parent state
+	 * */
+	_prepareForIframe (value) {
+		if (!this.isIFramedModal()) return;
+		
+		let iframe = jst.getChildOf(`#${this.#id}-frame`, this.#modal);
+		let body = $(iframe['contentDocument'].body);
+		
+		let overflow = value ? 'auto' : 'hidden';
+		body.css('overflow', overflow);
+		
+		let header = $(this.#modal).find('.jst-modal-header-less');
+		
+		if (value) {
+			$(header).fadeIn(250);
+		} else {
+			$(header).fadeOut(250);
+		}
+	}
+	
+	/**
+	 * Shows the modal.
+	 *
+	 * @return {JstModal}
+	 */
+	show() {
+		/*
+		 * If this modal is shown from an iFramed modal, then we need to check if the
+		 * parent modal wants to hide themselves or not. Invoke onHide on parent to
+		 * do that. If they agree, then init this modal.
+		 */
+		if (this.isIFramedModal() && JstOverlay.hasParent()) {
+			let parentClient = window.parent.JstOverlay.getTopClient();
+			let canParentHide = parentClient?.onHide() ?? true;
+			if (!canParentHide) return this;
+			
+			if (!this.#initialized) this.#init();
+		}
+		
+		if (!this.#initialized) {
+			throw new Error(`Modal #${this.#id} must have been initialized before it can be shown`);
+		}
+		
+		/*
+		 * Show after a bit of delay to avoid overlay animation glitch because of caching
+		 */
+		if (JstOverlay.isReady()) {
+			this.#show();
+			return this;
+		}
+		
+		jst.runLater(0.05, () => this.#show());
+		
+		return this;
+	}
+	
+	/*
+	 * Dismisses the modal
+	 */
+	close() {
+		if (this.#hidden) {
+			warn(`Attempted to close hidden model #${this.id}`);
+			return;
+		}
+		
+		// Can we close this modal based on the provided close callback?
+		let canClose = this.onClose() ?? true;
+		
+		if (!canClose) return;
+		
+		JstOverlay._release(this);
+		$(this.#modal).fadeOut(250, () => {
+			this.onClosed();
+			
+			/*
+			 * Remove the iframe from the DOM and delete client data
+			 * if the iframe was set to be not reusable!
+			 */
+			if (this.isIFramedModal() && !this.isReusable()) {
+				this.#modal.remove();
+				
+				if (this.#option.data && this.#option.url) {
+					JstOverlay._deleteClientData(this.#injectDataId)
+				}
+			}
+		});
+	}
+	
+	/**
+	 * @return {string}
+	 * */
+	get id() {
+		return this.#id;
+	}
+	
+	/**
+	 * Callback, invoked when user closes the modal or pressed the escape
+	 * button. It is invoked by JstOverlay to determine if this modal wants to close
+	 * itself and release the acquired overlay for the next modals to use.
+	 * */
+	onClose() {
+		return true;
+	}
+	
+	/**
+	 * Callback, invoked when user closes the modal or pressed the escape
+	 * button.
+	 * */
+	onClosed() {
+	
+	}
+	
+	/**
+	 * Callback, invoked when the modal is going to be hidden.
+	 * It is invoked by JstOverlay to determine if this modal wants to hide
+	 * itself and release the acquired overlay for the next modals to use.
+	 *
+	 * @return {boolean} boolean to indicate whether the modal can be hid or not
+	 * */
+	onHide() {
+		return true;
+	}
+	
+	/**
+	 * Callback, invoked when the modal has just been hidden
+	 */
+	onHidden() {
+	
+	}
+	
+	/**
+	 * Callback, invoked when the modal is being shown from hidden state.
+	 *
+	 * @param {boolean} firstBoot True value indicates the model is shown for the first time. False value indicates
+	 * the normal resume of the modal from hidden state or closed state.
+	 * */
+	onResume(firstBoot) {
+	
+	}
+	
+	/**
+	 * Callback, invoked when the modal has just been shown.
+	 *
+	 * @param {boolean} firstBoot True value indicates the model is shown for the first time. False value indicates
+	 * the normal resume of the modal from hidden state or closed state.
+	 * */
+	onShown(firstBoot) {
+	
+	}
+	
+	/**
+	 * Set theme to the modal.
+	 *
+	 * @param {'light'|'dark'} theme
+	 * */
+	setTheme(theme) {
+		/*
+		 * Check if the theme was previously applied!
+		 */
+		if (this.#option.theme === theme) return;
+		
+		this.#option.theme = theme;
+		
+		let dark = theme === 'dark';
+		this.#applyTheme(dark);
+	}
+	
+	/**
+	 * Tells whether the modal is shown or not
+	 *
+	 * @return {boolean} true if the modal is shown, false otherwise
+	 * */
+	isShown() {
+		return !this.#hidden;
+	}
+	
+	/**
+	 * Returns whether the modal has overlay to show behind it
+	 *
+	 * @return boolean
+	 * */
+	getShowOverlay() {
+		return this.#option.overlay;
+	}
+	
+	/**
+	 * Returns the opacity for overlay background
+	 *
+	 * @return {number}
+	 */
+	getOpacity() {
+		return this.#option.opacity;
+	}
+	
+	/**
+	 * Returns if the modal is cancelable on keyboard escape event or on mouse clicked
+	 * on outside the modal content area.
+	 *
+	 * @return {boolean}
+	 */
+	isCancelable() {
+		return this.#option.cancelable;
+	}
+	
+	/**
+	 * Resizes the model width & height. Values can either be in number, number with units or even
+	 * percentage values like '100%' etc.
+	 *
+	 * @param {number|string} width
+	 * @param {number|string} height
+	 */
+	setSize(width, height) {
+		this.#option.width = width;
+		this.#option.height = height;
+		
+		this.#adjustModalSize();
+	}
+	
+	/**
+	 * Change the modal width. Value can be number, number with units or even be a percentage value like
+	 * '100%' etc.
+	 *
+	 * @param {number|string} width
+	 */
+	setWidth(width) {
+		this.#option.width = width;
+		this.#adjustModalSize();
+	}
+	
+	/**
+	 * Change the modal height. Value can be number, number with units or even be a percentage value like
+	 * '100%' etc.
+	 *
+	 * @param {number|string} height
+	 */
+	setHeight(height) {
+		this.#option.height = height;
+		this.#adjustModalSize();
+	}
+	
+	/**
+	 * Sets the modal title. It can be html or string value
+	 *
+	 * @param title {string} Modal title
+	 * */
+	setTitle(title) {
+		this.#option.title = title;
+		this.#updateTitle();
+	}
+	
+	/**
+	 * Changes cancelable property of the modal
+	 *
+	 * @param {boolean} value
+	 */
+	setCancelable(value) {
+		this.#option.cancelable = value;
+		this.#updateCloseIcon();
+	}
+	
+	/**
+	 * Show/hides the modal close icon in the header
+	 *
+	 * @param {boolean} value
+	 */
+	setShowCloseIcon(value) {
+		this.#option.showCloseIcon = value;
+		this.#updateCloseIcon();
+	}
+	
+	/**
+	 * Returns if the close icon is set to be shown/hidden.
+	 *
+	 * @return boolean
+	 * */
+	getShowCloseIcon() {
+		return this.#option.showCloseIcon;
+	}
+	
+	/**
+	 * Returns if the model loaded an iframe as model content.
+	 *
+	 * @return boolean
+	 * */
+	isIFramedModal() {
+		return this.#option.url != null;
+	}
+	
+	/**
+	 * Runs the callback only once for a reusable modal. Helpful for scenarios
+	 * where a code-block needs to run once. It always invokes in order as it appears
+	 * in method chaining or program flow!
+	 *
+	 * @param {function(JstModal)} fn
+	 * */
+	setup (fn) {
+		if (!this.#runSetupFn) return this;
+		this.#runSetupFn = false;
+		
+		fn(this);
+		return this;
+	}
+	
+	/**
+	 * Any type of topic can be listened and a callback will be invoked on that
+	 * topic emission in code. Callback invocation happens down stream meaning
+	 * emitting an event of a topic will always go to parent modal/client!
+	 *
+	 *
+	 * @param {string} topic
+	 * @param {function(data: object)} callback. Callback should decide whether to bubble down
+	 * the topic dispatching down the hierarchy by returning true/false. By default, default it
+	 * returns true and propagates the topic event. Return false to stop.
+	 *
+	 * @return {JstModal}
+	 * */
+	subscribeEvent (topic, callback) {
+		/*
+		 * Check if the topic was subscribed previously
+		 * */
+		if (this.#topicCallback.owns(topic)) {
+			console.warn(`Topic ${topic} has already been subscribed`);
+			return this;
+		}
+		
+		this.#topicCallback[topic] = JstOverlay.subscribeEvent(topic, callback);
+		return this;
+	}
+	
+	/**
+	 * Unsubscribes from listening the topic registered before.
+	 *
+	 * @param {string} topic
+	 * */
+	unsubscribeEvent (topic) {
+		if (!this.#topicCallback.owns(topic)) {
+			console.warn(`Unknown topic ${topic} can't be unsubscribed`);
+			return false;
+		}
+		
+		delete this.#topicCallback[topic];
+		return JstOverlay.unsubscribeEvent(this.#topicCallback[topic]);
+	}
+	
+	/**
+	 * For a topic registered with JstOverlay, topic callback id is returned.
+	 *
+	 * @param {string} topic
+	 * @return {?string}
+	 * */
+	getTopicId (topic) {
+		return this.#topicCallback[topic] ?? null;
+	}
+	
+	/**
+	 * Emits event for the topic with data.
+	 *
+	 * @param {string} topic
+	 * @param {object} data
+	 * */
+	emmitEvent (topic, data) {
+		JstOverlay.emitEvent(topic, data);
+	}
+	
+	/**
+	 * @return {?HTMLElement}
+	 * */
+	getIframeBody () {
+		return document.getElementById(`${this.#id}-frame`)?.contentDocument.body ?? null;
+	}
+	
+	/**
+	 * Returns if the modal is set to reusable or not.
+	 * This only applies to iframe modal.
+	 *
+	 * @return {boolean}
+	 * */
+	isReusable () {
+		if (!this.#option.url) return true;
+		
+		return this.#option.reusable;
+	}
+	
+}
 
-            // initiate the scrollbar for the modal content
-            let modalContent = jst.getChildOf('.jst-modal-content', modalFlexChild);
-            jst.overlayScrollbar(modalContent);
-        }
-
-        /**
-         * Sets a callback to be notified when user closes the modal or pressed the escape
-         * button.
-         *
-         * @param callback {function} Function to be invoked when the modal is dismissed
-         * @return Modal
-         * */
-        onDismiss(callback) {
-            this.#dismissCallback = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the modal is going to be hidden
-         *
-         * @param callback {function} Function to be invoked when the modal just has been hidden
-         * @return Modal
-         * */
-        onHide(callback) {
-            this.#hideCallback = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the modal is being shown from hidden state.
-         *
-         * @param {function()} callback Function to be invoked when the modal is being shown from hidden state
-         * @return Modal
-         * */
-        onRevived(callback) {
-            this.#revivedCallback = callback;
-            return this;
-        }
-
-        /**
-         * Sets a callback to be notified when the modal is being shown for the first time
-         *
-         * @param {function()} callback Function to be invoked
-         * @return Modal
-         * */
-        onShown(callback) {
-            this.#shownCallback = callback;
-            return this;
-        }
-
-        /**
-         * This method is invoked when a modal is in display and users hits the escape button.
-         * OverlayManager calls this method automatically.
-         * <br><b>This method should be called directly.</b>
-         *
-         * @param event {object} Keyup event object passed in by the OverlayManger
-         * */
-        onEscapeEvent(event) {
-            if (this.#cancelable) this.dismiss();
-        }
-
-        #show(option) {
-            this.#checkIfDismissed();
-
-            let {w=450, h = 'auto', pad = '1rem', cancelable = true} = option;
-
-            this.#id = jst.id(this.#id);
-            this.#modal = $(jst.eleId(this.#id));
-            this.#cancelable = cancelable;
-            this.#padding = pad;
-
-            this.#injectDOM();
-            this.#setCloseIconCallback();
-            this.#adjustModalSize(w, h);
-            this.#updateTitle();
-            this.#updateCloseIcon();
-            this.#applyTheme();
-
-            // acquire the overlay & show the modal
-            OverlayManager.acquire(this);
-            this.#modal.fadeIn(250, () => {
-                if (this.#shownCallback) this.#shownCallback();
-            });
-
-            this.#hidden = false;
-        }
-
-        /**
-         * Shows the modal
-         *
-         * @param {object=} option Optional values: w=450, h=auto, cancelable=true, padding=1rem
-         * @param {number|string=} option.w - The width of the modal in px. Max value is 75% of the window's inner width.
-         * @param {number|string=} option.h - The height of the modal in px. Max height is 75% of the window's inner height.
-         * @param {number|string=} option.pad - The padding of the modal in px
-         * @param {boolean=} option.cancelable - Flag makes the modal cancellation status
-         * */
-        show(option = {}) {
-            if (OverlayManager.notReady()) {
-                // show after a bit of delay to avoid overlay animation glitch because of caching
-                jst.runLater(0.05, () => this.#show(option));
-            } else this.#show(option);
-        }
-
-        /*
-        * Dismisses the modal
-        * */
-        dismiss() {
-            if (this.#dismissed) return;
-            this.#dismissed = true;
-
-            OverlayManager.release(this);
-            $(this.#modal).fadeOut(250, () => {
-                if (this.#dismissCallback) this.#dismissCallback();
-            });
-        }
-
-        /**
-         * Hides the modal
-         * * */
-        hide() {
-            if (this.#dismissed) return;
-
-            this.#hidden = true;
-
-            $(this.#modal).fadeOut(250, () => {
-                if (this.#hideCallback) this.#hideCallback()
-            });
-        }
-
-        /**
-         * OverlayManager invokes this method when the modal is being shown from hidden
-         * state.
-         * <br><b>It should be called directly.</b>
-         * */
-        makeVisible() {
-            this.#hidden = false;
-            this.#applyTheme();
-            $(this.#modal).fadeIn(250, () => {
-                if (this.#revivedCallback) this.#revivedCallback();
-            });
-        }
-
-        /**
-         * Sets dark theme to the modal
-         *
-         * @return Modal
-         * */
-        dark() { this.#dark = true; return this; }
-
-        /**
-         * Sets light theme to the modal
-         *
-         * @return Modal
-         * */
-        light() { this.#dark = false; return this; }
-
-        /**
-         * Changes the modal title. It overrides the title defined in the data
-         * attribute by data-jst-modal-title.
-         *
-         * @param value {string} Modal title
-         * @return Modal
-         * */
-        title(value) {
-            this.#title = value;
-            return this;
-        }
-
-        /**
-         * Makes the modal not cancelable. UI element gets updated automatically.
-         *
-         * @return {Modal}
-         * */
-        notCancelable() {
-            this.#cancelable = false;
-            return this;
-        }
-
-        /**
-         * Makes the modal cancelable. UI element gets updated behind the scene.
-         *
-         * @return {Modal}
-         * */
-        cancelable() {
-            this.#cancelable = true;
-            return this;
-        }
-
-        /**
-         * Tells whether the modal is shown or not
-         *
-         * @return {boolean} true if the modal is shown, false otherwise
-         * */
-        shown() {
-            return !this.hidden;
-        }
-
-        get hidden() {
-            return this.#hidden;
-        }
-
-        get dismissed() {
-            return this.#dismissed;
-        }
-
-        get id () {
-            return this.#id;
-        }
-
-        /**
-         * Sets the modal title. It can be html or string value
-         *
-         * @param title {string} Modal title
-         * */
-        setTitle(title) {
-            this.#title =  title;
-            this.#updateTitle();
-        }
-
-        /**
-         * Applies dark theme to the modal
-         * */
-        makeDark() {
-            this.#dark = true;
-            this.#applyTheme();
-        }
-
-        /**
-         * Applies light theme to the modal
-         * */
-        makeLight() {
-            this.#dark = false;
-            this.#applyTheme();
-        }
-
-        /**
-         * Changes the non-cancelable modal to cancelable
-         * */
-        makeCancelable() {
-            this.#cancelable = true;
-            this.#updateCloseIcon();
-        }
-
-        /**
-         * Changes the non-cancelable modal to cancelable
-         * */
-        makeNotCancelable() {
-            this.#cancelable = false;
-            this.#updateCloseIcon();
-        }
-
-
-    }
-
-    /**
-     * Any DOM element marked with class .jst-modal and id can be modal-ed.
-     *
-     * @param {string|HTMLElement} id - It can be the id with/without '#' or the html element object which
-     * is to be shown as modal.
-     * @return {Modal} new modal
-     * */
-    window.Modal = (id) => new Modal(id);
-
-})();
-
-
-class Num {
-
-    /*
+class JstNum {
+	
+	/*
     * currency sign constants
     * */
-
-    static MONEY_BD = '৳';
-    static MONEY_GBP = '£';
-    static MONEY_USD = '$';
-
-    /**
-     * Any number can be formatted in either currency format with sign or fractional
-     * number with specified place.
-     *
-     * @param {number|string} input the number is either in string or number format.
-     * @param {string} money currency sign for the number.
-     * @param {boolean} lead0 indicates whether to add leading zero before the number.
-     * @param {number} place the fractional place of number.
-     * @return {string} formatted number with currency sign as specified by arguments.
-     * */
-    static format(input, money = '', lead0 = false, place = 2) {
-        // make sure we have a number
-        let num = parseFloat(input);
-        if (isNaN(num)) return '0-0';
-
-        // figure out whether it is a round up integer or floating value
-        let integer = Number.isSafeInteger(num);
-
-        // learn if it is a positive value
-        let negative = num < 0;
-        num = negative ? Math.abs(num) : num;
-
-        // create the symbol
-        let symbol = negative ? '-' : '';
-        symbol += money.length === 0 ? '' : money;
-
-        // add decimal places
-        num = !integer ? num.toFixed(place) : num;
-
-        // add leading zero if asked
-        num = lead0 ? this.lead0(num) : num;
-
-        return `${symbol}${num}`;
-    }
-
-    /**
-     * Number formatted in currency can be parsed back to float number using this
-     * method. By the default, sign is GBP(Great Britten Pound).
-     *
-     * @param {string} input number is in currency format.
-     * @param {string} sign currency sign.
-     * @return {number} the parsed floating number.
-     * */
-    static moneyToNum(input, sign = Num.MONEY_GBP) {
-        input = String(input);
-        return parseFloat(input.replace(sign, ''));
-    }
-
-    /**
-     * Leading zero can be added to any number if it is less than 10.
-     *
-     * @param {number} number the number.
-     * @return {string} number with leading zero if needed.
-     * */
-    static lead0(number) {
-        return (number < 10) ? `0${number}` : number;
-    }
-
+	
+	static MONEY_BD = '৳';
+	static MONEY_GBP = '£';
+	static MONEY_USD = '$';
+	
+	/**
+	 * Any number can be formatted in either currency format with sign or fractional
+	 * number with specified place.
+	 *
+	 * @param {number|string} input the number is either in string or number format.
+	 * @param {string} money currency sign for the number.
+	 * @param {boolean} lead0 indicates whether to add leading zero before the number.
+	 * @param {number} place the fractional place of number.
+	 * @param {boolean} addComma adds commas in formatted numbers
+	 * @return {string} formatted number with currency sign as specified by arguments.
+	 * */
+	static format(input, money = '', lead0 = false, place = 2, addComma = true) {
+		// Ensure we have a valid number
+		let num = parseFloat(input);
+		if (isNaN(num)) return '0-0';
+		
+		// Determine if it's an integer or floating-point value
+		let integer = Number.isSafeInteger(num);
+		
+		// Check if it's negative
+		let negative = num < 0;
+		num = negative ? Math.abs(num) : num;
+		
+		// Add the symbol for negative values and any currency symbol
+		let symbol = negative ? '-' : '';
+		symbol += money.length === 0 ? '' : money;
+		
+		// Format the number with the specified decimal places
+		num = !integer ? num.toFixed(place) : num.toString();
+		
+		// Split the number into integer and decimal parts (if any)
+		let [integerPart, decimalPart] = num.split('.');
+		
+		// Add commas to the integer part if addComma is true
+		if (addComma) {
+			integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+		}
+		
+		// Rejoin the integer and decimal parts (if any)
+		num = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+		
+		// Add leading zero if requested
+		num = lead0 ? this.lead0(num) : num;
+		
+		return `${symbol}${num}`;
+	}
+	
+	/**
+	 * Number formatted in currency can be parsed back to float number using this
+	 * method. By the default, sign is GBP(Great Britten Pound).
+	 *
+	 * @param {string} input number is in currency format.
+	 * @param {string} sign currency sign.
+	 * @return {number} the parsed floating number.
+	 * */
+	static moneyToNum(input, sign = JstNum.MONEY_GBP) {
+		input = String(input);
+		return parseFloat(input.replace(sign, ''));
+	}
+	
+	/**
+	 * Leading zero can be added to any number if it is less than 10.
+	 *
+	 * @param {number} number the number.
+	 * @return {string} number with leading zero if needed.
+	 * */
+	static lead0(number) {
+		return (number < 10) ? `0${number}` : number;
+	}
+	
+	/**
+	 * Converts numbers from English to Bangla notation.
+	 *
+	 * This function takes a number or a string that represents a number in English
+	 * notation and returns a string with each digit converted to Bangla. It's designed
+	 * to work with both integer and floating-point numbers represented as strings.
+	 * Non-numeric characters within the string are not converted but are preserved
+	 * in the output.
+	 *
+	 * @param {Number|String} englishNumber - The number or string representing a number
+	 *        to be converted from English to Bangla digits. This parameter can handle
+	 *        both numeric and string types. For string inputs, the function iterates
+	 *        through each character, converting numeric characters to Bangla while
+	 *        leaving non-numeric characters unchanged.
+	 *
+	 * @returns {String} A string representation of the input number where each English
+	 *         digit has been replaced with its corresponding Bangla digit. Non-numeric
+	 *         characters in the input are returned as is in the output string.
+	 *
+	 * @example
+	 * // Convert a numeric value
+	 * console.log(convertToBanglaNumber(2023)); // Outputs: ২০২৩
+	 *
+	 * // Convert a string representing a numeric value
+	 * console.log(convertToBanglaNumber("4567")); // Outputs: ৪৫৬৭
+	 *
+	 * // Mixed input with non-numeric characters
+	 * console.log(convertToBanglaNumber("Flight 370")); // Outputs: Flight ৩৭০
+	 */
+	static bdNum(englishNumber) {
+		// Mapping of English digits to Bangla digits
+		const banglaDigits = {
+			'0': '০', '1': '১', '2': '২', '3': '৩',
+			'4': '৪', '5': '৫', '6': '৬', '7': '৭',
+			'8': '৮', '9': '৯'
+		};
+		
+		// Convert the number to a string to iterate over each digit
+		let englishNumberStr = englishNumber.toString();
+		
+		// Replace each English digit with its Bangla counterpart
+		let banglaNumberStr = '';
+		for (let char of englishNumberStr) {
+			banglaNumberStr += banglaDigits[char] ?? char; // Keep the character as is if not found in the map
+		}
+		
+		return banglaNumberStr;
+	}
+	
+	static bdOrdinal(num) {
+		// Ensure num is treated as a number
+		num = typeof num === 'string' ? parseInt(num, 10) : num;
+		
+		// Define ordinal representations for 1 through 10
+		const ordinals = {
+			1: 'প্রথম',
+			2: 'দ্বিতীয়',
+			3: 'তৃতীয়',
+			4: 'চতুর্থ',
+			5: 'পঞ্চম',
+			6: 'ষষ্ঠ',
+			7: 'সপ্তম',
+			8: 'অষ্টম',
+			9: 'নবম',
+			10: 'দশম'
+		}
+		
+		// Check if num is in the predefined range
+		if (ordinals[num]) {
+			return ordinals[num]
+		} else if (num > 10) {
+			return `${this.bdNum(num)}তম`
+		} else {
+			return '০'
+		}
+	}
+	
+	
+}
+(() => {
+	
+	class JstOverlay {
+		#theme;
+		
+		#childOverlay = null;
+		
+		/**
+		 * @type {[JstModal]}
+		 * */
+		#clientList = [];
+		
+		#reusableClientList = {};
+		#injectedData = {};
+		
+		#ready = false;
+		#overlay;
+		
+		#topicClientMap = {};
+		
+		constructor() {
+			jst.run(() => {
+				/*
+				 * Initialize the theme
+				 */
+				this.#theme = JstTheme.isDark() ? 'dark' : 'light';
+				
+				/*
+				 * Check if the overlay DOM was already inserted!
+				 */
+				let overlayDOM = document.getElementById('jst-overlay');
+				
+				if (overlayDOM) return;
+				
+				/*
+				 * Insert the overlay DOM element
+				 */
+				let overlay = `<div id="jst-overlay" class="jst-overlay"></div>`;
+				$('body').prepend(overlay);
+				this.#overlay = $('#jst-overlay');
+				
+				// Pass the keydown escape or mouse click event to the currently shown modal/dialog
+				$(document).on('keydown click', this.#overlay, (event) => this._handleEscapeEvent(event));
+				
+				this.#overlay.hide();
+				this.#ready = true;
+			});
+		}
+		
+		_handleEscapeEvent(e, escapeEventCheck = false) {
+			/*
+			 * If this overlay has child, then pass down this escape event call
+			 * to that & return.
+			 */
+			if (this.#childOverlay) {
+				this.#childOverlay._handleEscapeEvent(e, true);
+				return;
+			}
+			
+			let keyboard = e.type === 'keydown' && e.key === 'Escape';
+			let click = e.type === 'click' && $(e.target).hasClass('jst-modal-d-block');
+			
+			/*
+			 * The 'escapeEventCheck' parameter will tell us whether the child overlay should ignore
+			 * to check if it was a valid escape event coming from its overlay, not from the parent.
+			 */
+			if (!escapeEventCheck && !keyboard && !click) return;
+			
+			this.#clientList.peek()?._handleEscape(e);
+		}
+		
+		/*
+		 * Shows the last hidden modal if there is any. If it was an inner OM, then on
+		 * reaching zero client, it delegates update call to its parent OM so that the
+		 * life cycles of modals seem natural!
+		 * */
+		#update() {
+			if (!this.#clientList.isEmpty()) {
+				let client = this.#clientList.peek();
+				
+				this.#updateOverlay(client);
+				client._makeVisible();
+				
+				return;
+			}
+			
+			/*
+			 * If there is no client to overlay then wait for 75 milliseconds before
+			 * hiding the overlay. Another client may show up in the half way hiding.
+			 */
+			jst.runLater(.075, () => {
+				if (this.#clientList.isEmpty()) {
+					this.#hideOverlay();
+					
+					// Unregister this overlay as child in parent!
+					window.parent.JstOverlay._unsetChildOM();
+					return;
+				}
+				
+				let client = this.#clientList.peek();
+				
+				this.#updateOverlay(client);
+				client._makeVisible();
+			});
+		}
+		
+		/**
+		 * Overlay can be acquired by any client. The client must have the interface
+		 * consists of methods: id, _handleEscape(event), _makeVisible(), _hide()
+		 *
+		 * @param {JstModal|JstAlert} client
+		 * @return {boolean} Returns if currently shown modal is wiling to release the
+		 * overlay to the client modal or not.
+		 * */
+		_acquire(client) {
+			/*
+			 * #1
+			 * If the child list is empty, check if this overlay has parent.
+			 * If so, register this overlay as child.
+			 */
+			if (this.#clientList.isEmpty() && this.hasParent()) {
+				window.parent.JstOverlay._setChildOM(this);
+			}
+			
+			/*
+			* #2
+			* Important to check if it is iframe coming from an iFramed modal
+			* which will cover the parent iFramed modal. It makes sense to call hide
+			* related methods and meet the expectations! So try to get parent client.
+			*/
+			let parentClient;
+			
+			if (client.isIFramedModal() && this.hasParent()) {
+				parentClient = window.parent.JstOverlay.getTopClient();
+			}
+			
+			// #3 - Check if the current client is able to hide
+			let topClient = this.#clientList.peek();
+			
+			// JstAlert can always acquire overlay no matter what!
+			let canHide = (client instanceof JstAlert || topClient?.onHide()) ?? true;
+			if (!canHide) return false;
+			
+			// #4 - Push the new client on the stack
+			this.clientList.push(client);
+			
+			// #5 - Invoke onHidden method on parent iFrame, if it has so!
+			parentClient?.onHidden();
+			
+			// #6 - Ask the currently shown client to hide, if there is any shown
+			topClient?._hide();
+			
+			// #7 - Update the overlay as per the client's requirement, whether to show/hide
+			this.#updateOverlay(client);
+			return true;
+		}
+		
+		/**
+		 * Client can release any acquired overlay. The client must have an interface of
+		 * essential methods which are needed by JstOverlay to handle the complete
+		 * lifecycle of the overlay.
+		 *
+		 * See {@link JstOverlay._acquire()} method for more details.
+		 *
+		 * @param {JstModal|JstAlert} client
+		 * */
+		_release(client) {
+			// #1 - Pop, if release request came from the top-most client on the stack
+			let topMostClient = this.clientList.peek();
+			
+			if (topMostClient?.id === client.id) this.#clientList.pop();
+			
+			// #2 - Update the overlay after releasing the top-most client
+			this.#update();
+			return true;
+		}
+		
+		/**
+		 * Returns if this OM has a parent OM
+		 *
+		 * @return boolean
+		 * */
+		hasParent() {
+			return window !== window.parent;
+		}
+		
+		#getOpacity() {
+			// Adjust the overlay as asked!
+			let opacity = this.#clientList.peek().getOpacity();
+			
+			// Opacity wasn't set by the client or set to -1
+			if (opacity === -1) opacity = this.#theme === 'dark' ? .85 : .5;
+			
+			return opacity;
+		}
+		
+		#showOverlay() {
+			this.#overlay.css('opacity', this.#getOpacity());
+			
+			if (this.#overlay.css('display') === 'block') return;
+			
+			$(this.#overlay).fadeIn(250);
+		}
+		
+		#hideOverlay() {
+			$(this.#overlay).fadeOut(250);
+		}
+		
+		/**
+		 * Shows/hides the overlay behind the modal as required by the modal.
+		 *
+		 * @param {JstModal} client
+		 * */
+		#updateOverlay(client) {
+			if (client.getShowOverlay()) this.#showOverlay();
+			else if (!client.getShowOverlay()) this.#hideOverlay();
+		}
+		
+		/**
+		 * Caches the modal to be reused if the modal is either an iFramed modal reusable
+		 * or a basic modal.
+		 *
+		 * @param {JstModal} client
+		 * */
+		_cacheClient (client) {
+			if (!client.isIFramedModal() || (client.isIFramedModal() && client.isReusable())) {
+				if (!this.#reusableClientList.owns(client.id)) {
+					this.#reusableClientList[client.id] = client;
+				}
+			}
+		}
+		
+		/**
+		 * Sets the inner JstOverlay.
+		 *
+		 * @param {JstOverlay} innerJstOverlay the inner overlay manager instance
+		 * */
+		_setChildOM(innerJstOverlay) {
+			// If set then no need to go further!
+			if (this.#childOverlay !== null) return;
+			
+			this.#childOverlay = innerJstOverlay;
+			this._prepareParent();
+		}
+		
+		/**
+		 * Unsets the inner OM, as the inner OM has reached zero modal client.
+		 * */
+		_unsetChildOM() {
+			this._restoreParent();
+			this.#childOverlay = null;
+		}
+		
+		/*
+		 * When there is an inner JstOverlay to come, it hides close icon and
+		 * sets the content not scrollable of currently shown modal of this OM.
+		 * */
+		_prepareParent() {
+			let client = this.#clientList.peek();
+			
+			if (client.isIFramedModal()) {
+				client._prepareForIframe(false);
+			}
+		}
+		
+		/*
+		 * Restores the current client (shown model on this OM) to previous state.
+		 * Close icon will be show (if configured so) and content is made scrollable.
+		 * */
+		_restoreParent() {
+			this.#clientList.peek()?._prepareForIframe(true);
+		}
+		
+		/**
+		 * Set injected data by client in GOD-parent OM.
+		 *
+		 * @param {string} clientId randomly generated unique client id for tracking data
+		 * @param {object} data injected data
+		 * */
+		_setClientData (clientId, data) {
+			if (this.hasParent()) {
+				window.parent.JstOverlay._setClientData(clientId, data);
+				return;
+			}
+			
+			this.#injectedData[clientId] = data;
+		}
+		
+		/**
+		 * Removes injected data stored by the unique tracking id.
+		 *
+		 * @param {string} clientId
+		 * */
+		_deleteClientData (clientId) {
+			if (this.hasParent()) {
+				window.parent.JstOverlay._deleteClientData(clientId);
+				return;
+			}
+			
+			delete this.#injectedData[clientId];
+		}
+		
+		/**
+		 * Returns the injected client data.
+		 * This method is not invoked on JstOverlay instance directly by code as there
+		 * is no way to track the clientId param.
+		 *
+		 * @param {string} clientId
+		 * @return {object} injected data. Returns empty object if none was set.
+		 * */
+		_getClientData (clientId) {
+			if (this.hasParent()) {
+				return window.parent.JstOverlay._getClientData(clientId);
+			}
+			
+			return this.#injectedData[clientId] ?? {};
+		}
+		
+		/**
+		 * @param {string} topic
+		 * @param {function(data: object)} callback
+		 * */
+		subscribeEvent(topic, callback) {
+			let subscriberId = jst.uniqueId();
+			
+			// Create topic object if it is not present
+			if (!this.#topicClientMap.owns(topic)) {
+				this.#topicClientMap[topic] = {};
+			}
+			
+			this.#topicClientMap[topic][subscriberId] = callback;
+			return subscriberId;
+		}
+		
+		/**
+		 * @param {string} subscriberId
+		 * */
+		unsubscribeEvent(subscriberId) {
+			for (let topicKey in this.#topicClientMap) {
+				let topicMap = this.#topicClientMap[topicKey];
+				
+				if (topicMap.hasOwnProperty(subscriberId)) {
+					delete topicMap[subscriberId];
+					return true;
+				}
+			}
+			
+			return false;
+		}
+		
+		/**
+		 * @param {string} topic
+		 * @param {object} data
+		 * */
+		emitEvent(topic, data) {
+			let topicSubscriberMap = this.#topicClientMap[topic] ?? null;
+			
+			let bubbleDown = true;
+			
+			if (topicSubscriberMap) {
+				for (let subscriberId in topicSubscriberMap) {
+					if (!topicSubscriberMap[subscriberId](data)) {
+						bubbleDown = false;
+						break;
+					}
+				}
+			}
+			
+			if (!bubbleDown || !this.hasParent()) {
+				return;
+			}
+			
+			window.parent.JstOverlay.emitEvent(topic, data);
+		}
+		
+		/**
+		 * Returns the currently active client modal
+		 *
+		 * @return {JstModal}
+		 * */
+		getTopClient() {
+			return this.#clientList.peek();
+		}
+		
+		/**
+		 * Sets the OM theme configuration to light/dark and updates the client modals.
+		 *
+		 * @param {'light'|'dark'} theme
+		 * */
+		setTheme(theme) {
+			this.#theme = theme;
+			
+			let isDark = theme === 'dark';
+			
+			/*
+			 * Change background color of the overlay
+			 * */
+			let ele = $('.jst-overlay');
+			jst.switchCls(isDark, 'jst-overlay-dark', ele);
+			
+			/*
+			 * Apply this theme change to all the overlay clients
+			 */
+			this.#clientList.forEach((client) => client.setTheme(theme));
+			
+			/*
+			 * Let's not forget about reusable clients
+			 */
+			for (const key in this.#reusableClientList) {
+				this.#reusableClientList[key].setTheme(theme);
+			}
+			
+			/*
+			 * Pass it down to child JstOverlay
+			 * */
+			this.#childOverlay?.setTheme(theme);
+		}
+		
+		/**
+		 * Returns the current theme set up.
+		 *
+		 * @return {'light' | 'dark'}
+		 * */
+		getTheme() {
+			return (
+				this.hasParent() ?
+				window.parent.JstOverlay.getTheme() :
+				this.#theme
+			);
+		}
+		
+		/**
+		 * Returns whether the modal specified by the id is currently shown.
+		 *
+		 * @return boolean
+		 * */
+		isUp(id) {
+			return this.#clientList.peek()?.id === id;
+		}
+		
+		isReady() {
+			return this.#ready;
+		}
+		
+		/**
+		 * @return {[JstModal]}
+		 * */
+		get clientList() {
+			return this.#clientList;
+		}
+		
+		
+		/**
+		 * It looks at the reusable client list to find a popup by id.
+		 * If not found, it then uses the client list array to find the modal.
+		 *
+		 * @param {string} id client id
+		 * @return {?JstModal}
+		 * */
+		getPopup(id) {
+			let client = this.#reusableClientList?.[id];
+			
+			if (client) return client;
+			
+			for (let i = 0; i < this.#clientList.length; i++) {
+				let c = this.#clientList[i];
+				
+				if (c.id === id) return c;
+			}
+			
+			return null;
+		}
+		
+	}
+	
+	window.JstOverlay = new JstOverlay();
+	
+	/**
+	 * Any type of topic can be listened and a callback will be invoked on that
+	 * topic emission in code. Callback invocation happens down stream meaning
+	 * emitting an event of a topic will always go to parent modal/client!
+	 *
+	 *
+	 * @param {string} topic
+	 * @param {function(data: object)} callback. Callback should decide whether to bubble down
+	 * the topic dispatching down the hierarchy by returning true/false. By default, default it
+	 * returns true and propagates the topic event. Return false to stop.
+	 *
+	 * @return {string} subscription id. It can be used to unsubscribe the topic.
+	 * */
+	window.subscribeEvent = (topic, callback) => {
+		return window.JstOverlay.subscribeEvent(topic, callback);
+	};
+	
+	/**
+	 * Any topic can be unsubscribed using subscriber id which was returned by {@link subscribeEvent()}
+	 * call.
+	 *
+	 * @param {string} subscriberId
+	 * */
+	window.unsubscribeEvent = (subscriberId) => {
+		return window.JstOverlay.unsubscribeEvent(subscriberId);
+	};
+	
+	/**
+	 * Get popup by the id provided.
+	 *
+	 * @param {string} id The popup id
+	 * @returns {JstModal} undefined if there is no popup with the id otherwise the popup
+	 * */
+	window.getPopup = (id) => {
+		return window.JstOverlay.getPopup(id);
+	};
+	
+	/**
+	 * Closes the top-most modal off the stack.
+	 * */
+	window.closePopup = () => {
+		/*
+		 * If there is no client and this OM has parent and delegate this
+		 * call to the parent OM to close!
+		 * */
+		let om = window.JstOverlay;
+	
+		if (om.clientList.isEmpty() && om.hasParent()) {
+			window.parent.closePopup();
+			return;
+		}
+		
+		// Try to close current client on this OM!
+		om.clientList.peek()?.close();
+	};
+	
+	/**
+	 * Returns injected data from the parent modal for child modal.
+	 *
+	 * @return {object} object data. Returns empty object if no data was set by parent!
+	 * */
+	window.getClientData = () => {
+		let iframeId = window.frameElement?.getAttribute('data-data-id') ?? null;
+		
+		if (!iframeId) return {};
+		
+		return window.JstOverlay._getClientData(iframeId);
+	};
+	
+})();
+class JstStorage {
+	
+	/**
+	 * @param {string} key
+	 * @param {number|string|boolean} value
+	 * */
+	static set(key, value) {
+		localStorage.setItem(key, value);
+	}
+	
+	/**
+	 * @param {string} key
+	 * */
+	static unset(key) {
+		localStorage.removeItem(key);
+	}
+	
+	/**
+	 * @param {string} key
+	 * @param {boolean} defValue
+	 * @return {boolean}
+	 * */
+	static bool(key, defValue) {
+		return Boolean(localStorage.getItem(key)) ?? defValue;
+	}
+	
+	/**
+	 * @param {string} key
+	 * @param {string} defValue
+	 * @return {string}
+	 * */
+	static str(key, defValue) {
+		return localStorage.getItem(key) ?? defValue;
+	}
+	
+	/**
+	 * @param {string} key
+	 * @param {number} defValue
+	 * @return {number}
+	 * */
+	static int (key, defValue) {
+		let data = localStorage.getItem(key) ?? defValue;
+		data = parseInt(data);
+		
+		return isNaN(data) ? defValue : data;
+	}
+	
+	/**
+	 * @param {string} key
+	 * @param {number} defValue
+	 * @return {number}
+	 * */
+	static float (key, defValue) {
+		let data = localStorage.getItem(key) ?? defValue;
+		data = parseFloat(data);
+		
+		return isNaN(data) ? defValue : data;
+	}
+	
+	static setCookie(key, value, expDay= 365) {
+		const d = new Date();
+		d.setTime(d.getTime() + (expDay * 24 * 60 * 60 * 1000));
+		let expires = "expires="+ d.toUTCString();
+		document.cookie = key + "=" + value + ";" + expires + ";SameSite=Lax; path=/";
+	}
+	
+	static unsetCookie(key) {
+		document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;SameSite=Lax`;
+	}
+	
+	static cookieBool(key, defaultValue) {
+		let value = JstStorage.cookieStr(key, null);
+		if (value == null) return defaultValue;
+		return value === 'true';
+	}
+	
+	static cookieInt(key, defaultValue) {
+		return parseInt(JstStorage.cookieStr(key, defaultValue));
+	}
+	
+	static cookieFloat(key, defaultValue) {
+		return parseFloat(JstStorage.cookieStr(key, defaultValue));
+	}
+	
+	static cookieStr(key, defaultValue) {
+		let name = key + "=";
+		let decodedCookie = decodeURIComponent(document.cookie);
+		
+		let ca = decodedCookie.split(';');
+		for(let i = 0; i < ca.length; i++) {
+			let c = ca[i];
+			while (c.charAt(0) === ' ') {
+				c = c.substring(1);
+			}
+			if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
+		}
+		return defaultValue;
+	}
+}
+class JstTable {
+	
+	#id;
+	#table;
+	
+	#filterBy = -1;
+	
+	#sort = 'desc';
+	#lastSortedIcon = null;
+	#lastSortedCol = null;
+	
+	constructor(id) {
+		this.#id = id;
+		this.#table = $(`#${id}`);
+		
+		this.#hookFilterListener();
+		this.#loadFilter();
+		
+		this.#hookSortListener();
+	}
+	
+	#hookSortListener() {
+		let thisObj = this;
+		
+		/*
+		 * Add click listener to sort icons found in table header
+		 * */
+		$(`#${this.#id} .jst-table-col-icon-sort`).click(function () {
+			thisObj.#lastSortedIcon = this;
+			
+			// Toggle the sort direction
+			thisObj.#sort = thisObj.#sort === 'asc' ? 'desc' : 'asc';
+			
+			/*
+			 * Update sort icon UI
+			 * */
+			let angle = thisObj.#sort === 'desc' ? 'rotate(0deg) scaleX(1)' : 'rotate(180deg) scaleX(-1)';
+			$(this).css('transform', angle);
+			
+			/*
+			 * Remove all shown sort icons
+			 * */
+			let parent = this.parentElement;
+			$(parent).toggleClass('jst-table-col-icon-sort-show', true);
+			
+			if (thisObj.#lastSortedCol !== parent) {
+				$(thisObj.#lastSortedCol).removeClass('jst-table-col-icon-sort-show');
+			}
+			
+			// Update the last sorted col
+			thisObj.#lastSortedCol = parent;
+			
+			/*
+			 * Sort the table rows
+			 * */
+			let rows = thisObj.#table.find('tbody tr').toArray();
+			let index = $(parent).index();
+			let descending = thisObj.#sort !== 'asc';
+			
+			rows.sort(function(rowA, rowB) {
+				let cellA = $(rowA).children('td').eq(index).text().trim();
+				let cellB = $(rowB).children('td').eq(index).text().trim();
+				
+				/*
+				 * Oh, you number!
+				 * */
+				if (['৳', '£', '$'].includes(cellA[0])) {
+					cellA = cellA.replace(/[৳£$,]/g, '');
+				}
+				
+				if (['৳', '£', '$'].includes(cellB[0])) {
+					cellB = cellB.replace(/[৳£$,]/g, '');
+				}
+				
+				if ($.isNumeric(cellA) && $.isNumeric(cellB)) {
+					return descending ? cellB - cellA : cellA - cellB;
+				}
+				
+				return descending ? cellB.localeCompare(cellA) : cellA.localeCompare(cellB);
+			});
+			
+			// Append the sorted rows to the table
+			$.each(rows, function(index, row) {
+				thisObj.#table.children('tbody').append(row);
+			});
+		});
+	}
+	
+	/*
+	 * For a column name, it figures out the index of the column in table
+	 * header. Returns -1 if it couldn't find the column in the table header.
+	 * */
+	#getColumnIndex(colName) {
+		let colIndex = -1;
+		
+		$(`#${this.#id} th .jst-table-col-label`).each(function (i) {
+			if ($(this).text().toLowerCase().trim() === colName.trim().toLowerCase()) {
+				colIndex = i;
+				return false;
+			}
+		});
+		
+		return colIndex;
+	}
+	
+	#loadFilter() {
+		let cachedFilter = localStorage.getItem(`jst_tab_filter_by_${this.#id}`) ?? null;
+		$(`#${this.#id}-filter input`).prop('disabled', !cachedFilter);
+		
+		if (!cachedFilter) return;
+		
+		this.#filterBy = this.#getColumnIndex(cachedFilter);
+		
+		if (this.#filterBy === -1) return;
+		
+		/*
+		 * Find the option if available in the select by the cached value
+		 * */
+		let options = $(`#${this.#id}-filter select option`).filter(function () {
+			return $(this).val().toLowerCase() === cachedFilter;
+		});
+		
+		if (options.length <= 0) return;
+		
+		$(`#${this.#id}-filter select`).val(options.val());
+	}
+	
+	#hookFilterListener() {
+		let filterDiv = `#${this.#id}-filter`;
+		let keywordInput = $(`${filterDiv} input`);
+		
+		let thisObj = this;
+		
+		/*
+		 * Add select option change listener
+		 * */
+		$(`${filterDiv} select`).change((i) => {
+			/*
+			 * Get the selected option value and disable input box if empty/undefined
+			 * */
+			let colName = i.target.value?.toLowerCase().trim();
+			keywordInput.prop('disabled', !colName);
+			
+			/*
+			 * Get the column index
+			 * */
+			this.#filterBy = this.#getColumnIndex(colName);
+			
+			/*
+			 * TODO - Do we need to allow it via configuration option?
+			 * */
+			// if (this.#filterBy === -1) return;
+			
+			// Cache the option selected
+			localStorage.setItem(`jst_tab_filter_by_${this.#id}`, colName);
+		});
+		
+		/*
+		 * Add keyup listener to filter input box
+		 * */
+		keywordInput.keyup(function () {
+			let column = thisObj.#filterBy;
+			if (column === -1) return;
+			
+			// Get filter keywords
+			let keywords = $(this).val()?.trim().toLowerCase();
+			
+			$(thisObj.#table).find(`tbody tr`).filter(function() {
+				// Get column keywords to match the keywords in
+				let colValue = $($(this).find('td')[column]).text().trim().toLowerCase();
+				$(this).toggle(colValue.includes(keywords));
+			});
+		});
+	}
+	
 }
 (() => {
 
-    class Overlay {
+	class JstTheme {
+		#listeners = [];
+		
+		// TODO - make a method to return 'light|dark'
+		// TODO - make sure theme sets JstOverlay properly!
 
-        #clientList = [];
+		constructor() {
+			jst.run(() => {
+				/*
+				 * Get the theme attribute
+				 */
+				let themeAttr = getComputedStyle(document.documentElement).getPropertyValue('--jst-theme-attr');
+				if (themeAttr) jst.themeAttribute = themeAttr;
+				
+				let config = {
+					attributes: true,
+					attributeFilter: [themeAttr]
+				};
+	
+				let callback = (mutationsList) => {
+					let value = this.isDark() ? 'dark' : 'light';
+					JstStorage.setCookie('theme', value);
+					
+					for(let mutation of mutationsList) {
+						if (mutation.type !== 'attributes') continue
+						
+						this.#listeners.forEach((listener) => listener(this.isLight()))
+					}
+					
+					JstOverlay.setTheme(value);
+				};
 
-        #ready = false;
-        #overlay;
+				// Create an observer instance linked to the callback function
+				let observer = new MutationObserver(callback);
 
-        constructor() {
-            jst.run(() => {
-                // insert the element once if there is not already one
-                let overlay = `<div class="jst-overlay"></div>`;
-                $('body').prepend(overlay);
-                this.#overlay = $('.jst-overlay');
+				// Start observing the target node for configured mutations
+				$(document).ready(() => observer.observe($('body')[0], config));
+			});
+		}
 
-                // pass the keydown escape or mouse click event to the currently showing modal/dialog
-                $(document).on('keydown click', this.#overlay,(event) => {
-                    if (this.#cLen() === 0) return true;
+		/**
+		 * @param callback {function(string:theme)}
+		 * */
+		listenChange(callback) {
+			this.#listeners.push(callback);
+		}
+		
+		isDark() {
+			return document.body.getAttribute(jst.themeAttribute)?.toLowerCase() === 'dark';
+		}
+		
+		isLight() {
+			return !this.isDark();
+		}
 
-                    let keyboard = event.type === 'keydown' && event.key === 'Escape';
-                    let click = event.type === 'click' && $(event.target).hasClass('jst-modal-flex');
+		toggle(theme = null) {
+			this.#setTransitionEffect();
 
-                    if (!keyboard && !click) return true;
+			if (theme === null) {
+				theme = this.isDark() ? 'light' : 'dark';
+			}
 
-                    let len = this.#cLen(-1);
-                    this.#clientList[len]?.onEscapeEvent(event);
-                });
+			document.body.setAttribute(jst.themeAttribute, theme);
+			JstStorage.setCookie('theme', theme);
 
-                $(this.#overlay).hide(0);
-                this.#ready = true;
-            });
-        }
+			jst.runLater(2, this.#removeTransitionEffect);
+		}
 
-        #cLen(adjust = 0) {
-            return this.#clientList.length + adjust;
-        }
+		load() {
+			let theme = JstStorage.cookieStr('theme', 'dark');
 
-        #update() {
-            if (this.#cLen() === 0) {
-                // If there is no client to overlay then wait for 75 milliseconds before
-                // hiding the overlay. Another client may show up in the half way hiding.
-                jst.runLater(.075, () => {
-                    if (this.#cLen() === 0) {
+			/*
+			 * Check if the theme attribute is applied with the value already
+			 * */
+			if (document.body.getAttribute(jst.themeAttribute)?.toLowerCase() === theme)
+				return;
 
-                        $(this.#overlay).fadeOut(250);
-                    }
-                    else this.#clientList[this.#cLen(-1)].makeVisible();
-                })
-            }
-            else this.#clientList[this.#cLen(-1)].makeVisible();
-        }
+			this.toggle(theme);
+		}
 
-        theme(dark = false) {
-            let ele = $('.jst-overlay');
-            jst.switchCls(dark, 'jst-overlay-dark', ele);
-        }
+		#setTransitionEffect() {
+			let style = document.createElement('style');
+			style.id = 'dynamicTransition';
+			style.innerHTML = `* { transition: background 600ms !important; }`;
+			
+			document.head.appendChild(style);
+		}
 
-        /**
-         * Overlay can be acquired for any client. The client must have the interface
-         * consists of methods: id(), onEscapeEvent(event), makeVisible(), hide()
-         * */
-        acquire(client) {
-            // ask the currently showing client to hide, if there is any
-            let lastIndex = this.#cLen(-1);
-            this.#clientList[lastIndex]?.hide();
+		#removeTransitionEffect() {
+			let styleElement = document.querySelector('#dynamicTransition');
+			
+			if (styleElement) {
+				styleElement.parentNode.removeChild(styleElement);
+			}
+		}
 
-            // do we need to show overlay?
-            if (lastIndex === -1) $(this.#overlay).fadeIn(250);
+	}
 
-            this.#clientList.push(client);
-        }
-
-        /**
-         * Client can release any acquired overlay. The client must have an interface of
-         * essential methods which are needed by OverlayManger to handle the complete
-         * lifecycle of the overlay.
-         *
-         * See OverlayManger.acquire() method for more details.
-         * */
-        release(client) {
-            this.#clientList.erase(client);
-
-            // do we need to hide the overlay itself?
-            this.#update();
-        }
-
-        notReady() { return !this.#ready; }
-
-        ready() { return this.#ready; }
-
-        get clientList () {
-            return this.#clientList;
-        }
-
-    }
-
-    window.OverlayManager = new Overlay();
-
-    /**
-     * Get any previously or currently showing popup with the id.
-     *
-     * @param {string} id The popup id
-     * @returns {object | undefined} undefined if there is no popup with the id otherwise the popup
-     * */
-    window.getPopup = (id) => {
-        let clients = OverlayManager.clientList;
-        for(let i in clients) {
-            if (clients[i].id === id) return clients[i];
-        }
-        return undefined;
-    };
-
-    /**
-     * Dismiss any previously or currently showing popup with the id.
-     *
-     * @param {string} id The popup id
-     * @returns {boolean} true if it finds the popup with the specified id, false otherwise
-     * */
-    window.dismissPopup = (id) => {
-        let popup = getPopup(id);
-        if (jst.isUndef(popup)) return false;
-        popup.dismiss();
-        return true;
-    };
+	window.JstTheme = new JstTheme();
 
 })();
-/*!
- * OverlayScrollbars
- * https://github.com/KingSora/OverlayScrollbars
- *
- * Version: 1.13.3
- *
- * Copyright KingSora | Rene Haas.
- * https://github.com/KingSora
- *
- * Released under the MIT license.
- * Date: 20.07.2022
- */
-
-(function (global, factory) {
-    if (typeof define === 'function' && define.amd)
-        define(function () { return factory(global, global.document, undefined); });
-    else if (typeof module === 'object' && typeof module.exports === 'object')
-        module.exports = factory(global, global.document, undefined);
-    else
-        factory(global, global.document, undefined);
-}(typeof window !== 'undefined' ? window : this,
-    function (window, document, undefined) {
-        'use strict';
-        var PLUGINNAME = 'OverlayScrollbars';
-        var TYPES = {
-            o: 'object',
-            f: 'function',
-            a: 'array',
-            s: 'string',
-            b: 'boolean',
-            n: 'number',
-            u: 'undefined',
-            z: 'null'
-            //d : 'date',
-            //e : 'error',
-            //r : 'regexp',
-            //y : 'symbol'
-        };
-        var LEXICON = {
-            c: 'class',
-            s: 'style',
-            i: 'id',
-            l: 'length',
-            p: 'prototype',
-            ti: 'tabindex',
-            oH: 'offsetHeight',
-            cH: 'clientHeight',
-            sH: 'scrollHeight',
-            oW: 'offsetWidth',
-            cW: 'clientWidth',
-            sW: 'scrollWidth',
-            hOP: 'hasOwnProperty',
-            bCR: 'getBoundingClientRect'
-        };
-        var VENDORS = (function () {
-            //https://developer.mozilla.org/en-US/docs/Glossary/Vendor_Prefix
-            var jsCache = {};
-            var cssCache = {};
-            var cssPrefixes = ['-webkit-', '-moz-', '-o-', '-ms-'];
-            var jsPrefixes = ['WebKit', 'Moz', 'O', 'MS'];
-            function firstLetterToUpper(str) {
-                return str.charAt(0).toUpperCase() + str.slice(1);
-            }
-
-            return {
-                _cssPrefixes: cssPrefixes,
-                _jsPrefixes: jsPrefixes,
-                _cssProperty: function (name) {
-                    var result = cssCache[name];
-
-                    if (cssCache[LEXICON.hOP](name))
-                        return result;
-
-                    var uppercasedName = firstLetterToUpper(name);
-                    var elmStyle = document.createElement('div')[LEXICON.s];
-                    var resultPossibilities;
-                    var i = 0;
-                    var v;
-                    var currVendorWithoutDashes;
-
-                    for (; i < cssPrefixes.length; i++) {
-                        currVendorWithoutDashes = cssPrefixes[i].replace(/-/g, '');
-                        resultPossibilities = [
-                            name, //transition
-                            cssPrefixes[i] + name, //-webkit-transition
-                            currVendorWithoutDashes + uppercasedName, //webkitTransition
-                            firstLetterToUpper(currVendorWithoutDashes) + uppercasedName //WebkitTransition
-                        ];
-                        for (v = 0; v < resultPossibilities[LEXICON.l]; v++) {
-                            if (elmStyle[resultPossibilities[v]] !== undefined) {
-                                result = resultPossibilities[v];
-                                break;
-                            }
-                        }
-                    }
-
-                    cssCache[name] = result;
-                    return result;
-                },
-                _cssPropertyValue: function (property, values, suffix) {
-                    var name = property + ' ' + values;
-                    var result = cssCache[name];
-
-                    if (cssCache[LEXICON.hOP](name))
-                        return result;
-
-                    var dummyStyle = document.createElement('div')[LEXICON.s];
-                    var possbleValues = values.split(' ');
-                    var preparedSuffix = suffix || '';
-                    var i = 0;
-                    var v = -1;
-                    var prop;
-
-                    for (; i < possbleValues[LEXICON.l]; i++) {
-                        for (; v < VENDORS._cssPrefixes[LEXICON.l]; v++) {
-                            prop = v < 0 ? possbleValues[i] : VENDORS._cssPrefixes[v] + possbleValues[i];
-                            dummyStyle.cssText = property + ':' + prop + preparedSuffix;
-                            if (dummyStyle[LEXICON.l]) {
-                                result = prop;
-                                break;
-                            }
-                        }
-                    }
-
-                    cssCache[name] = result;
-                    return result;
-                },
-                _jsAPI: function (name, isInterface, fallback) {
-                    var i = 0;
-                    var result = jsCache[name];
-
-                    if (!jsCache[LEXICON.hOP](name)) {
-                        result = window[name];
-                        for (; i < jsPrefixes[LEXICON.l]; i++)
-                            result = result || window[(isInterface ? jsPrefixes[i] : jsPrefixes[i].toLowerCase()) + firstLetterToUpper(name)];
-                        jsCache[name] = result;
-                    }
-                    return result || fallback;
-                }
-            }
-        })();
-        var COMPATIBILITY = (function () {
-            function windowSize(x) {
-                return x ? window.innerWidth || document.documentElement[LEXICON.cW] || document.body[LEXICON.cW] : window.innerHeight || document.documentElement[LEXICON.cH] || document.body[LEXICON.cH];
-            }
-            function bind(func, thisObj) {
-                if (typeof func != TYPES.f) {
-                    throw "Can't bind function!";
-                    // closest thing possible to the ECMAScript 5
-                    // internal IsCallable function
-                    //throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
-                }
-                var proto = LEXICON.p;
-                var aArgs = Array[proto].slice.call(arguments, 2);
-                var fNOP = function () { };
-                var fBound = function () { return func.apply(this instanceof fNOP ? this : thisObj, aArgs.concat(Array[proto].slice.call(arguments))); };
-
-                if (func[proto])
-                    fNOP[proto] = func[proto]; // Function.prototype doesn't have a prototype property
-                fBound[proto] = new fNOP();
-
-                return fBound;
-            }
-
-            return {
-                /**
-                 * Gets the current window width.
-                 * @returns {Number|number} The current window width in pixel.
-                 */
-                wW: bind(windowSize, 0, true),
-
-                /**
-                 * Gets the current window height.
-                 * @returns {Number|number} The current window height in pixel.
-                 */
-                wH: bind(windowSize, 0),
-
-                /**
-                 * Gets the MutationObserver Object or undefined if not supported.
-                 * @returns {MutationObserver|*|undefined} The MutationsObserver Object or undefined.
-                 */
-                mO: bind(VENDORS._jsAPI, 0, 'MutationObserver', true),
-
-                /**
-                 * Gets the ResizeObserver Object or undefined if not supported.
-                 * @returns {MutationObserver|*|undefined} The ResizeObserver Object or undefined.
-                 */
-                rO: bind(VENDORS._jsAPI, 0, 'ResizeObserver', true),
-
-                /**
-                 * Gets the RequestAnimationFrame method or it's corresponding polyfill.
-                 * @returns {*|Function} The RequestAnimationFrame method or it's corresponding polyfill.
-                 */
-                rAF: bind(VENDORS._jsAPI, 0, 'requestAnimationFrame', false, function (func) { return window.setTimeout(func, 1000 / 60); }),
-
-                /**
-                 * Gets the CancelAnimationFrame method or it's corresponding polyfill.
-                 * @returns {*|Function} The CancelAnimationFrame method or it's corresponding polyfill.
-                 */
-                cAF: bind(VENDORS._jsAPI, 0, 'cancelAnimationFrame', false, function (id) { return window.clearTimeout(id); }),
-
-                /**
-                 * Gets the current time.
-                 * @returns {number} The current time.
-                 */
-                now: function () {
-                    return Date.now && Date.now() || new Date().getTime();
-                },
-
-                /**
-                 * Stops the propagation of the given event.
-                 * @param event The event of which the propagation shall be stoped.
-                 */
-                stpP: function (event) {
-                    if (event.stopPropagation)
-                        event.stopPropagation();
-                    else
-                        event.cancelBubble = true;
-                },
-
-                /**
-                 * Prevents the default action of the given event.
-                 * @param event The event of which the default action shall be prevented.
-                 */
-                prvD: function (event) {
-                    if (event.preventDefault && event.cancelable)
-                        event.preventDefault();
-                    else
-                        event.returnValue = false;
-                },
-
-                /**
-                 * Gets the pageX and pageY values of the given mouse event.
-                 * @param event The mouse event of which the pageX and pageX shall be got.
-                 * @returns {{x: number, y: number}} x = pageX value, y = pageY value.
-                 */
-                page: function (event) {
-                    event = event.originalEvent || event;
-
-                    var strPage = 'page';
-                    var strClient = 'client';
-                    var strX = 'X';
-                    var strY = 'Y';
-                    var target = event.target || event.srcElement || document;
-                    var eventDoc = target.ownerDocument || document;
-                    var doc = eventDoc.documentElement;
-                    var body = eventDoc.body;
-
-                    //if touch event return return pageX/Y of it
-                    if (event.touches !== undefined) {
-                        var touch = event.touches[0];
-                        return {
-                            x: touch[strPage + strX],
-                            y: touch[strPage + strY]
-                        }
-                    }
-
-                    // Calculate pageX/Y if not native supported
-                    if (!event[strPage + strX] && event[strClient + strX] && event[strClient + strX] != null) {
-
-                        return {
-                            x: event[strClient + strX] +
-                                (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
-                                (doc && doc.clientLeft || body && body.clientLeft || 0),
-                            y: event[strClient + strY] +
-                                (doc && doc.scrollTop || body && body.scrollTop || 0) -
-                                (doc && doc.clientTop || body && body.clientTop || 0)
-                        }
-                    }
-                    return {
-                        x: event[strPage + strX],
-                        y: event[strPage + strY]
-                    };
-                },
-
-                /**
-                 * Gets the clicked mouse button of the given mouse event.
-                 * @param event The mouse event of which the clicked button shal be got.
-                 * @returns {number} The number of the clicked mouse button. (0 : none | 1 : leftButton | 2 : middleButton | 3 : rightButton)
-                 */
-                mBtn: function (event) {
-                    var button = event.button;
-                    if (!event.which && button !== undefined)
-                        return (button & 1 ? 1 : (button & 2 ? 3 : (button & 4 ? 2 : 0)));
-                    else
-                        return event.which;
-                },
-
-                /**
-                 * Checks whether a item is in the given array and returns its index.
-                 * @param item The item of which the position in the array shall be determined.
-                 * @param arr The array.
-                 * @returns {number} The zero based index of the item or -1 if the item isn't in the array.
-                 */
-                inA: function (item, arr) {
-                    for (var i = 0; i < arr[LEXICON.l]; i++)
-                        //Sometiems in IE a "SCRIPT70" Permission denied error occurs if HTML elements in a iFrame are compared
-                        try {
-                            if (arr[i] === item)
-                                return i;
-                        }
-                        catch (e) { }
-                    return -1;
-                },
-
-                /**
-                 * Returns true if the given value is a array.
-                 * @param arr The potential array.
-                 * @returns {boolean} True if the given value is a array, false otherwise.
-                 */
-                isA: function (arr) {
-                    var def = Array.isArray;
-                    return def ? def(arr) : this.type(arr) == TYPES.a;
-                },
-
-                /**
-                 * Determine the internal JavaScript [[Class]] of the given object.
-                 * @param obj The object of which the type shall be determined.
-                 * @returns {string} The type of the given object.
-                 */
-                type: function (obj) {
-                    if (obj === undefined)
-                        return obj + '';
-                    if (obj === null)
-                        return obj + '';
-                    return Object[LEXICON.p].toString.call(obj).replace(/^\[object (.+)\]$/, '$1').toLowerCase();
-                },
-
-
-                bind: bind
-
-                /**
-                 * Gets the vendor-prefixed CSS property by the given name.
-                 * For example the given name is "transform" and you're using a old Firefox browser then the returned value would be "-moz-transform".
-                 * If the browser doesn't need a vendor-prefix, then the returned string is the given name.
-                 * If the browser doesn't support the given property name at all (not even with a vendor-prefix) the returned value is null.
-                 * @param propName The unprefixed CSS property name.
-                 * @returns {string|null} The vendor-prefixed CSS property or null if the browser doesn't support the given CSS property.
-
-                 cssProp: function(propName) {
-                    return VENDORS._cssProperty(propName);
-                }
-                 */
-            }
-        })();
-
-
-        var MATH = Math;
-        var JQUERY = window.jQuery;
-        var EASING = (function () {
-            var _easingsMath = {
-                p: MATH.PI,
-                c: MATH.cos,
-                s: MATH.sin,
-                w: MATH.pow,
-                t: MATH.sqrt,
-                n: MATH.asin,
-                a: MATH.abs,
-                o: 1.70158
-            };
-
-            /*
-             x : current percent (0 - 1),
-             t : current time (duration * percent),
-             b : start value (from),
-             c : end value (to),
-             d : duration
-
-             easingName : function(x, t, b, c, d) { return easedValue; }
-             */
-
-            return {
-                swing: function (x, t, b, c, d) {
-                    return 0.5 - _easingsMath.c(x * _easingsMath.p) / 2;
-                },
-                linear: function (x, t, b, c, d) {
-                    return x;
-                },
-                easeInQuad: function (x, t, b, c, d) {
-                    return c * (t /= d) * t + b;
-                },
-                easeOutQuad: function (x, t, b, c, d) {
-                    return -c * (t /= d) * (t - 2) + b;
-                },
-                easeInOutQuad: function (x, t, b, c, d) {
-                    return ((t /= d / 2) < 1) ? c / 2 * t * t + b : -c / 2 * ((--t) * (t - 2) - 1) + b;
-                },
-                easeInCubic: function (x, t, b, c, d) {
-                    return c * (t /= d) * t * t + b;
-                },
-                easeOutCubic: function (x, t, b, c, d) {
-                    return c * ((t = t / d - 1) * t * t + 1) + b;
-                },
-                easeInOutCubic: function (x, t, b, c, d) {
-                    return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b;
-                },
-                easeInQuart: function (x, t, b, c, d) {
-                    return c * (t /= d) * t * t * t + b;
-                },
-                easeOutQuart: function (x, t, b, c, d) {
-                    return -c * ((t = t / d - 1) * t * t * t - 1) + b;
-                },
-                easeInOutQuart: function (x, t, b, c, d) {
-                    return ((t /= d / 2) < 1) ? c / 2 * t * t * t * t + b : -c / 2 * ((t -= 2) * t * t * t - 2) + b;
-                },
-                easeInQuint: function (x, t, b, c, d) {
-                    return c * (t /= d) * t * t * t * t + b;
-                },
-                easeOutQuint: function (x, t, b, c, d) {
-                    return c * ((t = t / d - 1) * t * t * t * t + 1) + b;
-                },
-                easeInOutQuint: function (x, t, b, c, d) {
-                    return ((t /= d / 2) < 1) ? c / 2 * t * t * t * t * t + b : c / 2 * ((t -= 2) * t * t * t * t + 2) + b;
-                },
-                easeInSine: function (x, t, b, c, d) {
-                    return -c * _easingsMath.c(t / d * (_easingsMath.p / 2)) + c + b;
-                },
-                easeOutSine: function (x, t, b, c, d) {
-                    return c * _easingsMath.s(t / d * (_easingsMath.p / 2)) + b;
-                },
-                easeInOutSine: function (x, t, b, c, d) {
-                    return -c / 2 * (_easingsMath.c(_easingsMath.p * t / d) - 1) + b;
-                },
-                easeInExpo: function (x, t, b, c, d) {
-                    return (t == 0) ? b : c * _easingsMath.w(2, 10 * (t / d - 1)) + b;
-                },
-                easeOutExpo: function (x, t, b, c, d) {
-                    return (t == d) ? b + c : c * (-_easingsMath.w(2, -10 * t / d) + 1) + b;
-                },
-                easeInOutExpo: function (x, t, b, c, d) {
-                    if (t == 0) return b;
-                    if (t == d) return b + c;
-                    if ((t /= d / 2) < 1) return c / 2 * _easingsMath.w(2, 10 * (t - 1)) + b;
-                    return c / 2 * (-_easingsMath.w(2, -10 * --t) + 2) + b;
-                },
-                easeInCirc: function (x, t, b, c, d) {
-                    return -c * (_easingsMath.t(1 - (t /= d) * t) - 1) + b;
-                },
-                easeOutCirc: function (x, t, b, c, d) {
-                    return c * _easingsMath.t(1 - (t = t / d - 1) * t) + b;
-                },
-                easeInOutCirc: function (x, t, b, c, d) {
-                    return ((t /= d / 2) < 1) ? -c / 2 * (_easingsMath.t(1 - t * t) - 1) + b : c / 2 * (_easingsMath.t(1 - (t -= 2) * t) + 1) + b;
-                },
-                easeInElastic: function (x, t, b, c, d) {
-                    var s = _easingsMath.o; var p = 0; var a = c;
-                    if (t == 0) return b; if ((t /= d) == 1) return b + c; if (!p) p = d * .3;
-                    if (a < _easingsMath.a(c)) { a = c; s = p / 4; }
-                    else s = p / (2 * _easingsMath.p) * _easingsMath.n(c / a);
-                    return -(a * _easingsMath.w(2, 10 * (t -= 1)) * _easingsMath.s((t * d - s) * (2 * _easingsMath.p) / p)) + b;
-                },
-                easeOutElastic: function (x, t, b, c, d) {
-                    var s = _easingsMath.o; var p = 0; var a = c;
-                    if (t == 0) return b;
-                    if ((t /= d) == 1) return b + c;
-                    if (!p) p = d * .3;
-                    if (a < _easingsMath.a(c)) { a = c; s = p / 4; }
-                    else s = p / (2 * _easingsMath.p) * _easingsMath.n(c / a);
-                    return a * _easingsMath.w(2, -10 * t) * _easingsMath.s((t * d - s) * (2 * _easingsMath.p) / p) + c + b;
-                },
-                easeInOutElastic: function (x, t, b, c, d) {
-                    var s = _easingsMath.o; var p = 0; var a = c;
-                    if (t == 0) return b;
-                    if ((t /= d / 2) == 2) return b + c;
-                    if (!p) p = d * (.3 * 1.5);
-                    if (a < _easingsMath.a(c)) { a = c; s = p / 4; }
-                    else s = p / (2 * _easingsMath.p) * _easingsMath.n(c / a);
-                    if (t < 1) return -.5 * (a * _easingsMath.w(2, 10 * (t -= 1)) * _easingsMath.s((t * d - s) * (2 * _easingsMath.p) / p)) + b;
-                    return a * _easingsMath.w(2, -10 * (t -= 1)) * _easingsMath.s((t * d - s) * (2 * _easingsMath.p) / p) * .5 + c + b;
-                },
-                easeInBack: function (x, t, b, c, d, s) {
-                    s = s || _easingsMath.o;
-                    return c * (t /= d) * t * ((s + 1) * t - s) + b;
-                },
-                easeOutBack: function (x, t, b, c, d, s) {
-                    s = s || _easingsMath.o;
-                    return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b;
-                },
-                easeInOutBack: function (x, t, b, c, d, s) {
-                    s = s || _easingsMath.o;
-                    return ((t /= d / 2) < 1) ? c / 2 * (t * t * (((s *= (1.525)) + 1) * t - s)) + b : c / 2 * ((t -= 2) * t * (((s *= (1.525)) + 1) * t + s) + 2) + b;
-                },
-                easeInBounce: function (x, t, b, c, d) {
-                    return c - this.easeOutBounce(x, d - t, 0, c, d) + b;
-                },
-                easeOutBounce: function (x, t, b, c, d) {
-                    var o = 7.5625;
-                    if ((t /= d) < (1 / 2.75)) {
-                        return c * (o * t * t) + b;
-                    } else if (t < (2 / 2.75)) {
-                        return c * (o * (t -= (1.5 / 2.75)) * t + .75) + b;
-                    } else if (t < (2.5 / 2.75)) {
-                        return c * (o * (t -= (2.25 / 2.75)) * t + .9375) + b;
-                    } else {
-                        return c * (o * (t -= (2.625 / 2.75)) * t + .984375) + b;
-                    }
-                },
-                easeInOutBounce: function (x, t, b, c, d) {
-                    return (t < d / 2) ? this.easeInBounce(x, t * 2, 0, c, d) * .5 + b : this.easeOutBounce(x, t * 2 - d, 0, c, d) * .5 + c * .5 + b;
-                }
-            };
-            /*
-             *
-             * TERMS OF USE - EASING EQUATIONS
-             *
-             * Open source under the BSD License.
-             *
-             * Copyright Â© 2001 Robert Penner
-             * All rights reserved.
-             *
-             * Redistribution and use in source and binary forms, with or without modification,
-             * are permitted provided that the following conditions are met:
-             *
-             * Redistributions of source code must retain the above copyright notice, this list of
-             * conditions and the following disclaimer.
-             * Redistributions in binary form must reproduce the above copyright notice, this list
-             * of conditions and the following disclaimer in the documentation and/or other materials
-             * provided with the distribution.
-             *
-             * Neither the name of the author nor the names of contributors may be used to endorse
-             * or promote products derived from this software without specific prior written permission.
-             *
-             * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-             * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-             * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-             *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-             *  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-             *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-             * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-             *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-             * OF THE POSSIBILITY OF SUCH DAMAGE.
-             *
-             */
-        })();
-        var FRAMEWORK = (function () {
-            var _rnothtmlwhite = (/[^\x20\t\r\n\f]+/g);
-            var _strSpace = ' ';
-            var _strEmpty = '';
-            var _strScrollLeft = 'scrollLeft';
-            var _strScrollTop = 'scrollTop';
-            var _animations = [];
-            var _type = COMPATIBILITY.type;
-            var _cssNumber = {
-                animationIterationCount: true,
-                columnCount: true,
-                fillOpacity: true,
-                flexGrow: true,
-                flexShrink: true,
-                fontWeight: true,
-                lineHeight: true,
-                opacity: true,
-                order: true,
-                orphans: true,
-                widows: true,
-                zIndex: true,
-                zoom: true
-            };
-
-            function extend() {
-                var src, copyIsArray, copy, name, options, clone, target = arguments[0] || {},
-                    i = 1,
-                    length = arguments[LEXICON.l],
-                    deep = false;
-
-                // Handle a deep copy situation
-                if (_type(target) == TYPES.b) {
-                    deep = target;
-                    target = arguments[1] || {};
-                    // skip the boolean and the target
-                    i = 2;
-                }
-
-                // Handle case when target is a string or something (possible in deep copy)
-                if (_type(target) != TYPES.o && !_type(target) == TYPES.f) {
-                    target = {};
-                }
-
-                // extend jQuery itself if only one argument is passed
-                if (length === i) {
-                    target = FakejQuery;
-                    --i;
-                }
-
-                for (; i < length; i++) {
-                    // Only deal with non-null/undefined values
-                    if ((options = arguments[i]) != null) {
-                        // Extend the base object
-                        for (name in options) {
-                            src = target[name];
-                            copy = options[name];
-
-                            // Prevent never-ending loop
-                            if (target === copy) {
-                                continue;
-                            }
-
-                            // Recurse if we're merging plain objects or arrays
-                            if (deep && copy && (isPlainObject(copy) || (copyIsArray = COMPATIBILITY.isA(copy)))) {
-                                if (copyIsArray) {
-                                    copyIsArray = false;
-                                    clone = src && COMPATIBILITY.isA(src) ? src : [];
-
-                                } else {
-                                    clone = src && isPlainObject(src) ? src : {};
-                                }
-
-                                // Never move original objects, clone them
-                                target[name] = extend(deep, clone, copy);
-
-                                // Don't bring in undefined values
-                            } else if (copy !== undefined) {
-                                target[name] = copy;
-                            }
-                        }
-                    }
-                }
-
-                // Return the modified object
-                return target;
-            };
-
-            function inArray(item, arr, fromIndex) {
-                for (var i = fromIndex || 0; i < arr[LEXICON.l]; i++)
-                    if (arr[i] === item)
-                        return i;
-                return -1;
-            }
-
-            function isFunction(obj) {
-                return _type(obj) == TYPES.f;
-            };
-
-            function isEmptyObject(obj) {
-                for (var name in obj)
-                    return false;
-                return true;
-            };
-
-            function isPlainObject(obj) {
-                if (!obj || _type(obj) != TYPES.o)
-                    return false;
-
-                var key;
-                var proto = LEXICON.p;
-                var hasOwnProperty = Object[proto].hasOwnProperty;
-                var hasOwnConstructor = hasOwnProperty.call(obj, 'constructor');
-                var hasIsPrototypeOf = obj.constructor && obj.constructor[proto] && hasOwnProperty.call(obj.constructor[proto], 'isPrototypeOf');
-
-                if (obj.constructor && !hasOwnConstructor && !hasIsPrototypeOf) {
-                    return false;
-                }
-
-
-                for (key in obj) { /**/ }
-
-                return _type(key) == TYPES.u || hasOwnProperty.call(obj, key);
-            };
-
-            function each(obj, callback) {
-                var i = 0;
-
-                if (isArrayLike(obj)) {
-                    for (; i < obj[LEXICON.l]; i++) {
-                        if (callback.call(obj[i], i, obj[i]) === false)
-                            break;
-                    }
-                }
-                else {
-                    for (i in obj) {
-                        if (callback.call(obj[i], i, obj[i]) === false)
-                            break;
-                    }
-                }
-
-                return obj;
-            };
-
-            function isArrayLike(obj) {
-                var length = !!obj && [LEXICON.l] in obj && obj[LEXICON.l];
-                var t = _type(obj);
-                return isFunction(t) ? false : (t == TYPES.a || length === 0 || _type(length) == TYPES.n && length > 0 && (length - 1) in obj);
-            }
-
-            function stripAndCollapse(value) {
-                var tokens = value.match(_rnothtmlwhite) || [];
-                return tokens.join(_strSpace);
-            }
-
-            function matches(elem, selector) {
-                var nodeList = (elem.parentNode || document).querySelectorAll(selector) || [];
-                var i = nodeList[LEXICON.l];
-
-                while (i--)
-                    if (nodeList[i] == elem)
-                        return true;
-
-                return false;
-            }
-
-            function insertAdjacentElement(el, strategy, child) {
-                if (COMPATIBILITY.isA(child)) {
-                    for (var i = 0; i < child[LEXICON.l]; i++)
-                        insertAdjacentElement(el, strategy, child[i]);
-                }
-                else if (_type(child) == TYPES.s)
-                    el.insertAdjacentHTML(strategy, child);
-                else
-                    el.insertAdjacentElement(strategy, child.nodeType ? child : child[0]);
-            }
-
-            function setCSSVal(el, prop, val) {
-                try {
-                    if (el[LEXICON.s][prop] !== undefined)
-                        el[LEXICON.s][prop] = parseCSSVal(prop, val);
-                } catch (e) { }
-            }
-
-            function parseCSSVal(prop, val) {
-                if (!_cssNumber[prop.toLowerCase()] && _type(val) == TYPES.n)
-                    val += 'px';
-                return val;
-            }
-
-            function startNextAnimationInQ(animObj, removeFromQ) {
-                var index;
-                var nextAnim;
-                if (removeFromQ !== false)
-                    animObj.q.splice(0, 1);
-                if (animObj.q[LEXICON.l] > 0) {
-                    nextAnim = animObj.q[0];
-                    animate(animObj.el, nextAnim.props, nextAnim.duration, nextAnim.easing, nextAnim.complete, true);
-                }
-                else {
-                    index = inArray(animObj, _animations);
-                    if (index > -1)
-                        _animations.splice(index, 1);
-                }
-            }
-
-            function setAnimationValue(el, prop, value) {
-                if (prop === _strScrollLeft || prop === _strScrollTop)
-                    el[prop] = value;
-                else
-                    setCSSVal(el, prop, value);
-            }
-
-            function animate(el, props, options, easing, complete, guaranteedNext) {
-                var hasOptions = isPlainObject(options);
-                var from = {};
-                var to = {};
-                var i = 0;
-                var key;
-                var animObj;
-                var start;
-                var progress;
-                var step;
-                var specialEasing;
-                var duration;
-                if (hasOptions) {
-                    easing = options.easing;
-                    start = options.start;
-                    progress = options.progress;
-                    step = options.step;
-                    specialEasing = options.specialEasing;
-                    complete = options.complete;
-                    duration = options.duration;
-                }
-                else
-                    duration = options;
-                specialEasing = specialEasing || {};
-                duration = duration || 400;
-                easing = easing || 'swing';
-                guaranteedNext = guaranteedNext || false;
-
-                for (; i < _animations[LEXICON.l]; i++) {
-                    if (_animations[i].el === el) {
-                        animObj = _animations[i];
-                        break;
-                    }
-                }
-
-                if (!animObj) {
-                    animObj = {
-                        el: el,
-                        q: []
-                    };
-                    _animations.push(animObj);
-                }
-
-                for (key in props) {
-                    if (key === _strScrollLeft || key === _strScrollTop)
-                        from[key] = el[key];
-                    else
-                        from[key] = FakejQuery(el).css(key);
-                }
-
-                for (key in from) {
-                    if (from[key] !== props[key] && props[key] !== undefined)
-                        to[key] = props[key];
-                }
-
-                if (!isEmptyObject(to)) {
-                    var timeNow;
-                    var end;
-                    var percent;
-                    var fromVal;
-                    var toVal;
-                    var easedVal;
-                    var timeStart;
-                    var frame;
-                    var elapsed;
-                    var qPos = guaranteedNext ? 0 : inArray(qObj, animObj.q);
-                    var qObj = {
-                        props: to,
-                        duration: hasOptions ? options : duration,
-                        easing: easing,
-                        complete: complete
-                    };
-                    if (qPos === -1) {
-                        qPos = animObj.q[LEXICON.l];
-                        animObj.q.push(qObj);
-                    }
-
-                    if (qPos === 0) {
-                        if (duration > 0) {
-                            timeStart = COMPATIBILITY.now();
-                            frame = function () {
-                                timeNow = COMPATIBILITY.now();
-                                elapsed = (timeNow - timeStart);
-                                end = qObj.stop || elapsed >= duration;
-                                percent = 1 - ((MATH.max(0, timeStart + duration - timeNow) / duration) || 0);
-
-                                for (key in to) {
-                                    fromVal = parseFloat(from[key]);
-                                    toVal = parseFloat(to[key]);
-                                    easedVal = (toVal - fromVal) * EASING[specialEasing[key] || easing](percent, percent * duration, 0, 1, duration) + fromVal;
-                                    setAnimationValue(el, key, easedVal);
-                                    if (isFunction(step)) {
-                                        step(easedVal, {
-                                            elem: el,
-                                            prop: key,
-                                            start: fromVal,
-                                            now: easedVal,
-                                            end: toVal,
-                                            pos: percent,
-                                            options: {
-                                                easing: easing,
-                                                speacialEasing: specialEasing,
-                                                duration: duration,
-                                                complete: complete,
-                                                step: step
-                                            },
-                                            startTime: timeStart
-                                        });
-                                    }
-                                }
-
-                                if (isFunction(progress))
-                                    progress({}, percent, MATH.max(0, duration - elapsed));
-
-                                if (end) {
-                                    startNextAnimationInQ(animObj);
-                                    if (isFunction(complete))
-                                        complete();
-                                }
-                                else
-                                    qObj.frame = COMPATIBILITY.rAF()(frame);
-                            };
-                            qObj.frame = COMPATIBILITY.rAF()(frame);
-                        }
-                        else {
-                            for (key in to)
-                                setAnimationValue(el, key, to[key]);
-                            startNextAnimationInQ(animObj);
-                        }
-                    }
-                }
-                else if (guaranteedNext)
-                    startNextAnimationInQ(animObj);
-            }
-
-            function stop(el, clearQ, jumpToEnd) {
-                var animObj;
-                var qObj;
-                var key;
-                var i = 0;
-                for (; i < _animations[LEXICON.l]; i++) {
-                    animObj = _animations[i];
-                    if (animObj.el === el) {
-                        if (animObj.q[LEXICON.l] > 0) {
-                            qObj = animObj.q[0];
-                            qObj.stop = true;
-                            COMPATIBILITY.cAF()(qObj.frame);
-                            animObj.q.splice(0, 1);
-
-                            if (jumpToEnd)
-                                for (key in qObj.props)
-                                    setAnimationValue(el, key, qObj.props[key]);
-
-                            if (clearQ)
-                                animObj.q = [];
-                            else
-                                startNextAnimationInQ(animObj, false);
-                        }
-                        break;
-                    }
-                }
-            }
-
-            function elementIsVisible(el) {
-                return !!(el[LEXICON.oW] || el[LEXICON.oH] || el.getClientRects()[LEXICON.l]);
-            }
-
-            function FakejQuery(selector) {
-                if (arguments[LEXICON.l] === 0)
-                    return this;
-
-                var base = new FakejQuery();
-                var elements = selector;
-                var i = 0;
-                var elms;
-                var el;
-
-                if (_type(selector) == TYPES.s) {
-                    elements = [];
-                    if (selector.charAt(0) === '<') {
-                        el = document.createElement('div');
-                        el.innerHTML = selector;
-                        elms = el.children;
-                    }
-                    else {
-                        elms = document.querySelectorAll(selector);
-                    }
-
-                    for (; i < elms[LEXICON.l]; i++)
-                        elements.push(elms[i]);
-                }
-
-                if (elements) {
-                    if (_type(elements) != TYPES.s && (!isArrayLike(elements) || elements === window || elements === elements.self))
-                        elements = [elements];
-
-                    for (i = 0; i < elements[LEXICON.l]; i++)
-                        base[i] = elements[i];
-
-                    base[LEXICON.l] = elements[LEXICON.l];
-                }
-
-                return base;
-            };
-
-            FakejQuery[LEXICON.p] = {
-
-                //EVENTS:
-
-                on: function (eventName, handler) {
-                    eventName = (eventName || _strEmpty).match(_rnothtmlwhite) || [_strEmpty];
-
-                    var eventNameLength = eventName[LEXICON.l];
-                    var i = 0;
-                    var el;
-                    return this.each(function () {
-                        el = this;
-                        try {
-                            if (el.addEventListener) {
-                                for (; i < eventNameLength; i++)
-                                    el.addEventListener(eventName[i], handler);
-                            }
-                            else if (el.detachEvent) {
-                                for (; i < eventNameLength; i++)
-                                    el.attachEvent('on' + eventName[i], handler);
-                            }
-                        } catch (e) { }
-                    });
-                },
-
-                off: function (eventName, handler) {
-                    eventName = (eventName || _strEmpty).match(_rnothtmlwhite) || [_strEmpty];
-
-                    var eventNameLength = eventName[LEXICON.l];
-                    var i = 0;
-                    var el;
-                    return this.each(function () {
-                        el = this;
-                        try {
-                            if (el.removeEventListener) {
-                                for (; i < eventNameLength; i++)
-                                    el.removeEventListener(eventName[i], handler);
-                            }
-                            else if (el.detachEvent) {
-                                for (; i < eventNameLength; i++)
-                                    el.detachEvent('on' + eventName[i], handler);
-                            }
-                        } catch (e) { }
-                    });
-                },
-
-                one: function (eventName, handler) {
-                    eventName = (eventName || _strEmpty).match(_rnothtmlwhite) || [_strEmpty];
-                    return this.each(function () {
-                        var el = FakejQuery(this);
-                        FakejQuery.each(eventName, function (i, oneEventName) {
-                            var oneHandler = function (e) {
-                                handler.call(this, e);
-                                el.off(oneEventName, oneHandler);
-                            };
-                            el.on(oneEventName, oneHandler);
-                        });
-                    });
-                },
-
-                trigger: function (eventName) {
-                    var el;
-                    var event;
-                    return this.each(function () {
-                        el = this;
-                        if (document.createEvent) {
-                            event = document.createEvent('HTMLEvents');
-                            event.initEvent(eventName, true, false);
-                            el.dispatchEvent(event);
-                        }
-                        else {
-                            el.fireEvent('on' + eventName);
-                        }
-                    });
-                },
-
-                //DOM NODE INSERTING / REMOVING:
-
-                append: function (child) {
-                    return this.each(function () { insertAdjacentElement(this, 'beforeend', child); });
-                },
-
-                prepend: function (child) {
-                    return this.each(function () { insertAdjacentElement(this, 'afterbegin', child); });
-                },
-
-                before: function (child) {
-                    return this.each(function () { insertAdjacentElement(this, 'beforebegin', child); });
-                },
-
-                after: function (child) {
-                    return this.each(function () { insertAdjacentElement(this, 'afterend', child); });
-                },
-
-                remove: function () {
-                    return this.each(function () {
-                        var el = this;
-                        var parentNode = el.parentNode;
-                        if (parentNode != null)
-                            parentNode.removeChild(el);
-                    });
-                },
-
-                unwrap: function () {
-                    var parents = [];
-                    var i;
-                    var el;
-                    var parent;
-
-                    this.each(function () {
-                        parent = this.parentNode;
-                        if (inArray(parent, parents) === - 1)
-                            parents.push(parent);
-                    });
-
-                    for (i = 0; i < parents[LEXICON.l]; i++) {
-                        el = parents[i];
-                        parent = el.parentNode;
-                        while (el.firstChild)
-                            parent.insertBefore(el.firstChild, el);
-                        parent.removeChild(el);
-                    }
-
-                    return this;
-                },
-
-                wrapAll: function (wrapperHTML) {
-                    var i;
-                    var nodes = this;
-                    var wrapper = FakejQuery(wrapperHTML)[0];
-                    var deepest = wrapper;
-                    var parent = nodes[0].parentNode;
-                    var previousSibling = nodes[0].previousSibling;
-                    while (deepest.childNodes[LEXICON.l] > 0)
-                        deepest = deepest.childNodes[0];
-
-                    for (i = 0; nodes[LEXICON.l] - i; deepest.firstChild === nodes[0] && i++)
-                        deepest.appendChild(nodes[i]);
-
-                    var nextSibling = previousSibling ? previousSibling.nextSibling : parent.firstChild;
-                    parent.insertBefore(wrapper, nextSibling);
-
-                    return this;
-                },
-
-                wrapInner: function (wrapperHTML) {
-                    return this.each(function () {
-                        var el = FakejQuery(this);
-                        var contents = el.contents();
-
-                        if (contents[LEXICON.l])
-                            contents.wrapAll(wrapperHTML);
-                        else
-                            el.append(wrapperHTML);
-                    });
-                },
-
-                wrap: function (wrapperHTML) {
-                    return this.each(function () { FakejQuery(this).wrapAll(wrapperHTML); });
-                },
-
-
-                //DOM NODE MANIPULATION / INFORMATION:
-
-                css: function (styles, val) {
-                    var el;
-                    var key;
-                    var cptStyle;
-                    var getCptStyle = window.getComputedStyle;
-                    if (_type(styles) == TYPES.s) {
-                        if (val === undefined) {
-                            el = this[0];
-                            cptStyle = getCptStyle ? getCptStyle(el, null) : el.currentStyle[styles];
-
-                            //https://bugzilla.mozilla.org/show_bug.cgi?id=548397 can be null sometimes if iframe with display: none (firefox only!)
-                            return getCptStyle ? cptStyle != null ? cptStyle.getPropertyValue(styles) : el[LEXICON.s][styles] : cptStyle;
-                        }
-                        else {
-                            return this.each(function () {
-                                setCSSVal(this, styles, val);
-                            });
-                        }
-                    }
-                    else {
-                        return this.each(function () {
-                            for (key in styles)
-                                setCSSVal(this, key, styles[key]);
-                        });
-                    }
-                },
-
-                hasClass: function (className) {
-                    var elem, i = 0;
-                    var classNamePrepared = _strSpace + className + _strSpace;
-                    var classList;
-
-                    while ((elem = this[i++])) {
-                        classList = elem.classList;
-                        if (classList && classList.contains(className))
-                            return true;
-                        else if (elem.nodeType === 1 && (_strSpace + stripAndCollapse(elem.className + _strEmpty) + _strSpace).indexOf(classNamePrepared) > -1)
-                            return true;
-                    }
-
-                    return false;
-                },
-
-                addClass: function (className) {
-                    var classes;
-                    var elem;
-                    var cur;
-                    var curValue;
-                    var clazz;
-                    var finalValue;
-                    var supportClassList;
-                    var elmClassList;
-                    var i = 0;
-                    var v = 0;
-
-                    if (className) {
-                        classes = className.match(_rnothtmlwhite) || [];
-
-                        while ((elem = this[i++])) {
-                            elmClassList = elem.classList;
-                            if (supportClassList === undefined)
-                                supportClassList = elmClassList !== undefined;
-
-                            if (supportClassList) {
-                                while ((clazz = classes[v++]))
-                                    elmClassList.add(clazz);
-                            }
-                            else {
-                                curValue = elem.className + _strEmpty;
-                                cur = elem.nodeType === 1 && (_strSpace + stripAndCollapse(curValue) + _strSpace);
-
-                                if (cur) {
-                                    while ((clazz = classes[v++]))
-                                        if (cur.indexOf(_strSpace + clazz + _strSpace) < 0)
-                                            cur += clazz + _strSpace;
-
-                                    finalValue = stripAndCollapse(cur);
-                                    if (curValue !== finalValue)
-                                        elem.className = finalValue;
-                                }
-                            }
-                        }
-                    }
-
-                    return this;
-                },
-
-                removeClass: function (className) {
-                    var classes;
-                    var elem;
-                    var cur;
-                    var curValue;
-                    var clazz;
-                    var finalValue;
-                    var supportClassList;
-                    var elmClassList;
-                    var i = 0;
-                    var v = 0;
-
-                    if (className) {
-                        classes = className.match(_rnothtmlwhite) || [];
-
-                        while ((elem = this[i++])) {
-                            elmClassList = elem.classList;
-                            if (supportClassList === undefined)
-                                supportClassList = elmClassList !== undefined;
-
-                            if (supportClassList) {
-                                while ((clazz = classes[v++]))
-                                    elmClassList.remove(clazz);
-                            }
-                            else {
-                                curValue = elem.className + _strEmpty;
-                                cur = elem.nodeType === 1 && (_strSpace + stripAndCollapse(curValue) + _strSpace);
-
-                                if (cur) {
-                                    while ((clazz = classes[v++]))
-                                        while (cur.indexOf(_strSpace + clazz + _strSpace) > -1)
-                                            cur = cur.replace(_strSpace + clazz + _strSpace, _strSpace);
-
-                                    finalValue = stripAndCollapse(cur);
-                                    if (curValue !== finalValue)
-                                        elem.className = finalValue;
-                                }
-                            }
-                        }
-                    }
-
-                    return this;
-                },
-
-                hide: function () {
-                    return this.each(function () { this[LEXICON.s].display = 'none'; });
-                },
-
-                show: function () {
-                    return this.each(function () { this[LEXICON.s].display = 'block'; });
-                },
-
-                attr: function (attrName, value) {
-                    var i = 0;
-                    var el;
-                    while (el = this[i++]) {
-                        if (value === undefined)
-                            return el.getAttribute(attrName);
-                        el.setAttribute(attrName, value);
-                    }
-                    return this;
-                },
-
-                removeAttr: function (attrName) {
-                    return this.each(function () { this.removeAttribute(attrName); });
-                },
-
-                offset: function () {
-                    var el = this[0];
-                    var rect = el[LEXICON.bCR]();
-                    var scrollLeft = window.pageXOffset || document.documentElement[_strScrollLeft];
-                    var scrollTop = window.pageYOffset || document.documentElement[_strScrollTop];
-                    return {
-                        top: rect.top + scrollTop,
-                        left: rect.left + scrollLeft
-                    };
-                },
-
-                position: function () {
-                    var el = this[0];
-                    return {
-                        top: el.offsetTop,
-                        left: el.offsetLeft
-                    };
-                },
-
-                scrollLeft: function (value) {
-                    var i = 0;
-                    var el;
-                    while (el = this[i++]) {
-                        if (value === undefined)
-                            return el[_strScrollLeft];
-                        el[_strScrollLeft] = value;
-                    }
-                    return this;
-                },
-
-                scrollTop: function (value) {
-                    var i = 0;
-                    var el;
-                    while (el = this[i++]) {
-                        if (value === undefined)
-                            return el[_strScrollTop];
-                        el[_strScrollTop] = value;
-                    }
-                    return this;
-                },
-
-                val: function (value) {
-                    var el = this[0];
-                    if (!value)
-                        return el.value;
-                    el.value = value;
-                    return this;
-                },
-
-
-                //DOM TRAVERSAL / FILTERING:
-
-                first: function () {
-                    return this.eq(0);
-                },
-
-                last: function () {
-                    return this.eq(-1);
-                },
-
-                eq: function (index) {
-                    return FakejQuery(this[index >= 0 ? index : this[LEXICON.l] + index]);
-                },
-
-                find: function (selector) {
-                    var children = [];
-                    var i;
-                    this.each(function () {
-                        var el = this;
-                        var ch = el.querySelectorAll(selector);
-                        for (i = 0; i < ch[LEXICON.l]; i++)
-                            children.push(ch[i]);
-                    });
-                    return FakejQuery(children);
-                },
-
-                children: function (selector) {
-                    var children = [];
-                    var el;
-                    var ch;
-                    var i;
-
-                    this.each(function () {
-                        ch = this.children;
-                        for (i = 0; i < ch[LEXICON.l]; i++) {
-                            el = ch[i];
-                            if (selector) {
-                                if ((el.matches && el.matches(selector)) || matches(el, selector))
-                                    children.push(el);
-                            }
-                            else
-                                children.push(el);
-                        }
-                    });
-                    return FakejQuery(children);
-                },
-
-                parent: function (selector) {
-                    var parents = [];
-                    var parent;
-                    this.each(function () {
-                        parent = this.parentNode;
-                        if (selector ? FakejQuery(parent).is(selector) : true)
-                            parents.push(parent);
-                    });
-                    return FakejQuery(parents);
-                },
-
-                is: function (selector) {
-
-                    var el;
-                    var i;
-                    for (i = 0; i < this[LEXICON.l]; i++) {
-                        el = this[i];
-                        if (selector === ':visible')
-                            return elementIsVisible(el);
-                        if (selector === ':hidden')
-                            return !elementIsVisible(el);
-                        if ((el.matches && el.matches(selector)) || matches(el, selector))
-                            return true;
-                    }
-                    return false;
-                },
-
-                contents: function () {
-                    var contents = [];
-                    var childs;
-                    var i;
-
-                    this.each(function () {
-                        childs = this.childNodes;
-                        for (i = 0; i < childs[LEXICON.l]; i++)
-                            contents.push(childs[i]);
-                    });
-
-                    return FakejQuery(contents);
-                },
-
-                each: function (callback) {
-                    return each(this, callback);
-                },
-
-
-                //ANIMATION:
-
-                animate: function (props, duration, easing, complete) {
-                    return this.each(function () { animate(this, props, duration, easing, complete); });
-                },
-
-                stop: function (clearQ, jump) {
-                    return this.each(function () { stop(this, clearQ, jump); });
-                }
-            };
-
-            extend(FakejQuery, {
-                extend: extend,
-                inArray: inArray,
-                isEmptyObject: isEmptyObject,
-                isPlainObject: isPlainObject,
-                each: each
-            });
-
-            return FakejQuery;
-        })();
-        var INSTANCES = (function () {
-            var _targets = [];
-            var _instancePropertyString = '__overlayScrollbars__';
-
-            /**
-             * Register, unregister or get a certain (or all) instances.
-             * Register: Pass the target and the instance.
-             * Unregister: Pass the target and null.
-             * Get Instance: Pass the target from which the instance shall be got.
-             * Get Targets: Pass no arguments.
-             * @param target The target to which the instance shall be registered / from which the instance shall be unregistered / the instance shall be got
-             * @param instance The instance.
-             * @returns {*|void} Returns the instance from the given target.
-             */
-            return function (target, instance) {
-                var argLen = arguments[LEXICON.l];
-                if (argLen < 1) {
-                    //return all targets
-                    return _targets;
-                }
-                else {
-                    if (instance) {
-                        //register instance
-                        target[_instancePropertyString] = instance;
-                        _targets.push(target);
-                    }
-                    else {
-                        var index = COMPATIBILITY.inA(target, _targets);
-                        if (index > -1) {
-                            if (argLen > 1) {
-                                //unregister instance
-                                delete target[_instancePropertyString];
-                                _targets.splice(index, 1);
-                            }
-                            else {
-                                //get instance from target
-                                return _targets[index][_instancePropertyString];
-                            }
-                        }
-                    }
-                }
-            }
-        })();
-        var PLUGIN = (function () {
-            var _plugin;
-            var _pluginsGlobals;
-            var _pluginsAutoUpdateLoop;
-            var _pluginsExtensions = [];
-            var _pluginsOptions = (function () {
-                var type = COMPATIBILITY.type;
-                var possibleTemplateTypes = [
-                    TYPES.b, //boolean
-                    TYPES.n, //number
-                    TYPES.s, //string
-                    TYPES.a, //array
-                    TYPES.o, //object
-                    TYPES.f, //function
-                    TYPES.z  //null
-                ];
-                var restrictedStringsSplit = ' ';
-                var restrictedStringsPossibilitiesSplit = ':';
-                var classNameAllowedValues = [TYPES.z, TYPES.s];
-                var numberAllowedValues = TYPES.n;
-                var booleanNullAllowedValues = [TYPES.z, TYPES.b];
-                var booleanTrueTemplate = [true, TYPES.b];
-                var booleanFalseTemplate = [false, TYPES.b];
-                var callbackTemplate = [null, [TYPES.z, TYPES.f]];
-                var updateOnLoadTemplate = [['img'], [TYPES.s, TYPES.a, TYPES.z]];
-                var inheritedAttrsTemplate = [['style', 'class'], [TYPES.s, TYPES.a, TYPES.z]];
-                var resizeAllowedValues = 'n:none b:both h:horizontal v:vertical';
-                var overflowBehaviorAllowedValues = 'v-h:visible-hidden v-s:visible-scroll s:scroll h:hidden';
-                var scrollbarsVisibilityAllowedValues = 'v:visible h:hidden a:auto';
-                var scrollbarsAutoHideAllowedValues = 'n:never s:scroll l:leave m:move';
-                var optionsDefaultsAndTemplate = {
-                    className: ['os-theme-dark', classNameAllowedValues],                //null || string
-                    resize: ['none', resizeAllowedValues],                               //none || both  || horizontal || vertical || n || b || h || v
-                    sizeAutoCapable: booleanTrueTemplate,                                //true || false
-                    clipAlways: booleanTrueTemplate,                                     //true || false
-                    normalizeRTL: booleanTrueTemplate,                                   //true || false
-                    paddingAbsolute: booleanFalseTemplate,                               //true || false
-                    autoUpdate: [null, booleanNullAllowedValues],                        //true || false || null
-                    autoUpdateInterval: [33, numberAllowedValues],                       //number
-                    updateOnLoad: updateOnLoadTemplate,                                  //string || array || null
-                    nativeScrollbarsOverlaid: {
-                        showNativeScrollbars: booleanFalseTemplate,                      //true || false
-                        initialize: booleanTrueTemplate                                  //true || false
-                    },
-                    overflowBehavior: {
-                        x: ['scroll', overflowBehaviorAllowedValues],                    //visible-hidden  || visible-scroll || hidden || scroll || v-h || v-s || h || s
-                        y: ['scroll', overflowBehaviorAllowedValues]                     //visible-hidden  || visible-scroll || hidden || scroll || v-h || v-s || h || s
-                    },
-                    scrollbars: {
-                        visibility: ['auto', scrollbarsVisibilityAllowedValues],         //visible || hidden || auto || v || h || a
-                        autoHide: ['never', scrollbarsAutoHideAllowedValues],            //never || scroll || leave || move || n || s || l || m
-                        autoHideDelay: [800, numberAllowedValues],                       //number
-                        dragScrolling: booleanTrueTemplate,                              //true || false
-                        clickScrolling: booleanFalseTemplate,                            //true || false
-                        touchSupport: booleanTrueTemplate,                               //true || false
-                        snapHandle: booleanFalseTemplate                                 //true || false
-                    },
-                    textarea: {
-                        dynWidth: booleanFalseTemplate,                                  //true || false
-                        dynHeight: booleanFalseTemplate,                                 //true || false
-                        inheritedAttrs: inheritedAttrsTemplate                           //string || array || null
-                    },
-                    callbacks: {
-                        onInitialized: callbackTemplate,                                 //null || function
-                        onInitializationWithdrawn: callbackTemplate,                     //null || function
-                        onDestroyed: callbackTemplate,                                   //null || function
-                        onScrollStart: callbackTemplate,                                 //null || function
-                        onScroll: callbackTemplate,                                      //null || function
-                        onScrollStop: callbackTemplate,                                  //null || function
-                        onOverflowChanged: callbackTemplate,                             //null || function
-                        onOverflowAmountChanged: callbackTemplate,                       //null || function
-                        onDirectionChanged: callbackTemplate,                            //null || function
-                        onContentSizeChanged: callbackTemplate,                          //null || function
-                        onHostSizeChanged: callbackTemplate,                             //null || function
-                        onUpdated: callbackTemplate                                      //null || function
-                    }
-                };
-                var convert = function (template) {
-                    var recursive = function (obj) {
-                        var key;
-                        var val;
-                        var valType;
-                        for (key in obj) {
-                            if (!obj[LEXICON.hOP](key))
-                                continue;
-                            val = obj[key];
-                            valType = type(val);
-                            if (valType == TYPES.a)
-                                obj[key] = val[template ? 1 : 0];
-                            else if (valType == TYPES.o)
-                                obj[key] = recursive(val);
-                        }
-                        return obj;
-                    };
-                    return recursive(FRAMEWORK.extend(true, {}, optionsDefaultsAndTemplate));
-                };
-
-                return {
-                    _defaults: convert(),
-
-                    _template: convert(true),
-
-                    /**
-                     * Validates the passed object by the passed template.
-                     * @param obj The object which shall be validated.
-                     * @param template The template which defines the allowed values and types.
-                     * @param writeErrors True if errors shall be logged to the console.
-                     * @param diffObj If a object is passed then only valid differences to this object will be returned.
-                     * @returns {{}} A object which contains two objects called "default" and "prepared" which contains only the valid properties of the passed original object and discards not different values compared to the passed diffObj.
-                     */
-                    _validate: function (obj, template, writeErrors, diffObj) {
-                        var validatedOptions = {};
-                        var validatedOptionsPrepared = {};
-                        var objectCopy = FRAMEWORK.extend(true, {}, obj);
-                        var inArray = FRAMEWORK.inArray;
-                        var isEmptyObj = FRAMEWORK.isEmptyObject;
-                        var checkObjectProps = function (data, template, diffData, validatedOptions, validatedOptionsPrepared, prevPropName) {
-                            for (var prop in template) {
-                                if (template[LEXICON.hOP](prop) && data[LEXICON.hOP](prop)) {
-                                    var isValid = false;
-                                    var isDiff = false;
-                                    var templateValue = template[prop];
-                                    var templateValueType = type(templateValue);
-                                    var templateIsComplex = templateValueType == TYPES.o;
-                                    var templateTypes = !COMPATIBILITY.isA(templateValue) ? [templateValue] : templateValue;
-                                    var dataDiffValue = diffData[prop];
-                                    var dataValue = data[prop];
-                                    var dataValueType = type(dataValue);
-                                    var propPrefix = prevPropName ? prevPropName + '.' : '';
-                                    var error = "The option \"" + propPrefix + prop + "\" wasn't set, because";
-                                    var errorPossibleTypes = [];
-                                    var errorRestrictedStrings = [];
-                                    var restrictedStringValuesSplit;
-                                    var restrictedStringValuesPossibilitiesSplit;
-                                    var isRestrictedValue;
-                                    var mainPossibility;
-                                    var currType;
-                                    var i;
-                                    var v;
-                                    var j;
-
-                                    dataDiffValue = dataDiffValue === undefined ? {} : dataDiffValue;
-
-                                    //if the template has a object as value, it means that the options are complex (verschachtelt)
-                                    if (templateIsComplex && dataValueType == TYPES.o) {
-                                        validatedOptions[prop] = {};
-                                        validatedOptionsPrepared[prop] = {};
-                                        checkObjectProps(dataValue, templateValue, dataDiffValue, validatedOptions[prop], validatedOptionsPrepared[prop], propPrefix + prop);
-                                        FRAMEWORK.each([data, validatedOptions, validatedOptionsPrepared], function (index, value) {
-                                            if (isEmptyObj(value[prop])) {
-                                                delete value[prop];
-                                            }
-                                        });
-                                    }
-                                    else if (!templateIsComplex) {
-                                        for (i = 0; i < templateTypes[LEXICON.l]; i++) {
-                                            currType = templateTypes[i];
-                                            templateValueType = type(currType);
-                                            //if currtype is string and starts with restrictedStringPrefix and end with restrictedStringSuffix
-                                            isRestrictedValue = templateValueType == TYPES.s && inArray(currType, possibleTemplateTypes) === -1;
-                                            if (isRestrictedValue) {
-                                                errorPossibleTypes.push(TYPES.s);
-
-                                                //split it into a array which contains all possible values for example: ["y:yes", "n:no", "m:maybe"]
-                                                restrictedStringValuesSplit = currType.split(restrictedStringsSplit);
-                                                errorRestrictedStrings = errorRestrictedStrings.concat(restrictedStringValuesSplit);
-                                                for (v = 0; v < restrictedStringValuesSplit[LEXICON.l]; v++) {
-                                                    //split the possible values into their possibiliteis for example: ["y", "yes"] -> the first is always the mainPossibility
-                                                    restrictedStringValuesPossibilitiesSplit = restrictedStringValuesSplit[v].split(restrictedStringsPossibilitiesSplit);
-                                                    mainPossibility = restrictedStringValuesPossibilitiesSplit[0];
-                                                    for (j = 0; j < restrictedStringValuesPossibilitiesSplit[LEXICON.l]; j++) {
-                                                        //if any possibility matches with the dataValue, its valid
-                                                        if (dataValue === restrictedStringValuesPossibilitiesSplit[j]) {
-                                                            isValid = true;
-                                                            break;
-                                                        }
-                                                    }
-                                                    if (isValid)
-                                                        break;
-                                                }
-                                            }
-                                            else {
-                                                errorPossibleTypes.push(currType);
-
-                                                if (dataValueType === currType) {
-                                                    isValid = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if (isValid) {
-                                            isDiff = dataValue !== dataDiffValue;
-
-                                            if (isDiff)
-                                                validatedOptions[prop] = dataValue;
-
-                                            if (isRestrictedValue ? inArray(dataDiffValue, restrictedStringValuesPossibilitiesSplit) < 0 : isDiff)
-                                                validatedOptionsPrepared[prop] = isRestrictedValue ? mainPossibility : dataValue;
-                                        }
-                                        else if (writeErrors) {
-                                            console.warn(error + " it doesn't accept the type [ " + dataValueType.toUpperCase() + " ] with the value of \"" + dataValue + "\".\r\n" +
-                                                "Accepted types are: [ " + errorPossibleTypes.join(', ').toUpperCase() + " ]." +
-                                                (errorRestrictedStrings[length] > 0 ? "\r\nValid strings are: [ " + errorRestrictedStrings.join(', ').split(restrictedStringsPossibilitiesSplit).join(', ') + " ]." : ''));
-                                        }
-                                        delete data[prop];
-                                    }
-                                }
-                            }
-                        };
-                        checkObjectProps(objectCopy, template, diffObj || {}, validatedOptions, validatedOptionsPrepared);
-
-                        //add values which aren't specified in the template to the finished validated object to prevent them from being discarded
-                        /*
-                        if(keepForeignProps) {
-                            FRAMEWORK.extend(true, validatedOptions, objectCopy);
-                            FRAMEWORK.extend(true, validatedOptionsPrepared, objectCopy);
-                        }
-                        */
-
-                        if (!isEmptyObj(objectCopy) && writeErrors)
-                            console.warn('The following options are discarded due to invalidity:\r\n' + window.JSON.stringify(objectCopy, null, 2));
-
-                        return {
-                            _default: validatedOptions,
-                            _prepared: validatedOptionsPrepared
-                        };
-                    }
-                }
-            }());
-
-            /**
-             * Initializes the object which contains global information about the plugin and each instance of it.
-             */
-            function initOverlayScrollbarsStatics() {
-                if (!_pluginsGlobals)
-                    _pluginsGlobals = new OverlayScrollbarsGlobals(_pluginsOptions._defaults);
-                if (!_pluginsAutoUpdateLoop)
-                    _pluginsAutoUpdateLoop = new OverlayScrollbarsAutoUpdateLoop(_pluginsGlobals);
-            }
-
-            /**
-             * The global object for the OverlayScrollbars objects. It contains resources which every OverlayScrollbars object needs. This object is initialized only once: if the first OverlayScrollbars object gets initialized.
-             * @param defaultOptions
-             * @constructor
-             */
-            function OverlayScrollbarsGlobals(defaultOptions) {
-                var _base = this;
-                var strOverflow = 'overflow';
-                var strHidden = 'hidden';
-                var strScroll = 'scroll';
-                var bodyElement = FRAMEWORK('body');
-                var scrollbarDummyElement = FRAMEWORK('<div id="os-dummy-scrollbar-size"><div></div></div>');
-                var scrollbarDummyElement0 = scrollbarDummyElement[0];
-                var dummyContainerChild = FRAMEWORK(scrollbarDummyElement.children('div').eq(0));
-
-                bodyElement.append(scrollbarDummyElement);
-                scrollbarDummyElement.hide().show(); //fix IE8 bug (incorrect measuring)
-
-                var nativeScrollbarSize = calcNativeScrollbarSize(scrollbarDummyElement0);
-                var nativeScrollbarIsOverlaid = {
-                    x: nativeScrollbarSize.x === 0,
-                    y: nativeScrollbarSize.y === 0
-                };
-                var msie = (function () {
-                    var ua = window.navigator.userAgent;
-                    var strIndexOf = 'indexOf';
-                    var strSubString = 'substring';
-                    var msie = ua[strIndexOf]('MSIE ');
-                    var trident = ua[strIndexOf]('Trident/');
-                    var edge = ua[strIndexOf]('Edge/');
-                    var rv = ua[strIndexOf]('rv:');
-                    var result;
-                    var parseIntFunc = parseInt;
-
-                    // IE 10 or older => return version number
-                    if (msie > 0)
-                        result = parseIntFunc(ua[strSubString](msie + 5, ua[strIndexOf]('.', msie)), 10);
-
-                    // IE 11 => return version number
-                    else if (trident > 0)
-                        result = parseIntFunc(ua[strSubString](rv + 3, ua[strIndexOf]('.', rv)), 10);
-
-                    // Edge (IE 12+) => return version number
-                    else if (edge > 0)
-                        result = parseIntFunc(ua[strSubString](edge + 5, ua[strIndexOf]('.', edge)), 10);
-
-                    // other browser
-                    return result;
-                })();
-
-                FRAMEWORK.extend(_base, {
-                    defaultOptions: defaultOptions,
-                    msie: msie,
-                    autoUpdateLoop: false,
-                    autoUpdateRecommended: !COMPATIBILITY.mO(),
-                    nativeScrollbarSize: nativeScrollbarSize,
-                    nativeScrollbarIsOverlaid: nativeScrollbarIsOverlaid,
-                    nativeScrollbarStyling: (function () {
-                        var result = false;
-                        scrollbarDummyElement.addClass('os-viewport-native-scrollbars-invisible');
-                        try {
-                            result = (scrollbarDummyElement.css('scrollbar-width') === 'none' && (msie > 9 || !msie)) || window.getComputedStyle(scrollbarDummyElement0, '::-webkit-scrollbar').getPropertyValue('display') === 'none';
-                        } catch (ex) { }
-
-                        //fix opera bug: scrollbar styles will only appear if overflow value is scroll or auto during the activation of the style.
-                        //and set overflow to scroll
-                        //scrollbarDummyElement.css(strOverflow, strHidden).hide().css(strOverflow, strScroll).show();
-                        //return (scrollbarDummyElement0[LEXICON.oH] - scrollbarDummyElement0[LEXICON.cH]) === 0 && (scrollbarDummyElement0[LEXICON.oW] - scrollbarDummyElement0[LEXICON.cW]) === 0;
-
-                        return result;
-                    })(),
-                    overlayScrollbarDummySize: { x: 30, y: 30 },
-                    cssCalc: VENDORS._cssPropertyValue('width', 'calc', '(1px)') || null,
-                    restrictedMeasuring: (function () {
-                        //https://bugzilla.mozilla.org/show_bug.cgi?id=1439305
-                        //since 1.11.0 always false -> fixed via CSS (hopefully)
-                        scrollbarDummyElement.css(strOverflow, strHidden);
-                        var scrollSize = {
-                            w: scrollbarDummyElement0[LEXICON.sW],
-                            h: scrollbarDummyElement0[LEXICON.sH]
-                        };
-                        scrollbarDummyElement.css(strOverflow, 'visible');
-                        var scrollSize2 = {
-                            w: scrollbarDummyElement0[LEXICON.sW],
-                            h: scrollbarDummyElement0[LEXICON.sH]
-                        };
-                        return (scrollSize.w - scrollSize2.w) !== 0 || (scrollSize.h - scrollSize2.h) !== 0;
-                    })(),
-                    rtlScrollBehavior: (function () {
-                        scrollbarDummyElement.css({ 'overflow-y': strHidden, 'overflow-x': strScroll, 'direction': 'rtl' }).scrollLeft(0);
-                        var dummyContainerOffset = scrollbarDummyElement.offset();
-                        var dummyContainerChildOffset = dummyContainerChild.offset();
-                        //https://github.com/KingSora/OverlayScrollbars/issues/187
-                        scrollbarDummyElement.scrollLeft(-999);
-                        var dummyContainerChildOffsetAfterScroll = dummyContainerChild.offset();
-                        return {
-                            //origin direction = determines if the zero scroll position is on the left or right side
-                            //'i' means 'invert' (i === true means that the axis must be inverted to be correct)
-                            //true = on the left side
-                            //false = on the right side
-                            i: dummyContainerOffset.left === dummyContainerChildOffset.left,
-                            //negative = determines if the maximum scroll is positive or negative
-                            //'n' means 'negate' (n === true means that the axis must be negated to be correct)
-                            //true = negative
-                            //false = positive
-                            n: dummyContainerChildOffset.left !== dummyContainerChildOffsetAfterScroll.left
-                        };
-                    })(),
-                    supportTransform: !!VENDORS._cssProperty('transform'),
-                    supportTransition: !!VENDORS._cssProperty('transition'),
-                    supportPassiveEvents: (function () {
-                        var supportsPassive = false;
-                        try {
-                            window.addEventListener('test', null, Object.defineProperty({}, 'passive', {
-                                get: function () {
-                                    supportsPassive = true;
-                                }
-                            }));
-                        } catch (e) { }
-                        return supportsPassive;
-                    })(),
-                    supportResizeObserver: !!COMPATIBILITY.rO(),
-                    supportMutationObserver: !!COMPATIBILITY.mO()
-                });
-
-                scrollbarDummyElement.removeAttr(LEXICON.s).remove();
-
-                //Catch zoom event:
-                (function () {
-                    if (nativeScrollbarIsOverlaid.x && nativeScrollbarIsOverlaid.y)
-                        return;
-
-                    var abs = MATH.abs;
-                    var windowWidth = COMPATIBILITY.wW();
-                    var windowHeight = COMPATIBILITY.wH();
-                    var windowDpr = getWindowDPR();
-                    var onResize = function () {
-                        if (INSTANCES().length > 0) {
-                            var newW = COMPATIBILITY.wW();
-                            var newH = COMPATIBILITY.wH();
-                            var deltaW = newW - windowWidth;
-                            var deltaH = newH - windowHeight;
-
-                            if (deltaW === 0 && deltaH === 0)
-                                return;
-
-                            var deltaWRatio = MATH.round(newW / (windowWidth / 100.0));
-                            var deltaHRatio = MATH.round(newH / (windowHeight / 100.0));
-                            var absDeltaW = abs(deltaW);
-                            var absDeltaH = abs(deltaH);
-                            var absDeltaWRatio = abs(deltaWRatio);
-                            var absDeltaHRatio = abs(deltaHRatio);
-                            var newDPR = getWindowDPR();
-
-                            var deltaIsBigger = absDeltaW > 2 && absDeltaH > 2;
-                            var difference = !differenceIsBiggerThanOne(absDeltaWRatio, absDeltaHRatio);
-                            var dprChanged = newDPR !== windowDpr && windowDpr > 0;
-                            var isZoom = deltaIsBigger && difference && dprChanged;
-                            var oldScrollbarSize = _base.nativeScrollbarSize;
-                            var newScrollbarSize;
-
-                            if (isZoom) {
-                                bodyElement.append(scrollbarDummyElement);
-                                newScrollbarSize = _base.nativeScrollbarSize = calcNativeScrollbarSize(scrollbarDummyElement[0]);
-                                scrollbarDummyElement.remove();
-                                if (oldScrollbarSize.x !== newScrollbarSize.x || oldScrollbarSize.y !== newScrollbarSize.y) {
-                                    FRAMEWORK.each(INSTANCES(), function () {
-                                        if (INSTANCES(this))
-                                            INSTANCES(this).update('zoom');
-                                    });
-                                }
-                            }
-
-                            windowWidth = newW;
-                            windowHeight = newH;
-                            windowDpr = newDPR;
-                        }
-                    };
-
-                    function differenceIsBiggerThanOne(valOne, valTwo) {
-                        var absValOne = abs(valOne);
-                        var absValTwo = abs(valTwo);
-                        return !(absValOne === absValTwo || absValOne + 1 === absValTwo || absValOne - 1 === absValTwo);
-                    }
-
-                    function getWindowDPR() {
-                        var dDPI = window.screen.deviceXDPI || 0;
-                        var sDPI = window.screen.logicalXDPI || 1;
-                        return window.devicePixelRatio || (dDPI / sDPI);
-                    }
-
-                    FRAMEWORK(window).on('resize', onResize);
-                })();
-
-                function calcNativeScrollbarSize(measureElement) {
-                    return {
-                        x: measureElement[LEXICON.oH] - measureElement[LEXICON.cH],
-                        y: measureElement[LEXICON.oW] - measureElement[LEXICON.cW]
-                    };
-                }
-            }
-
-            /**
-             * The object which manages the auto update loop for all OverlayScrollbars objects. This object is initialized only once: if the first OverlayScrollbars object gets initialized.
-             * @constructor
-             */
-            function OverlayScrollbarsAutoUpdateLoop(globals) {
-                var _base = this;
-                var _inArray = FRAMEWORK.inArray;
-                var _getNow = COMPATIBILITY.now;
-                var _strAutoUpdate = 'autoUpdate';
-                var _strAutoUpdateInterval = _strAutoUpdate + 'Interval';
-                var _strLength = LEXICON.l;
-                var _loopingInstances = [];
-                var _loopingInstancesIntervalCache = [];
-                var _loopIsActive = false;
-                var _loopIntervalDefault = 33;
-                var _loopInterval = _loopIntervalDefault;
-                var _loopTimeOld = _getNow();
-                var _loopID;
-
-
-                /**
-                 * The auto update loop which will run every 50 milliseconds or less if the update interval of a instance is lower than 50 milliseconds.
-                 */
-                var loop = function () {
-                    if (_loopingInstances[_strLength] > 0 && _loopIsActive) {
-                        _loopID = COMPATIBILITY.rAF()(function () {
-                            loop();
-                        });
-                        var timeNew = _getNow();
-                        var timeDelta = timeNew - _loopTimeOld;
-                        var lowestInterval;
-                        var instance;
-                        var instanceOptions;
-                        var instanceAutoUpdateAllowed;
-                        var instanceAutoUpdateInterval;
-                        var now;
-
-                        if (timeDelta > _loopInterval) {
-                            _loopTimeOld = timeNew - (timeDelta % _loopInterval);
-                            lowestInterval = _loopIntervalDefault;
-                            for (var i = 0; i < _loopingInstances[_strLength]; i++) {
-                                instance = _loopingInstances[i];
-                                if (instance !== undefined) {
-                                    instanceOptions = instance.options();
-                                    instanceAutoUpdateAllowed = instanceOptions[_strAutoUpdate];
-                                    instanceAutoUpdateInterval = MATH.max(1, instanceOptions[_strAutoUpdateInterval]);
-                                    now = _getNow();
-
-                                    if ((instanceAutoUpdateAllowed === true || instanceAutoUpdateAllowed === null) && (now - _loopingInstancesIntervalCache[i]) > instanceAutoUpdateInterval) {
-                                        instance.update('auto');
-                                        _loopingInstancesIntervalCache[i] = new Date(now += instanceAutoUpdateInterval);
-                                    }
-
-                                    lowestInterval = MATH.max(1, MATH.min(lowestInterval, instanceAutoUpdateInterval));
-                                }
-                            }
-                            _loopInterval = lowestInterval;
-                        }
-                    } else {
-                        _loopInterval = _loopIntervalDefault;
-                    }
-                };
-
-                /**
-                 * Add OverlayScrollbars instance to the auto update loop. Only successful if the instance isn't already added.
-                 * @param instance The instance which shall be updated in a loop automatically.
-                 */
-                _base.add = function (instance) {
-                    if (_inArray(instance, _loopingInstances) === -1) {
-                        _loopingInstances.push(instance);
-                        _loopingInstancesIntervalCache.push(_getNow());
-                        if (_loopingInstances[_strLength] > 0 && !_loopIsActive) {
-                            _loopIsActive = true;
-                            globals.autoUpdateLoop = _loopIsActive;
-                            loop();
-                        }
-                    }
-                };
-
-                /**
-                 * Remove OverlayScrollbars instance from the auto update loop. Only successful if the instance was added before.
-                 * @param instance The instance which shall be updated in a loop automatically.
-                 */
-                _base.remove = function (instance) {
-                    var index = _inArray(instance, _loopingInstances);
-                    if (index > -1) {
-                        //remove from loopingInstances list
-                        _loopingInstancesIntervalCache.splice(index, 1);
-                        _loopingInstances.splice(index, 1);
-
-                        //correct update loop behavior
-                        if (_loopingInstances[_strLength] === 0 && _loopIsActive) {
-                            _loopIsActive = false;
-                            globals.autoUpdateLoop = _loopIsActive;
-                            if (_loopID !== undefined) {
-                                COMPATIBILITY.cAF()(_loopID);
-                                _loopID = -1;
-                            }
-                        }
-                    }
-                };
-            }
-
-            /**
-             * A object which manages the scrollbars visibility of the target element.
-             * @param pluginTargetElement The element from which the scrollbars shall be hidden.
-             * @param options The custom options.
-             * @param extensions The custom extensions.
-             * @param globals
-             * @param autoUpdateLoop
-             * @returns {*}
-             * @constructor
-             */
-            function OverlayScrollbarsInstance(pluginTargetElement, options, extensions, globals, autoUpdateLoop) {
-                //shortcuts
-                var type = COMPATIBILITY.type;
-                var inArray = FRAMEWORK.inArray;
-                var each = FRAMEWORK.each;
-
-                //make correct instanceof
-                var _base = new _plugin();
-                var _frameworkProto = FRAMEWORK[LEXICON.p];
-
-                //if passed element is no HTML element: skip and return
-                if (!isHTMLElement(pluginTargetElement))
-                    return;
-
-                //if passed element is already initialized: set passed options if there are any and return its instance
-                if (INSTANCES(pluginTargetElement)) {
-                    var inst = INSTANCES(pluginTargetElement);
-                    inst.options(options);
-                    return inst;
-                }
-
-                //globals:
-                var _nativeScrollbarIsOverlaid;
-                var _overlayScrollbarDummySize;
-                var _rtlScrollBehavior;
-                var _autoUpdateRecommended;
-                var _msieVersion;
-                var _nativeScrollbarStyling;
-                var _cssCalc;
-                var _nativeScrollbarSize;
-                var _supportTransition;
-                var _supportTransform;
-                var _supportPassiveEvents;
-                var _supportResizeObserver;
-                var _supportMutationObserver;
-                var _restrictedMeasuring;
-
-                //general readonly:
-                var _initialized;
-                var _destroyed;
-                var _isTextarea;
-                var _isBody;
-                var _documentMixed;
-                var _domExists;
-
-                //general:
-                var _isBorderBox;
-                var _sizeAutoObserverAdded;
-                var _paddingX;
-                var _paddingY;
-                var _borderX;
-                var _borderY;
-                var _marginX;
-                var _marginY;
-                var _isRTL;
-                var _sleeping;
-                var _contentBorderSize = {};
-                var _scrollHorizontalInfo = {};
-                var _scrollVerticalInfo = {};
-                var _viewportSize = {};
-                var _nativeScrollbarMinSize = {};
-
-                //naming:
-                var _strMinusHidden = '-hidden';
-                var _strMarginMinus = 'margin-';
-                var _strPaddingMinus = 'padding-';
-                var _strBorderMinus = 'border-';
-                var _strTop = 'top';
-                var _strRight = 'right';
-                var _strBottom = 'bottom';
-                var _strLeft = 'left';
-                var _strMinMinus = 'min-';
-                var _strMaxMinus = 'max-';
-                var _strWidth = 'width';
-                var _strHeight = 'height';
-                var _strFloat = 'float';
-                var _strEmpty = '';
-                var _strAuto = 'auto';
-                var _strSync = 'sync';
-                var _strScroll = 'scroll';
-                var _strHundredPercent = '100%';
-                var _strX = 'x';
-                var _strY = 'y';
-                var _strDot = '.';
-                var _strSpace = ' ';
-                var _strScrollbar = 'scrollbar';
-                var _strMinusHorizontal = '-horizontal';
-                var _strMinusVertical = '-vertical';
-                var _strScrollLeft = _strScroll + 'Left';
-                var _strScrollTop = _strScroll + 'Top';
-                var _strMouseTouchDownEvent = 'mousedown touchstart';
-                var _strMouseTouchUpEvent = 'mouseup touchend touchcancel';
-                var _strMouseTouchMoveEvent = 'mousemove touchmove';
-                var _strMouseEnter = 'mouseenter';
-                var _strMouseLeave = 'mouseleave';
-                var _strKeyDownEvent = 'keydown';
-                var _strKeyUpEvent = 'keyup';
-                var _strSelectStartEvent = 'selectstart';
-                var _strTransitionEndEvent = 'transitionend webkitTransitionEnd oTransitionEnd';
-                var _strResizeObserverProperty = '__overlayScrollbarsRO__';
-
-                //class names:
-                var _cassNamesPrefix = 'os-';
-                var _classNameHTMLElement = _cassNamesPrefix + 'html';
-                var _classNameHostElement = _cassNamesPrefix + 'host';
-                var _classNameHostElementForeign = _classNameHostElement + '-foreign';
-                var _classNameHostTextareaElement = _classNameHostElement + '-textarea';
-                var _classNameHostScrollbarHorizontalHidden = _classNameHostElement + '-' + _strScrollbar + _strMinusHorizontal + _strMinusHidden;
-                var _classNameHostScrollbarVerticalHidden = _classNameHostElement + '-' + _strScrollbar + _strMinusVertical + _strMinusHidden;
-                var _classNameHostTransition = _classNameHostElement + '-transition';
-                var _classNameHostRTL = _classNameHostElement + '-rtl';
-                var _classNameHostResizeDisabled = _classNameHostElement + '-resize-disabled';
-                var _classNameHostScrolling = _classNameHostElement + '-scrolling';
-                var _classNameHostOverflow = _classNameHostElement + '-overflow';
-                var _classNameHostOverflow = _classNameHostElement + '-overflow';
-                var _classNameHostOverflowX = _classNameHostOverflow + '-x';
-                var _classNameHostOverflowY = _classNameHostOverflow + '-y';
-                var _classNameTextareaElement = _cassNamesPrefix + 'textarea';
-                var _classNameTextareaCoverElement = _classNameTextareaElement + '-cover';
-                var _classNamePaddingElement = _cassNamesPrefix + 'padding';
-                var _classNameViewportElement = _cassNamesPrefix + 'viewport';
-                var _classNameViewportNativeScrollbarsInvisible = _classNameViewportElement + '-native-scrollbars-invisible';
-                var _classNameViewportNativeScrollbarsOverlaid = _classNameViewportElement + '-native-scrollbars-overlaid';
-                var _classNameContentElement = _cassNamesPrefix + 'content';
-                var _classNameContentArrangeElement = _cassNamesPrefix + 'content-arrange';
-                var _classNameContentGlueElement = _cassNamesPrefix + 'content-glue';
-                var _classNameSizeAutoObserverElement = _cassNamesPrefix + 'size-auto-observer';
-                var _classNameResizeObserverElement = _cassNamesPrefix + 'resize-observer';
-                var _classNameResizeObserverItemElement = _cassNamesPrefix + 'resize-observer-item';
-                var _classNameResizeObserverItemFinalElement = _classNameResizeObserverItemElement + '-final';
-                var _classNameTextInherit = _cassNamesPrefix + 'text-inherit';
-                var _classNameScrollbar = _cassNamesPrefix + _strScrollbar;
-                var _classNameScrollbarTrack = _classNameScrollbar + '-track';
-                var _classNameScrollbarTrackOff = _classNameScrollbarTrack + '-off';
-                var _classNameScrollbarHandle = _classNameScrollbar + '-handle';
-                var _classNameScrollbarHandleOff = _classNameScrollbarHandle + '-off';
-                var _classNameScrollbarUnusable = _classNameScrollbar + '-unusable';
-                var _classNameScrollbarAutoHidden = _classNameScrollbar + '-' + _strAuto + _strMinusHidden;
-                var _classNameScrollbarCorner = _classNameScrollbar + '-corner';
-                var _classNameScrollbarCornerResize = _classNameScrollbarCorner + '-resize';
-                var _classNameScrollbarCornerResizeB = _classNameScrollbarCornerResize + '-both';
-                var _classNameScrollbarCornerResizeH = _classNameScrollbarCornerResize + _strMinusHorizontal;
-                var _classNameScrollbarCornerResizeV = _classNameScrollbarCornerResize + _strMinusVertical;
-                var _classNameScrollbarHorizontal = _classNameScrollbar + _strMinusHorizontal;
-                var _classNameScrollbarVertical = _classNameScrollbar + _strMinusVertical;
-                var _classNameDragging = _cassNamesPrefix + 'dragging';
-                var _classNameThemeNone = _cassNamesPrefix + 'theme-none';
-                var _classNamesDynamicDestroy = [
-                    _classNameViewportNativeScrollbarsInvisible,
-                    _classNameViewportNativeScrollbarsOverlaid,
-                    _classNameScrollbarTrackOff,
-                    _classNameScrollbarHandleOff,
-                    _classNameScrollbarUnusable,
-                    _classNameScrollbarAutoHidden,
-                    _classNameScrollbarCornerResize,
-                    _classNameScrollbarCornerResizeB,
-                    _classNameScrollbarCornerResizeH,
-                    _classNameScrollbarCornerResizeV,
-                    _classNameDragging].join(_strSpace);
-
-                //callbacks:
-                var _callbacksInitQeueue = [];
-
-                //attrs viewport shall inherit from target
-                var _viewportAttrsFromTarget = [LEXICON.ti];
-
-                //options:
-                var _defaultOptions;
-                var _currentOptions;
-                var _currentPreparedOptions;
-
-                //extensions:
-                var _extensions = {};
-                var _extensionsPrivateMethods = 'added removed on contract';
-
-                //update
-                var _lastUpdateTime;
-                var _swallowedUpdateHints = {};
-                var _swallowedUpdateTimeout;
-                var _swallowUpdateLag = 42;
-                var _updateOnLoadEventName = 'load';
-                var _updateOnLoadElms = [];
-
-                //DOM elements:
-                var _windowElement;
-                var _documentElement;
-                var _htmlElement;
-                var _bodyElement;
-                var _targetElement;                     //the target element of this OverlayScrollbars object
-                var _hostElement;                       //the host element of this OverlayScrollbars object -> may be the same as targetElement
-                var _sizeAutoObserverElement;           //observes size auto changes
-                var _sizeObserverElement;               //observes size and padding changes
-                var _paddingElement;                    //manages the padding
-                var _viewportElement;                   //is the viewport of our scrollbar model
-                var _contentElement;                    //the element which holds the content
-                var _contentArrangeElement;             //is needed for correct sizing of the content element (only if native scrollbars are overlays)
-                var _contentGlueElement;                //has always the size of the content element
-                var _textareaCoverElement;              //only applied if target is a textarea element. Used for correct size calculation and for prevention of uncontrolled scrolling
-                var _scrollbarCornerElement;
-                var _scrollbarHorizontalElement;
-                var _scrollbarHorizontalTrackElement;
-                var _scrollbarHorizontalHandleElement;
-                var _scrollbarVerticalElement;
-                var _scrollbarVerticalTrackElement;
-                var _scrollbarVerticalHandleElement;
-                var _windowElementNative;
-                var _documentElementNative;
-                var _targetElementNative;
-                var _hostElementNative;
-                var _sizeAutoObserverElementNative;
-                var _sizeObserverElementNative;
-                var _paddingElementNative;
-                var _viewportElementNative;
-                var _contentElementNative;
-
-                //Cache:
-                var _hostSizeCache;
-                var _contentScrollSizeCache;
-                var _arrangeContentSizeCache;
-                var _hasOverflowCache;
-                var _hideOverflowCache;
-                var _widthAutoCache;
-                var _heightAutoCache;
-                var _cssBoxSizingCache;
-                var _cssPaddingCache;
-                var _cssBorderCache;
-                var _cssMarginCache;
-                var _cssDirectionCache;
-                var _cssDirectionDetectedCache;
-                var _paddingAbsoluteCache;
-                var _clipAlwaysCache;
-                var _contentGlueSizeCache;
-                var _overflowBehaviorCache;
-                var _overflowAmountCache;
-                var _ignoreOverlayScrollbarHidingCache;
-                var _autoUpdateCache;
-                var _sizeAutoCapableCache;
-                var _contentElementScrollSizeChangeDetectedCache;
-                var _hostElementSizeChangeDetectedCache;
-                var _scrollbarsVisibilityCache;
-                var _scrollbarsAutoHideCache;
-                var _scrollbarsClickScrollingCache;
-                var _scrollbarsDragScrollingCache;
-                var _resizeCache;
-                var _normalizeRTLCache;
-                var _classNameCache;
-                var _oldClassName;
-                var _textareaAutoWrappingCache;
-                var _textareaInfoCache;
-                var _textareaSizeCache;
-                var _textareaDynHeightCache;
-                var _textareaDynWidthCache;
-                var _bodyMinSizeCache;
-                var _updateAutoCache = {};
-
-                //MutationObserver:
-                var _mutationObserverHost;
-                var _mutationObserverContent;
-                var _mutationObserverHostCallback;
-                var _mutationObserverContentCallback;
-                var _mutationObserversConnected;
-                var _mutationObserverAttrsTextarea = ['wrap', 'cols', 'rows'];
-                var _mutationObserverAttrsHost = [LEXICON.i, LEXICON.c, LEXICON.s, 'open'].concat(_viewportAttrsFromTarget);
-
-                //events:
-                var _destroyEvents = [];
-
-                //textarea:
-                var _textareaHasFocus;
-
-                //scrollbars:
-                var _scrollbarsAutoHideTimeoutId;
-                var _scrollbarsAutoHideMoveTimeoutId;
-                var _scrollbarsAutoHideDelay;
-                var _scrollbarsAutoHideNever;
-                var _scrollbarsAutoHideScroll;
-                var _scrollbarsAutoHideMove;
-                var _scrollbarsAutoHideLeave;
-                var _scrollbarsHandleHovered;
-                var _scrollbarsHandlesDefineScrollPos;
-
-                //resize
-                var _resizeNone;
-                var _resizeBoth;
-                var _resizeHorizontal;
-                var _resizeVertical;
-
-
-                //==== Event Listener ====//
-
-                /**
-                 * Adds or removes a event listener from the given element.
-                 * @param element The element to which the event listener shall be applied or removed.
-                 * @param eventNames The name(s) of the events.
-                 * @param listener The method which shall be called.
-                 * @param remove True if the handler shall be removed, false or undefined if the handler shall be added.
-                 * @param passiveOrOptions The options for the event.
-                 */
-                function setupResponsiveEventListener(element, eventNames, listener, remove, passiveOrOptions) {
-                    var collected = COMPATIBILITY.isA(eventNames) && COMPATIBILITY.isA(listener);
-                    var method = remove ? 'removeEventListener' : 'addEventListener';
-                    var onOff = remove ? 'off' : 'on';
-                    var events = collected ? false : eventNames.split(_strSpace)
-                    var i = 0;
-
-                    var passiveOrOptionsIsObj = FRAMEWORK.isPlainObject(passiveOrOptions);
-                    var passive = (_supportPassiveEvents && (passiveOrOptionsIsObj ? (passiveOrOptions._passive) : passiveOrOptions)) || false;
-                    var capture = passiveOrOptionsIsObj && (passiveOrOptions._capture || false);
-                    var nativeParam = _supportPassiveEvents ? {
-                        passive: passive,
-                        capture: capture,
-                    } : capture;
-
-                    if (collected) {
-                        for (; i < eventNames[LEXICON.l]; i++)
-                            setupResponsiveEventListener(element, eventNames[i], listener[i], remove, passiveOrOptions);
-                    }
-                    else {
-                        for (; i < events[LEXICON.l]; i++) {
-                            if(_supportPassiveEvents) {
-                                element[0][method](events[i], listener, nativeParam);
-                            }
-                            else {
-                                element[onOff](events[i], listener);
-                            }
-                        }
-                    }
-                }
-
-
-                function addDestroyEventListener(element, eventNames, listener, passive) {
-                    setupResponsiveEventListener(element, eventNames, listener, false, passive);
-                    _destroyEvents.push(COMPATIBILITY.bind(setupResponsiveEventListener, 0, element, eventNames, listener, true, passive));
-                }
-
-                //==== Resize Observer ====//
-
-                /**
-                 * Adds or removes a resize observer from the given element.
-                 * @param targetElement The element to which the resize observer shall be added or removed.
-                 * @param onElementResizedCallback The callback which is fired every time the resize observer registers a size change or false / undefined if the resizeObserver shall be removed.
-                 */
-                function setupResizeObserver(targetElement, onElementResizedCallback) {
-                    if (targetElement) {
-                        var resizeObserver = COMPATIBILITY.rO();
-                        var strAnimationStartEvent = 'animationstart mozAnimationStart webkitAnimationStart MSAnimationStart';
-                        var strChildNodes = 'childNodes';
-                        var constScroll = 3333333;
-                        var callback = function () {
-                            targetElement[_strScrollTop](constScroll)[_strScrollLeft](_isRTL ? _rtlScrollBehavior.n ? -constScroll : _rtlScrollBehavior.i ? 0 : constScroll : constScroll);
-                            onElementResizedCallback();
-                        };
-                        //add resize observer:
-                        if (onElementResizedCallback) {
-                            if (_supportResizeObserver) {
-                                var element = targetElement.addClass('observed').append(generateDiv(_classNameResizeObserverElement)).contents()[0];
-                                var observer = element[_strResizeObserverProperty] = new resizeObserver(callback);
-                                observer.observe(element);
-                            }
-                            else {
-                                if (_msieVersion > 9 || !_autoUpdateRecommended) {
-                                    targetElement.prepend(
-                                        generateDiv(_classNameResizeObserverElement,
-                                            generateDiv({ c: _classNameResizeObserverItemElement, dir: 'ltr' },
-                                                generateDiv(_classNameResizeObserverItemElement,
-                                                    generateDiv(_classNameResizeObserverItemFinalElement)
-                                                ) +
-                                                generateDiv(_classNameResizeObserverItemElement,
-                                                    generateDiv({ c: _classNameResizeObserverItemFinalElement, style: 'width: 200%; height: 200%' })
-                                                )
-                                            )
-                                        )
-                                    );
-
-                                    var observerElement = targetElement[0][strChildNodes][0][strChildNodes][0];
-                                    var shrinkElement = FRAMEWORK(observerElement[strChildNodes][1]);
-                                    var expandElement = FRAMEWORK(observerElement[strChildNodes][0]);
-                                    var expandElementChild = FRAMEWORK(expandElement[0][strChildNodes][0]);
-                                    var widthCache = observerElement[LEXICON.oW];
-                                    var heightCache = observerElement[LEXICON.oH];
-                                    var isDirty;
-                                    var rAFId;
-                                    var currWidth;
-                                    var currHeight;
-                                    var factor = 2;
-                                    var nativeScrollbarSize = globals.nativeScrollbarSize; //care don't make changes to this object!!!
-                                    var reset = function () {
-                                        /*
-                                         var sizeResetWidth = observerElement[LEXICON.oW] + nativeScrollbarSize.x * factor + nativeScrollbarSize.y * factor + _overlayScrollbarDummySize.x + _overlayScrollbarDummySize.y;
-                                         var sizeResetHeight = observerElement[LEXICON.oH] + nativeScrollbarSize.x * factor + nativeScrollbarSize.y * factor + _overlayScrollbarDummySize.x + _overlayScrollbarDummySize.y;
-                                         var expandChildCSS = {};
-                                         expandChildCSS[_strWidth] = sizeResetWidth;
-                                         expandChildCSS[_strHeight] = sizeResetHeight;
-                                         expandElementChild.css(expandChildCSS);
-
-
-                                         expandElement[_strScrollLeft](sizeResetWidth)[_strScrollTop](sizeResetHeight);
-                                         shrinkElement[_strScrollLeft](sizeResetWidth)[_strScrollTop](sizeResetHeight);
-                                         */
-                                        expandElement[_strScrollLeft](constScroll)[_strScrollTop](constScroll);
-                                        shrinkElement[_strScrollLeft](constScroll)[_strScrollTop](constScroll);
-                                    };
-                                    var onResized = function () {
-                                        rAFId = 0;
-                                        if (!isDirty)
-                                            return;
-
-                                        widthCache = currWidth;
-                                        heightCache = currHeight;
-                                        callback();
-                                    };
-                                    var onScroll = function (event) {
-                                        currWidth = observerElement[LEXICON.oW];
-                                        currHeight = observerElement[LEXICON.oH];
-                                        isDirty = currWidth != widthCache || currHeight != heightCache;
-
-                                        if (event && isDirty && !rAFId) {
-                                            COMPATIBILITY.cAF()(rAFId);
-                                            rAFId = COMPATIBILITY.rAF()(onResized);
-                                        }
-                                        else if (!event)
-                                            onResized();
-
-                                        reset();
-                                        if (event) {
-                                            COMPATIBILITY.prvD(event);
-                                            COMPATIBILITY.stpP(event);
-                                        }
-                                        return false;
-                                    };
-                                    var expandChildCSS = {};
-                                    var observerElementCSS = {};
-
-                                    setTopRightBottomLeft(observerElementCSS, _strEmpty, [
-                                        -((nativeScrollbarSize.y + 1) * factor),
-                                        nativeScrollbarSize.x * -factor,
-                                        nativeScrollbarSize.y * -factor,
-                                        -((nativeScrollbarSize.x + 1) * factor)
-                                    ]);
-
-                                    FRAMEWORK(observerElement).css(observerElementCSS);
-                                    expandElement.on(_strScroll, onScroll);
-                                    shrinkElement.on(_strScroll, onScroll);
-                                    targetElement.on(strAnimationStartEvent, function () {
-                                        onScroll(false);
-                                    });
-                                    //lets assume that the divs will never be that large and a constant value is enough
-                                    expandChildCSS[_strWidth] = constScroll;
-                                    expandChildCSS[_strHeight] = constScroll;
-                                    expandElementChild.css(expandChildCSS);
-
-                                    reset();
-                                }
-                                else {
-                                    var attachEvent = _documentElementNative.attachEvent;
-                                    var isIE = _msieVersion !== undefined;
-                                    if (attachEvent) {
-                                        targetElement.prepend(generateDiv(_classNameResizeObserverElement));
-                                        findFirst(targetElement, _strDot + _classNameResizeObserverElement)[0].attachEvent('onresize', callback);
-                                    }
-                                    else {
-                                        var obj = _documentElementNative.createElement(TYPES.o);
-                                        obj.setAttribute(LEXICON.ti, '-1');
-                                        obj.setAttribute(LEXICON.c, _classNameResizeObserverElement);
-                                        obj.onload = function () {
-                                            var wnd = this.contentDocument.defaultView;
-                                            wnd.addEventListener('resize', callback);
-                                            wnd.document.documentElement.style.display = 'none';
-                                        };
-                                        obj.type = 'text/html';
-                                        if (isIE)
-                                            targetElement.prepend(obj);
-                                        obj.data = 'about:blank';
-                                        if (!isIE)
-                                            targetElement.prepend(obj);
-                                        targetElement.on(strAnimationStartEvent, callback);
-                                    }
-                                }
-                            }
-
-                            if (targetElement[0] === _sizeObserverElementNative) {
-                                var directionChanged = function () {
-                                    var dir = _hostElement.css('direction');
-                                    var css = {};
-                                    var scrollLeftValue = 0;
-                                    var result = false;
-                                    if (dir !== _cssDirectionDetectedCache) {
-                                        if (dir === 'ltr') {
-                                            css[_strLeft] = 0;
-                                            css[_strRight] = _strAuto;
-                                            scrollLeftValue = constScroll;
-                                        }
-                                        else {
-                                            css[_strLeft] = _strAuto;
-                                            css[_strRight] = 0;
-                                            scrollLeftValue = _rtlScrollBehavior.n ? -constScroll : _rtlScrollBehavior.i ? 0 : constScroll;
-                                        }
-                                        //execution order is important for IE!!!
-                                        _sizeObserverElement.children().eq(0).css(css);
-                                        _sizeObserverElement[_strScrollLeft](scrollLeftValue)[_strScrollTop](constScroll);
-                                        _cssDirectionDetectedCache = dir;
-                                        result = true;
-                                    }
-                                    return result;
-                                };
-                                directionChanged();
-                                addDestroyEventListener(targetElement, _strScroll, function (event) {
-                                    if (directionChanged())
-                                        update();
-                                    COMPATIBILITY.prvD(event);
-                                    COMPATIBILITY.stpP(event);
-                                    return false;
-                                });
-                            }
-                        }
-                        //remove resize observer:
-                        else {
-                            if (_supportResizeObserver) {
-                                var element = targetElement.contents()[0];
-                                var resizeObserverObj = element[_strResizeObserverProperty];
-                                if (resizeObserverObj) {
-                                    resizeObserverObj.disconnect();
-                                    delete element[_strResizeObserverProperty];
-                                }
-                            }
-                            else {
-                                remove(targetElement.children(_strDot + _classNameResizeObserverElement).eq(0));
-                            }
-                        }
-                    }
-                }
-
-                /**
-                 * Freezes or unfreezes the given resize observer.
-                 * @param targetElement The element to which the target resize observer is applied.
-                 * @param freeze True if the resize observer shall be frozen, false otherwise.
-
-                 function freezeResizeObserver(targetElement, freeze) {
-                    if (targetElement !== undefined) {
-                        if(freeze) {
-                            if (_supportResizeObserver) {
-                                var element = targetElement.contents()[0];
-                                element[_strResizeObserverProperty].unobserve(element);
-                            }
-                            else {
-                                targetElement = targetElement.children(_strDot + _classNameResizeObserverElement).eq(0);
-                                var w = targetElement.css(_strWidth);
-                                var h = targetElement.css(_strHeight);
-                                var css = {};
-                                css[_strWidth] = w;
-                                css[_strHeight] = h;
-                                targetElement.css(css);
-                            }
-                        }
-                        else {
-                            if (_supportResizeObserver) {
-                                var element = targetElement.contents()[0];
-                                element[_strResizeObserverProperty].observe(element);
-                            }
-                            else {
-                                var css = { };
-                                css[_strHeight] = _strEmpty;
-                                css[_strWidth] = _strEmpty;
-                                targetElement.children(_strDot + _classNameResizeObserverElement).eq(0).css(css);
-                            }
-                        }
-                    }
-                }
-                 */
-
-
-                //==== Mutation Observers ====//
-
-                /**
-                 * Creates MutationObservers for the host and content Element if they are supported.
-                 */
-                function createMutationObservers() {
-                    if (_supportMutationObserver) {
-                        var mutationObserverContentLag = 11;
-                        var mutationObserver = COMPATIBILITY.mO();
-                        var contentLastUpdate = COMPATIBILITY.now();
-                        var mutationTarget;
-                        var mutationAttrName;
-                        var mutationIsClass;
-                        var oldMutationVal;
-                        var newClassVal;
-                        var hostClassNameRegex;
-                        var contentTimeout;
-                        var now;
-                        var sizeAuto;
-                        var action;
-
-                        _mutationObserverHostCallback = function (mutations) {
-
-                            var doUpdate = false;
-                            var doUpdateForce = false;
-                            var mutation;
-                            var mutatedAttrs = [];
-
-                            if (_initialized && !_sleeping) {
-                                each(mutations, function () {
-                                    mutation = this;
-                                    mutationTarget = mutation.target;
-                                    mutationAttrName = mutation.attributeName;
-                                    mutationIsClass = mutationAttrName === LEXICON.c;
-                                    oldMutationVal = mutation.oldValue;
-                                    newClassVal = mutationTarget.className;
-
-                                    if (_domExists && mutationIsClass && !doUpdateForce) {
-                                        // if old class value contains _classNameHostElementForeign and new class value doesn't
-                                        if (oldMutationVal.indexOf(_classNameHostElementForeign) > -1 && newClassVal.indexOf(_classNameHostElementForeign) < 0) {
-                                            hostClassNameRegex = createHostClassNameRegExp(true);
-                                            _hostElementNative.className = newClassVal.split(_strSpace).concat(oldMutationVal.split(_strSpace).filter(function (name) {
-                                                return name.match(hostClassNameRegex);
-                                            })).join(_strSpace);
-                                            doUpdate = doUpdateForce = true;
-                                        }
-                                    }
-
-                                    if (!doUpdate) {
-                                        doUpdate = mutationIsClass
-                                            ? hostClassNamesChanged(oldMutationVal, newClassVal)
-                                            : mutationAttrName === LEXICON.s
-                                                ? oldMutationVal !== mutationTarget[LEXICON.s].cssText
-                                                : true;
-                                    }
-
-                                    mutatedAttrs.push(mutationAttrName);
-                                });
-
-                                updateViewportAttrsFromTarget(mutatedAttrs);
-
-                                if (doUpdate)
-                                    _base.update(doUpdateForce || _strAuto);
-                            }
-                            return doUpdate;
-                        };
-                        _mutationObserverContentCallback = function (mutations) {
-                            var doUpdate = false;
-                            var mutation;
-
-                            if (_initialized && !_sleeping) {
-                                each(mutations, function () {
-                                    mutation = this;
-                                    doUpdate = isUnknownMutation(mutation);
-                                    return !doUpdate;
-                                });
-
-                                if (doUpdate) {
-                                    now = COMPATIBILITY.now();
-                                    sizeAuto = (_heightAutoCache || _widthAutoCache);
-                                    action = function () {
-                                        if (!_destroyed) {
-                                            contentLastUpdate = now;
-
-                                            //if cols, rows or wrap attr was changed
-                                            if (_isTextarea)
-                                                textareaUpdate();
-
-                                            if (sizeAuto)
-                                                update();
-                                            else
-                                                _base.update(_strAuto);
-                                        }
-                                    };
-                                    clearTimeout(contentTimeout);
-                                    if (mutationObserverContentLag <= 0 || now - contentLastUpdate > mutationObserverContentLag || !sizeAuto)
-                                        action();
-                                    else
-                                        contentTimeout = setTimeout(action, mutationObserverContentLag);
-                                }
-                            }
-                            return doUpdate;
-                        }
-
-                        _mutationObserverHost = new mutationObserver(_mutationObserverHostCallback);
-                        _mutationObserverContent = new mutationObserver(_mutationObserverContentCallback);
-                    }
-                }
-
-                /**
-                 * Connects the MutationObservers if they are supported.
-                 */
-                function connectMutationObservers() {
-                    if (_supportMutationObserver && !_mutationObserversConnected) {
-                        _mutationObserverHost.observe(_hostElementNative, {
-                            attributes: true,
-                            attributeOldValue: true,
-                            attributeFilter: _mutationObserverAttrsHost
-                        });
-
-                        _mutationObserverContent.observe(_isTextarea ? _targetElementNative : _contentElementNative, {
-                            attributes: true,
-                            attributeOldValue: true,
-                            subtree: !_isTextarea,
-                            childList: !_isTextarea,
-                            characterData: !_isTextarea,
-                            attributeFilter: _isTextarea ? _mutationObserverAttrsTextarea : _mutationObserverAttrsHost
-                        });
-
-                        _mutationObserversConnected = true;
-                    }
-                }
-
-                /**
-                 * Disconnects the MutationObservers if they are supported.
-                 */
-                function disconnectMutationObservers() {
-                    if (_supportMutationObserver && _mutationObserversConnected) {
-                        _mutationObserverHost.disconnect();
-                        _mutationObserverContent.disconnect();
-
-                        _mutationObserversConnected = false;
-                    }
-                }
-
-
-                //==== Events of elements ====//
-
-                /**
-                 * This method gets called every time the host element gets resized. IMPORTANT: Padding changes are detected too!!
-                 * It refreshes the hostResizedEventArgs and the hostSizeResizeCache.
-                 * If there are any size changes, the update method gets called.
-                 */
-                function hostOnResized() {
-                    if (!_sleeping) {
-                        var changed;
-                        var hostSize = {
-                            w: _sizeObserverElementNative[LEXICON.sW],
-                            h: _sizeObserverElementNative[LEXICON.sH]
-                        };
-
-                        changed = checkCache(hostSize, _hostElementSizeChangeDetectedCache);
-                        _hostElementSizeChangeDetectedCache = hostSize;
-                        if (changed)
-                            update({ _hostSizeChanged: true });
-                    }
-                }
-
-                /**
-                 * The mouse enter event of the host element. This event is only needed for the autoHide feature.
-                 */
-                function hostOnMouseEnter() {
-                    if (_scrollbarsAutoHideLeave)
-                        refreshScrollbarsAutoHide(true);
-                }
-
-                /**
-                 * The mouse leave event of the host element. This event is only needed for the autoHide feature.
-                 */
-                function hostOnMouseLeave() {
-                    if (_scrollbarsAutoHideLeave && !_bodyElement.hasClass(_classNameDragging))
-                        refreshScrollbarsAutoHide(false);
-                }
-
-                /**
-                 * The mouse move event of the host element. This event is only needed for the autoHide "move" feature.
-                 */
-                function hostOnMouseMove() {
-                    if (_scrollbarsAutoHideMove) {
-                        refreshScrollbarsAutoHide(true);
-                        clearTimeout(_scrollbarsAutoHideMoveTimeoutId);
-                        _scrollbarsAutoHideMoveTimeoutId = setTimeout(function () {
-                            if (_scrollbarsAutoHideMove && !_destroyed)
-                                refreshScrollbarsAutoHide(false);
-                        }, 100);
-                    }
-                }
-
-                /**
-                 * Prevents text from deselection if attached to the document element on the mousedown event of a DOM element.
-                 * @param event The select start event.
-                 */
-                function documentOnSelectStart(event) {
-                    COMPATIBILITY.prvD(event);
-                    return false;
-                }
-
-                /**
-                 * A callback which will be called after a element has loaded.
-                 */
-                function updateOnLoadCallback(event) {
-                    if (!_destroyed) {
-                        var target = event.target;
-                        var elm = FRAMEWORK(event.target);
-                        var index = FRAMEWORK.inArray(target, _updateOnLoadElms);
-                        if (index > -1) {
-                            _updateOnLoadElms.splice(index, 1);
-                        }
-
-                        eachUpdateOnLoad(function (i, updateOnLoadSelector) {
-                            if (elm.is(updateOnLoadSelector)) {
-                                update({ _contentSizeChanged: true });
-                            }
-                        });
-                    }
-                }
-
-                /**
-                 * Adds or removes mouse & touch events of the host element. (for handling auto-hiding of the scrollbars)
-                 * @param destroy Indicates whether the events shall be added or removed.
-                 */
-                function setupHostMouseTouchEvents(destroy) {
-                    if (!destroy)
-                        setupHostMouseTouchEvents(true);
-
-                    setupResponsiveEventListener(_hostElement,
-                        _strMouseTouchMoveEvent.split(_strSpace)[0],
-                        hostOnMouseMove,
-                        (!_scrollbarsAutoHideMove || destroy), true);
-                    setupResponsiveEventListener(_hostElement,
-                        [_strMouseEnter, _strMouseLeave],
-                        [hostOnMouseEnter, hostOnMouseLeave],
-                        (!_scrollbarsAutoHideLeave || destroy), true);
-
-                    //if the plugin is initialized and the mouse is over the host element, make the scrollbars visible
-                    if (!_initialized && !destroy)
-                        _hostElement.one('mouseover', hostOnMouseEnter);
-                }
-
-
-                //==== Update Detection ====//
-
-                /**
-                 * Measures the min width and min height of the body element and refreshes the related cache.
-                 * @returns {boolean} True if the min width or min height has changed, false otherwise.
-                 */
-                function bodyMinSizeChanged() {
-                    var bodyMinSize = {};
-                    if (_isBody && _contentArrangeElement) {
-                        bodyMinSize.w = parseToZeroOrNumber(_contentArrangeElement.css(_strMinMinus + _strWidth));
-                        bodyMinSize.h = parseToZeroOrNumber(_contentArrangeElement.css(_strMinMinus + _strHeight));
-                        bodyMinSize.c = checkCache(bodyMinSize, _bodyMinSizeCache);
-                        bodyMinSize.f = true; //flag for "measured at least once"
-                    }
-                    _bodyMinSizeCache = bodyMinSize;
-                    return !!bodyMinSize.c;
-                }
-
-                /**
-                 * Returns true if the class names really changed (new class without plugin host prefix)
-                 * @param oldClassNames The old ClassName string or array.
-                 * @param newClassNames The new ClassName string or array.
-                 * @returns {boolean} True if the class names has really changed, false otherwise.
-                 */
-                function hostClassNamesChanged(oldClassNames, newClassNames) {
-                    var currClasses = typeof newClassNames == TYPES.s ? newClassNames.split(_strSpace) : [];
-                    var oldClasses = typeof oldClassNames == TYPES.s ? oldClassNames.split(_strSpace) : [];
-                    var diff = getArrayDifferences(oldClasses, currClasses);
-
-                    // remove none theme from diff list to prevent update
-                    var idx = inArray(_classNameThemeNone, diff);
-                    var i;
-                    var regex;
-
-                    if (idx > -1)
-                        diff.splice(idx, 1);
-
-                    if (diff[LEXICON.l] > 0) {
-                        regex = createHostClassNameRegExp(true, true);
-                        for (i = 0; i < diff.length; i++) {
-                            if (!diff[i].match(regex)) {
-                                return true;
-                            }
-                        }
-                    }
-                    return false;
-                }
-
-                /**
-                 * Returns true if the given mutation is not from a from the plugin generated element. If the target element is a textarea the mutation is always unknown.
-                 * @param mutation The mutation which shall be checked.
-                 * @returns {boolean} True if the mutation is from a unknown element, false otherwise.
-                 */
-                function isUnknownMutation(mutation) {
-                    var attributeName = mutation.attributeName;
-                    var mutationTarget = mutation.target;
-                    var mutationType = mutation.type;
-                    var strClosest = 'closest';
-
-                    if (mutationTarget === _contentElementNative)
-                        return attributeName === null;
-                    if (mutationType === 'attributes' && (attributeName === LEXICON.c || attributeName === LEXICON.s) && !_isTextarea) {
-                        //ignore className changes by the plugin
-                        if (attributeName === LEXICON.c && FRAMEWORK(mutationTarget).hasClass(_classNameHostElement))
-                            return hostClassNamesChanged(mutation.oldValue, mutationTarget.className);
-
-                        //only do it of browser support it natively
-                        if (typeof mutationTarget[strClosest] != TYPES.f)
-                            return true;
-                        if (mutationTarget[strClosest](_strDot + _classNameResizeObserverElement) !== null ||
-                            mutationTarget[strClosest](_strDot + _classNameScrollbar) !== null ||
-                            mutationTarget[strClosest](_strDot + _classNameScrollbarCorner) !== null)
-                            return false;
-                    }
-                    return true;
-                }
-
-                /**
-                 * Returns true if the content size was changed since the last time this method was called.
-                 * @returns {boolean} True if the content size was changed, false otherwise.
-                 */
-                function updateAutoContentSizeChanged() {
-                    if (_sleeping)
-                        return false;
-
-                    var contentMeasureElement = getContentMeasureElement();
-                    var textareaValueLength = _isTextarea && _widthAutoCache && !_textareaAutoWrappingCache ? _targetElement.val().length : 0;
-                    var setCSS = !_mutationObserversConnected && _widthAutoCache && !_isTextarea;
-                    var css = {};
-                    var float;
-                    var bodyMinSizeC;
-                    var changed;
-                    var contentElementScrollSize;
-
-                    if (setCSS) {
-                        float = _contentElement.css(_strFloat);
-                        css[_strFloat] = _isRTL ? _strRight : _strLeft;
-                        css[_strWidth] = _strAuto;
-                        _contentElement.css(css);
-                    }
-                    contentElementScrollSize = {
-                        w: contentMeasureElement[LEXICON.sW] + textareaValueLength,
-                        h: contentMeasureElement[LEXICON.sH] + textareaValueLength
-                    };
-                    if (setCSS) {
-                        css[_strFloat] = float;
-                        css[_strWidth] = _strHundredPercent;
-                        _contentElement.css(css);
-                    }
-
-                    bodyMinSizeC = bodyMinSizeChanged();
-                    changed = checkCache(contentElementScrollSize, _contentElementScrollSizeChangeDetectedCache);
-
-                    _contentElementScrollSizeChangeDetectedCache = contentElementScrollSize;
-
-                    return changed || bodyMinSizeC;
-                }
-
-                /**
-                 * Returns true when a attribute which the MutationObserver would observe has changed.
-                 * @returns {boolean} True if one of the attributes which a MutationObserver would observe has changed, false or undefined otherwise.
-                 */
-                function meaningfulAttrsChanged() {
-                    if (_sleeping || _mutationObserversConnected)
-                        return;
-
-                    var elem;
-                    var curr;
-                    var cache;
-                    var changedAttrs = [];
-                    var checks = [
-                        {
-                            _elem: _hostElement,
-                            _attrs: _mutationObserverAttrsHost.concat(':visible')
-                        },
-                        {
-                            _elem: _isTextarea ? _targetElement : undefined,
-                            _attrs: _mutationObserverAttrsTextarea
-                        }
-                    ];
-
-                    each(checks, function (index, check) {
-                        elem = check._elem;
-                        if (elem) {
-                            each(check._attrs, function (index, attr) {
-                                curr = attr.charAt(0) === ':' ? elem.is(attr) : elem.attr(attr);
-                                cache = _updateAutoCache[attr];
-
-                                if (checkCache(curr, cache)) {
-                                    changedAttrs.push(attr);
-                                }
-
-                                _updateAutoCache[attr] = curr;
-                            });
-                        }
-                    });
-
-                    updateViewportAttrsFromTarget(changedAttrs);
-
-                    return changedAttrs[LEXICON.l] > 0;
-                }
-
-                /**
-                 * Checks is a CSS Property of a child element is affecting the scroll size of the content.
-                 * @param propertyName The CSS property name.
-                 * @returns {boolean} True if the property is affecting the content scroll size, false otherwise.
-                 */
-                function isSizeAffectingCSSProperty(propertyName) {
-                    if (!_initialized)
-                        return true;
-                    var flexGrow = 'flex-grow';
-                    var flexShrink = 'flex-shrink';
-                    var flexBasis = 'flex-basis';
-                    var affectingPropsX = [
-                        _strWidth,
-                        _strMinMinus + _strWidth,
-                        _strMaxMinus + _strWidth,
-                        _strMarginMinus + _strLeft,
-                        _strMarginMinus + _strRight,
-                        _strLeft,
-                        _strRight,
-                        'font-weight',
-                        'word-spacing',
-                        flexGrow,
-                        flexShrink,
-                        flexBasis
-                    ];
-                    var affectingPropsXContentBox = [
-                        _strPaddingMinus + _strLeft,
-                        _strPaddingMinus + _strRight,
-                        _strBorderMinus + _strLeft + _strWidth,
-                        _strBorderMinus + _strRight + _strWidth
-                    ];
-                    var affectingPropsY = [
-                        _strHeight,
-                        _strMinMinus + _strHeight,
-                        _strMaxMinus + _strHeight,
-                        _strMarginMinus + _strTop,
-                        _strMarginMinus + _strBottom,
-                        _strTop,
-                        _strBottom,
-                        'line-height',
-                        flexGrow,
-                        flexShrink,
-                        flexBasis
-                    ];
-                    var affectingPropsYContentBox = [
-                        _strPaddingMinus + _strTop,
-                        _strPaddingMinus + _strBottom,
-                        _strBorderMinus + _strTop + _strWidth,
-                        _strBorderMinus + _strBottom + _strWidth
-                    ];
-                    var _strS = 's';
-                    var _strVS = 'v-s';
-                    var checkX = _overflowBehaviorCache.x === _strS || _overflowBehaviorCache.x === _strVS;
-                    var checkY = _overflowBehaviorCache.y === _strS || _overflowBehaviorCache.y === _strVS;
-                    var sizeIsAffected = false;
-                    var checkPropertyName = function (arr, name) {
-                        for (var i = 0; i < arr[LEXICON.l]; i++) {
-                            if (arr[i] === name)
-                                return true;
-                        }
-                        return false;
-                    };
-
-                    if (checkY) {
-                        sizeIsAffected = checkPropertyName(affectingPropsY, propertyName);
-                        if (!sizeIsAffected && !_isBorderBox)
-                            sizeIsAffected = checkPropertyName(affectingPropsYContentBox, propertyName);
-                    }
-                    if (checkX && !sizeIsAffected) {
-                        sizeIsAffected = checkPropertyName(affectingPropsX, propertyName);
-                        if (!sizeIsAffected && !_isBorderBox)
-                            sizeIsAffected = checkPropertyName(affectingPropsXContentBox, propertyName);
-                    }
-                    return sizeIsAffected;
-                }
-
-
-                //==== Update ====//
-
-                /**
-                 * Sets the attribute values of the viewport element to the values from the target element.
-                 * The value of a attribute is only set if the attribute is whitelisted.
-                 * @attrs attrs The array of attributes which shall be set or undefined if all whitelisted shall be set.
-                 */
-                function updateViewportAttrsFromTarget(attrs) {
-                    attrs = attrs || _viewportAttrsFromTarget;
-                    each(attrs, function (index, attr) {
-                        if (COMPATIBILITY.inA(attr, _viewportAttrsFromTarget) > -1) {
-                            var targetAttr = _targetElement.attr(attr);
-                            if (type(targetAttr) == TYPES.s) {
-                                _viewportElement.attr(attr, targetAttr);
-                            }
-                            else {
-                                _viewportElement.removeAttr(attr);
-                            }
-                        }
-                    });
-                }
-
-                /**
-                 * Updates the variables and size of the textarea element, and manages the scroll on new line or new character.
-                 */
-                function textareaUpdate() {
-                    if (!_sleeping) {
-                        var wrapAttrOff = !_textareaAutoWrappingCache;
-                        var minWidth = _viewportSize.w;
-                        var minHeight = _viewportSize.h;
-                        var css = {};
-                        var doMeasure = _widthAutoCache || wrapAttrOff;
-                        var origWidth;
-                        var width;
-                        var origHeight;
-                        var height;
-
-                        //reset min size
-                        css[_strMinMinus + _strWidth] = _strEmpty;
-                        css[_strMinMinus + _strHeight] = _strEmpty;
-
-                        //set width auto
-                        css[_strWidth] = _strAuto;
-                        _targetElement.css(css);
-
-                        //measure width
-                        origWidth = _targetElementNative[LEXICON.oW];
-                        width = doMeasure ? MATH.max(origWidth, _targetElementNative[LEXICON.sW] - 1) : 1;
-                        /*width += (_widthAutoCache ? _marginX + (!_isBorderBox ? wrapAttrOff ? 0 : _paddingX + _borderX : 0) : 0);*/
-
-                        //set measured width
-                        css[_strWidth] = _widthAutoCache ? _strAuto /*width*/ : _strHundredPercent;
-                        css[_strMinMinus + _strWidth] = _strHundredPercent;
-
-                        //set height auto
-                        css[_strHeight] = _strAuto;
-                        _targetElement.css(css);
-
-                        //measure height
-                        origHeight = _targetElementNative[LEXICON.oH];
-                        height = MATH.max(origHeight, _targetElementNative[LEXICON.sH] - 1);
-
-                        //append correct size values
-                        css[_strWidth] = width;
-                        css[_strHeight] = height;
-                        _textareaCoverElement.css(css);
-
-                        //apply min width / min height to prevent textarea collapsing
-                        css[_strMinMinus + _strWidth] = minWidth /*+ (!_isBorderBox && _widthAutoCache ? _paddingX + _borderX : 0)*/;
-                        css[_strMinMinus + _strHeight] = minHeight /*+ (!_isBorderBox && _heightAutoCache ? _paddingY + _borderY : 0)*/;
-                        _targetElement.css(css);
-
-                        return {
-                            _originalWidth: origWidth,
-                            _originalHeight: origHeight,
-                            _dynamicWidth: width,
-                            _dynamicHeight: height
-                        };
-                    }
-                }
-
-                /**
-                 * Updates the plugin and DOM to the current options.
-                 * This method should only be called if a update is 100% required.
-                 * @param updateHints A objects which contains hints for this update:
-                 * {
-                 *   _hostSizeChanged : boolean,
-                 *   _contentSizeChanged : boolean,
-                 *   _force : boolean,                             == preventSwallowing
-                 *   _changedOptions : { },                        == preventSwallowing && preventSleep
-                 *  }
-                 */
-                function update(updateHints) {
-                    clearTimeout(_swallowedUpdateTimeout);
-                    updateHints = updateHints || {};
-                    _swallowedUpdateHints._hostSizeChanged |= updateHints._hostSizeChanged;
-                    _swallowedUpdateHints._contentSizeChanged |= updateHints._contentSizeChanged;
-                    _swallowedUpdateHints._force |= updateHints._force;
-
-                    var now = COMPATIBILITY.now();
-                    var hostSizeChanged = !!_swallowedUpdateHints._hostSizeChanged;
-                    var contentSizeChanged = !!_swallowedUpdateHints._contentSizeChanged;
-                    var force = !!_swallowedUpdateHints._force;
-                    var changedOptions = updateHints._changedOptions;
-                    var swallow = _swallowUpdateLag > 0 && _initialized && !_destroyed && !force && !changedOptions && (now - _lastUpdateTime) < _swallowUpdateLag && (!_heightAutoCache && !_widthAutoCache);
-                    var displayIsHidden;
-
-                    if (swallow)
-                        _swallowedUpdateTimeout = setTimeout(update, _swallowUpdateLag);
-
-                    //abort update due to:
-                    //destroyed
-                    //swallowing
-                    //sleeping
-                    //host is hidden or has false display
-                    if (_destroyed || swallow || (_sleeping && !changedOptions) || (_initialized && !force && (displayIsHidden = _hostElement.is(':hidden'))) || _hostElement.css('display') === 'inline')
-                        return;
-
-                    _lastUpdateTime = now;
-                    _swallowedUpdateHints = {};
-
-                    //if scrollbar styling is possible and native scrollbars aren't overlaid the scrollbar styling will be applied which hides the native scrollbars completely.
-                    if (_nativeScrollbarStyling && !(_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y)) {
-                        //native scrollbars are hidden, so change the values to zero
-                        _nativeScrollbarSize.x = 0;
-                        _nativeScrollbarSize.y = 0;
-                    }
-                    else {
-                        //refresh native scrollbar size (in case of zoom)
-                        _nativeScrollbarSize = extendDeep({}, globals.nativeScrollbarSize);
-                    }
-
-                    // Scrollbar padding is needed for firefox, because firefox hides scrollbar automatically if the size of the div is too small.
-                    // The calculation: [scrollbar size +3 *3]
-                    // (+3 because of possible decoration e.g. borders, margins etc., but only if native scrollbar is NOT a overlaid scrollbar)
-                    // (*3 because (1)increase / (2)decrease -button and (3)resize handle)
-                    _nativeScrollbarMinSize = {
-                        x: (_nativeScrollbarSize.x + (_nativeScrollbarIsOverlaid.x ? 0 : 3)) * 3,
-                        y: (_nativeScrollbarSize.y + (_nativeScrollbarIsOverlaid.y ? 0 : 3)) * 3
-                    };
-
-                    changedOptions = changedOptions || {};
-                    //freezeResizeObserver(_sizeObserverElement, true);
-                    //freezeResizeObserver(_sizeAutoObserverElement, true);
-
-                    var checkCacheAutoForce = function () {
-                        return checkCache.apply(this, [].slice.call(arguments).concat([force]));
-                    };
-
-                    //save current scroll offset
-                    var currScroll = {
-                        x: _viewportElement[_strScrollLeft](),
-                        y: _viewportElement[_strScrollTop]()
-                    };
-
-                    var currentPreparedOptionsScrollbars = _currentPreparedOptions.scrollbars;
-                    var currentPreparedOptionsTextarea = _currentPreparedOptions.textarea;
-
-                    //scrollbars visibility:
-                    var scrollbarsVisibility = currentPreparedOptionsScrollbars.visibility;
-                    var scrollbarsVisibilityChanged = checkCacheAutoForce(scrollbarsVisibility, _scrollbarsVisibilityCache);
-
-                    //scrollbars autoHide:
-                    var scrollbarsAutoHide = currentPreparedOptionsScrollbars.autoHide;
-                    var scrollbarsAutoHideChanged = checkCacheAutoForce(scrollbarsAutoHide, _scrollbarsAutoHideCache);
-
-                    //scrollbars click scrolling
-                    var scrollbarsClickScrolling = currentPreparedOptionsScrollbars.clickScrolling;
-                    var scrollbarsClickScrollingChanged = checkCacheAutoForce(scrollbarsClickScrolling, _scrollbarsClickScrollingCache);
-
-                    //scrollbars drag scrolling
-                    var scrollbarsDragScrolling = currentPreparedOptionsScrollbars.dragScrolling;
-                    var scrollbarsDragScrollingChanged = checkCacheAutoForce(scrollbarsDragScrolling, _scrollbarsDragScrollingCache);
-
-                    //className
-                    var className = _currentPreparedOptions.className;
-                    var classNameChanged = checkCacheAutoForce(className, _classNameCache);
-
-                    //resize
-                    var resize = _currentPreparedOptions.resize;
-                    var resizeChanged = checkCacheAutoForce(resize, _resizeCache) && !_isBody; //body can't be resized since the window itself acts as resize possibility.
-
-                    //paddingAbsolute
-                    var paddingAbsolute = _currentPreparedOptions.paddingAbsolute;
-                    var paddingAbsoluteChanged = checkCacheAutoForce(paddingAbsolute, _paddingAbsoluteCache);
-
-                    //clipAlways
-                    var clipAlways = _currentPreparedOptions.clipAlways;
-                    var clipAlwaysChanged = checkCacheAutoForce(clipAlways, _clipAlwaysCache);
-
-                    //sizeAutoCapable
-                    var sizeAutoCapable = _currentPreparedOptions.sizeAutoCapable && !_isBody; //body can never be size auto, because it shall be always as big as the viewport.
-                    var sizeAutoCapableChanged = checkCacheAutoForce(sizeAutoCapable, _sizeAutoCapableCache);
-
-                    //showNativeScrollbars
-                    var ignoreOverlayScrollbarHiding = _currentPreparedOptions.nativeScrollbarsOverlaid.showNativeScrollbars;
-                    var ignoreOverlayScrollbarHidingChanged = checkCacheAutoForce(ignoreOverlayScrollbarHiding, _ignoreOverlayScrollbarHidingCache);
-
-                    //autoUpdate
-                    var autoUpdate = _currentPreparedOptions.autoUpdate;
-                    var autoUpdateChanged = checkCacheAutoForce(autoUpdate, _autoUpdateCache);
-
-                    //overflowBehavior
-                    var overflowBehavior = _currentPreparedOptions.overflowBehavior;
-                    var overflowBehaviorChanged = checkCacheAutoForce(overflowBehavior, _overflowBehaviorCache, force);
-
-                    //dynWidth:
-                    var textareaDynWidth = currentPreparedOptionsTextarea.dynWidth;
-                    var textareaDynWidthChanged = checkCacheAutoForce(_textareaDynWidthCache, textareaDynWidth);
-
-                    //dynHeight:
-                    var textareaDynHeight = currentPreparedOptionsTextarea.dynHeight;
-                    var textareaDynHeightChanged = checkCacheAutoForce(_textareaDynHeightCache, textareaDynHeight);
-
-                    //scrollbars visibility
-                    _scrollbarsAutoHideNever = scrollbarsAutoHide === 'n';
-                    _scrollbarsAutoHideScroll = scrollbarsAutoHide === 's';
-                    _scrollbarsAutoHideMove = scrollbarsAutoHide === 'm';
-                    _scrollbarsAutoHideLeave = scrollbarsAutoHide === 'l';
-
-                    //scrollbars autoHideDelay
-                    _scrollbarsAutoHideDelay = currentPreparedOptionsScrollbars.autoHideDelay;
-
-                    //old className
-                    _oldClassName = _classNameCache;
-
-                    //resize
-                    _resizeNone = resize === 'n';
-                    _resizeBoth = resize === 'b';
-                    _resizeHorizontal = resize === 'h';
-                    _resizeVertical = resize === 'v';
-
-                    //normalizeRTL
-                    _normalizeRTLCache = _currentPreparedOptions.normalizeRTL;
-
-                    //ignore overlay scrollbar hiding
-                    ignoreOverlayScrollbarHiding = ignoreOverlayScrollbarHiding && (_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y);
-
-                    //refresh options cache
-                    _scrollbarsVisibilityCache = scrollbarsVisibility;
-                    _scrollbarsAutoHideCache = scrollbarsAutoHide;
-                    _scrollbarsClickScrollingCache = scrollbarsClickScrolling;
-                    _scrollbarsDragScrollingCache = scrollbarsDragScrolling;
-                    _classNameCache = className;
-                    _resizeCache = resize;
-                    _paddingAbsoluteCache = paddingAbsolute;
-                    _clipAlwaysCache = clipAlways;
-                    _sizeAutoCapableCache = sizeAutoCapable;
-                    _ignoreOverlayScrollbarHidingCache = ignoreOverlayScrollbarHiding;
-                    _autoUpdateCache = autoUpdate;
-                    _overflowBehaviorCache = extendDeep({}, overflowBehavior);
-                    _textareaDynWidthCache = textareaDynWidth;
-                    _textareaDynHeightCache = textareaDynHeight;
-                    _hasOverflowCache = _hasOverflowCache || { x: false, y: false };
-
-                    //set correct class name to the host element
-                    if (classNameChanged) {
-                        removeClass(_hostElement, _oldClassName + _strSpace + _classNameThemeNone);
-                        addClass(_hostElement, className !== undefined && className !== null && className.length > 0 ? className : _classNameThemeNone);
-                    }
-
-                    //set correct auto Update
-                    if (autoUpdateChanged) {
-                        if (autoUpdate === true || (autoUpdate === null && _autoUpdateRecommended)) {
-                            disconnectMutationObservers();
-                            autoUpdateLoop.add(_base);
-                        }
-                        else {
-                            autoUpdateLoop.remove(_base);
-                            connectMutationObservers();
-                        }
-                    }
-
-                    //activate or deactivate size auto capability
-                    if (sizeAutoCapableChanged) {
-                        if (sizeAutoCapable) {
-                            if (_contentGlueElement) {
-                                _contentGlueElement.show();
-                            }
-                            else {
-                                _contentGlueElement = FRAMEWORK(generateDiv(_classNameContentGlueElement));
-                                _paddingElement.before(_contentGlueElement);
-                            }
-                            if (_sizeAutoObserverAdded) {
-                                _sizeAutoObserverElement.show();
-                            }
-                            else {
-                                _sizeAutoObserverElement = FRAMEWORK(generateDiv(_classNameSizeAutoObserverElement));
-                                _sizeAutoObserverElementNative = _sizeAutoObserverElement[0];
-
-                                _contentGlueElement.before(_sizeAutoObserverElement);
-                                var oldSize = { w: -1, h: -1 };
-                                setupResizeObserver(_sizeAutoObserverElement, function () {
-                                    var newSize = {
-                                        w: _sizeAutoObserverElementNative[LEXICON.oW],
-                                        h: _sizeAutoObserverElementNative[LEXICON.oH]
-                                    };
-                                    if (checkCache(newSize, oldSize)) {
-                                        if (_initialized && (_heightAutoCache && newSize.h > 0) || (_widthAutoCache && newSize.w > 0)) {
-                                            update();
-                                        }
-                                        else if (_initialized && (!_heightAutoCache && newSize.h === 0) || (!_widthAutoCache && newSize.w === 0)) {
-                                            update();
-                                        }
-                                    }
-                                    oldSize = newSize;
-                                });
-                                _sizeAutoObserverAdded = true;
-                                //fix heightAuto detector bug if height is fixed but contentHeight is 0.
-                                //the probability this bug will ever happen is very very low, thats why its ok if we use calc which isn't supported in IE8.
-                                if (_cssCalc !== null)
-                                    _sizeAutoObserverElement.css(_strHeight, _cssCalc + '(100% + 1px)');
-                            }
-                        }
-                        else {
-                            if (_sizeAutoObserverAdded)
-                                _sizeAutoObserverElement.hide();
-                            if (_contentGlueElement)
-                                _contentGlueElement.hide();
-                        }
-                    }
-
-                    //if force, update all resizeObservers too
-                    if (force) {
-                        _sizeObserverElement.find('*').trigger(_strScroll);
-                        if (_sizeAutoObserverAdded)
-                            _sizeAutoObserverElement.find('*').trigger(_strScroll);
-                    }
-
-                    //display hidden:
-                    displayIsHidden = displayIsHidden === undefined ? _hostElement.is(':hidden') : displayIsHidden;
-
-                    //textarea AutoWrapping:
-                    var textareaAutoWrapping = _isTextarea ? _targetElement.attr('wrap') !== 'off' : false;
-                    var textareaAutoWrappingChanged = checkCacheAutoForce(textareaAutoWrapping, _textareaAutoWrappingCache);
-
-                    //detect direction:
-                    var cssDirection = _hostElement.css('direction');
-                    var cssDirectionChanged = checkCacheAutoForce(cssDirection, _cssDirectionCache);
-
-                    //detect box-sizing:
-                    var boxSizing = _hostElement.css('box-sizing');
-                    var boxSizingChanged = checkCacheAutoForce(boxSizing, _cssBoxSizingCache);
-
-                    //detect padding:
-                    var padding = getTopRightBottomLeftHost(_strPaddingMinus);
-
-                    //width + height auto detecting var:
-                    var sizeAutoObserverElementBCRect;
-                    //exception occurs in IE8 sometimes (unknown exception)
-                    try {
-                        sizeAutoObserverElementBCRect = _sizeAutoObserverAdded ? _sizeAutoObserverElementNative[LEXICON.bCR]() : null;
-                    } catch (ex) {
-                        return;
-                    }
-
-                    _isRTL = cssDirection === 'rtl';
-                    _isBorderBox = (boxSizing === 'border-box');
-                    var isRTLLeft = _isRTL ? _strLeft : _strRight;
-                    var isRTLRight = _isRTL ? _strRight : _strLeft;
-
-                    //detect width auto:
-                    var widthAutoResizeDetection = false;
-                    var widthAutoObserverDetection = (_sizeAutoObserverAdded && (_hostElement.css(_strFloat) !== 'none' /*|| _isTextarea */)) ? (MATH.round(sizeAutoObserverElementBCRect.right - sizeAutoObserverElementBCRect.left) === 0) && (!paddingAbsolute ? (_hostElementNative[LEXICON.cW] - _paddingX) > 0 : true) : false;
-                    if (sizeAutoCapable && !widthAutoObserverDetection) {
-                        var tmpCurrHostWidth = _hostElementNative[LEXICON.oW];
-                        var tmpCurrContentGlueWidth = _contentGlueElement.css(_strWidth);
-                        _contentGlueElement.css(_strWidth, _strAuto);
-
-                        var tmpNewHostWidth = _hostElementNative[LEXICON.oW];
-                        _contentGlueElement.css(_strWidth, tmpCurrContentGlueWidth);
-                        widthAutoResizeDetection = tmpCurrHostWidth !== tmpNewHostWidth;
-                        if (!widthAutoResizeDetection) {
-                            _contentGlueElement.css(_strWidth, tmpCurrHostWidth + 1);
-                            tmpNewHostWidth = _hostElementNative[LEXICON.oW];
-                            _contentGlueElement.css(_strWidth, tmpCurrContentGlueWidth);
-                            widthAutoResizeDetection = tmpCurrHostWidth !== tmpNewHostWidth;
-                        }
-                    }
-                    var widthAuto = (widthAutoObserverDetection || widthAutoResizeDetection) && sizeAutoCapable && !displayIsHidden;
-                    var widthAutoChanged = checkCacheAutoForce(widthAuto, _widthAutoCache);
-                    var wasWidthAuto = !widthAuto && _widthAutoCache;
-
-                    //detect height auto:
-                    var heightAuto = _sizeAutoObserverAdded && sizeAutoCapable && !displayIsHidden ? (MATH.round(sizeAutoObserverElementBCRect.bottom - sizeAutoObserverElementBCRect.top) === 0) /* && (!paddingAbsolute && (_msieVersion > 9 || !_msieVersion) ? true : true) */ : false;
-                    var heightAutoChanged = checkCacheAutoForce(heightAuto, _heightAutoCache);
-                    var wasHeightAuto = !heightAuto && _heightAutoCache;
-
-                    //detect border:
-                    //we need the border only if border box and auto size
-                    var updateBorderX = (widthAuto && _isBorderBox) || !_isBorderBox;
-                    var updateBorderY = (heightAuto && _isBorderBox) || !_isBorderBox;
-                    var border = getTopRightBottomLeftHost(_strBorderMinus, '-' + _strWidth, !updateBorderX, !updateBorderY)
-
-                    //detect margin:
-                    var margin = getTopRightBottomLeftHost(_strMarginMinus);
-
-                    //vars to apply correct css
-                    var contentElementCSS = {};
-                    var contentGlueElementCSS = {};
-
-                    //funcs
-                    var getHostSize = function () {
-                        //has to be clientSize because offsetSize respect borders
-                        return {
-                            w: _hostElementNative[LEXICON.cW],
-                            h: _hostElementNative[LEXICON.cH]
-                        };
-                    };
-                    var getViewportSize = function () {
-                        //viewport size is padding container because it never has padding, margin and a border
-                        //determine zoom rounding error -> sometimes scrollWidth/Height is smaller than clientWidth/Height
-                        //if this happens add the difference to the viewportSize to compensate the rounding error
-                        return {
-                            w: _paddingElementNative[LEXICON.oW] + MATH.max(0, _contentElementNative[LEXICON.cW] - _contentElementNative[LEXICON.sW]),
-                            h: _paddingElementNative[LEXICON.oH] + MATH.max(0, _contentElementNative[LEXICON.cH] - _contentElementNative[LEXICON.sH])
-                        };
-                    };
-
-                    //set info for padding
-                    var paddingAbsoluteX = _paddingX = padding.l + padding.r;
-                    var paddingAbsoluteY = _paddingY = padding.t + padding.b;
-                    paddingAbsoluteX *= paddingAbsolute ? 1 : 0;
-                    paddingAbsoluteY *= paddingAbsolute ? 1 : 0;
-                    padding.c = checkCacheAutoForce(padding, _cssPaddingCache);
-
-                    //set info for border
-                    _borderX = border.l + border.r;
-                    _borderY = border.t + border.b;
-                    border.c = checkCacheAutoForce(border, _cssBorderCache);
-
-                    //set info for margin
-                    _marginX = margin.l + margin.r;
-                    _marginY = margin.t + margin.b;
-                    margin.c = checkCacheAutoForce(margin, _cssMarginCache);
-
-                    //refresh cache
-                    _textareaAutoWrappingCache = textareaAutoWrapping;
-                    _cssDirectionCache = cssDirection;
-                    _cssBoxSizingCache = boxSizing;
-                    _widthAutoCache = widthAuto;
-                    _heightAutoCache = heightAuto;
-                    _cssPaddingCache = padding;
-                    _cssBorderCache = border;
-                    _cssMarginCache = margin;
-
-                    //IEFix direction changed
-                    if (cssDirectionChanged && _sizeAutoObserverAdded)
-                        _sizeAutoObserverElement.css(_strFloat, isRTLRight);
-
-                    //apply padding:
-                    if (padding.c || cssDirectionChanged || paddingAbsoluteChanged || widthAutoChanged || heightAutoChanged || boxSizingChanged || sizeAutoCapableChanged) {
-                        var paddingElementCSS = {};
-                        var textareaCSS = {};
-                        var paddingValues = [padding.t, padding.r, padding.b, padding.l];
-
-                        setTopRightBottomLeft(contentGlueElementCSS, _strMarginMinus, [-padding.t, -padding.r, -padding.b, -padding.l]);
-                        if (paddingAbsolute) {
-                            setTopRightBottomLeft(paddingElementCSS, _strEmpty, paddingValues);
-                            setTopRightBottomLeft(_isTextarea ? textareaCSS : contentElementCSS, _strPaddingMinus);
-                        }
-                        else {
-                            setTopRightBottomLeft(paddingElementCSS, _strEmpty);
-                            setTopRightBottomLeft(_isTextarea ? textareaCSS : contentElementCSS, _strPaddingMinus, paddingValues);
-                        }
-
-                        _paddingElement.css(paddingElementCSS);
-                        _targetElement.css(textareaCSS);
-                    }
-
-                    //viewport size is padding container because it never has padding, margin and a border.
-                    _viewportSize = getViewportSize();
-
-                    //update Textarea
-                    var textareaSize = _isTextarea ? textareaUpdate() : false;
-                    var textareaSizeChanged = _isTextarea && checkCacheAutoForce(textareaSize, _textareaSizeCache);
-                    var textareaDynOrigSize = _isTextarea && textareaSize ? {
-                        w: textareaDynWidth ? textareaSize._dynamicWidth : textareaSize._originalWidth,
-                        h: textareaDynHeight ? textareaSize._dynamicHeight : textareaSize._originalHeight
-                    } : {};
-                    _textareaSizeCache = textareaSize;
-
-                    //fix height auto / width auto in cooperation with current padding & boxSizing behavior:
-                    if (heightAuto && (heightAutoChanged || paddingAbsoluteChanged || boxSizingChanged || padding.c || border.c)) {
-                        contentElementCSS[_strHeight] = _strAuto;
-                    }
-                    else if (heightAutoChanged || paddingAbsoluteChanged) {
-                        contentElementCSS[_strHeight] = _strHundredPercent;
-                    }
-                    if (widthAuto && (widthAutoChanged || paddingAbsoluteChanged || boxSizingChanged || padding.c || border.c || cssDirectionChanged)) {
-                        contentElementCSS[_strWidth] = _strAuto;
-                        contentGlueElementCSS[_strMaxMinus + _strWidth] = _strHundredPercent; //IE Fix
-                    }
-                    else if (widthAutoChanged || paddingAbsoluteChanged) {
-                        contentElementCSS[_strWidth] = _strHundredPercent;
-                        contentElementCSS[_strFloat] = _strEmpty;
-                        contentGlueElementCSS[_strMaxMinus + _strWidth] = _strEmpty; //IE Fix
-                    }
-                    if (widthAuto) {
-                        //textareaDynOrigSize.w || _strAuto :: doesnt works because applied margin will shift width
-                        contentGlueElementCSS[_strWidth] = _strAuto;
-
-                        contentElementCSS[_strWidth] = VENDORS._cssPropertyValue(_strWidth, 'max-content intrinsic') || _strAuto;
-                        contentElementCSS[_strFloat] = isRTLRight;
-                    }
-                    else {
-                        contentGlueElementCSS[_strWidth] = _strEmpty;
-                    }
-                    if (heightAuto) {
-                        //textareaDynOrigSize.h || _contentElementNative[LEXICON.cH] :: use for anti scroll jumping
-                        contentGlueElementCSS[_strHeight] = textareaDynOrigSize.h || _contentElementNative[LEXICON.cH];
-                    }
-                    else {
-                        contentGlueElementCSS[_strHeight] = _strEmpty;
-                    }
-                    if (sizeAutoCapable)
-                        _contentGlueElement.css(contentGlueElementCSS);
-                    _contentElement.css(contentElementCSS);
-
-                    //CHECKPOINT HERE ~
-                    contentElementCSS = {};
-                    contentGlueElementCSS = {};
-
-                    //if [content(host) client / scroll size, or target element direction, or content(host) max-sizes] changed, or force is true
-                    if (hostSizeChanged || contentSizeChanged || textareaSizeChanged || cssDirectionChanged || boxSizingChanged || paddingAbsoluteChanged || widthAutoChanged || widthAuto || heightAutoChanged || heightAuto || ignoreOverlayScrollbarHidingChanged || overflowBehaviorChanged || clipAlwaysChanged || resizeChanged || scrollbarsVisibilityChanged || scrollbarsAutoHideChanged || scrollbarsDragScrollingChanged || scrollbarsClickScrollingChanged || textareaDynWidthChanged || textareaDynHeightChanged || textareaAutoWrappingChanged) {
-                        var strOverflow = 'overflow';
-                        var strOverflowX = strOverflow + '-x';
-                        var strOverflowY = strOverflow + '-y';
-                        var strHidden = 'hidden';
-                        var strVisible = 'visible';
-
-                        //Reset the viewport (very important for natively overlaid scrollbars and zoom change
-                        //don't change the overflow prop as it is very expensive and affects performance !A LOT!
-                        if (!_nativeScrollbarStyling) {
-                            var viewportElementResetCSS = {};
-                            var resetXTmp = _hasOverflowCache.y && _hideOverflowCache.ys && !ignoreOverlayScrollbarHiding ? (_nativeScrollbarIsOverlaid.y ? _viewportElement.css(isRTLLeft) : -_nativeScrollbarSize.y) : 0;
-                            var resetBottomTmp = _hasOverflowCache.x && _hideOverflowCache.xs && !ignoreOverlayScrollbarHiding ? (_nativeScrollbarIsOverlaid.x ? _viewportElement.css(_strBottom) : -_nativeScrollbarSize.x) : 0;
-                            setTopRightBottomLeft(viewportElementResetCSS, _strEmpty);
-                            _viewportElement.css(viewportElementResetCSS);
-                        }
-
-                        //measure several sizes:
-                        var contentMeasureElement = getContentMeasureElement();
-                        //in Firefox content element has to have overflow hidden, else element margins aren't calculated properly, this element prevents this bug, but only if scrollbars aren't overlaid
-                        var contentSize = {
-                            //use clientSize because natively overlaidScrollbars add borders
-                            w: textareaDynOrigSize.w || contentMeasureElement[LEXICON.cW],
-                            h: textareaDynOrigSize.h || contentMeasureElement[LEXICON.cH]
-                        };
-                        var scrollSize = {
-                            w: contentMeasureElement[LEXICON.sW],
-                            h: contentMeasureElement[LEXICON.sH]
-                        };
-
-                        //apply the correct viewport style and measure viewport size
-                        if (!_nativeScrollbarStyling) {
-                            viewportElementResetCSS[_strBottom] = wasHeightAuto ? _strEmpty : resetBottomTmp;
-                            viewportElementResetCSS[isRTLLeft] = wasWidthAuto ? _strEmpty : resetXTmp;
-                            _viewportElement.css(viewportElementResetCSS);
-                        }
-                        _viewportSize = getViewportSize();
-
-                        //measure and correct several sizes
-                        var hostSize = getHostSize();
-                        var hostAbsoluteRectSize = {
-                            w: hostSize.w - _marginX - _borderX - (_isBorderBox ? 0 : _paddingX),
-                            h: hostSize.h - _marginY - _borderY - (_isBorderBox ? 0 : _paddingY)
-                        };
-                        var contentGlueSize = {
-                            //client/scrollSize + AbsolutePadding -> because padding is only applied to the paddingElement if its absolute, so you have to add it manually
-                            //hostSize is clientSize -> so padding should be added manually, right? FALSE! Because content glue is inside hostElement, so we don't have to worry about padding
-                            w: MATH.max((widthAuto ? contentSize.w : scrollSize.w) + paddingAbsoluteX, hostAbsoluteRectSize.w),
-                            h: MATH.max((heightAuto ? contentSize.h : scrollSize.h) + paddingAbsoluteY, hostAbsoluteRectSize.h)
-                        };
-                        contentGlueSize.c = checkCacheAutoForce(contentGlueSize, _contentGlueSizeCache);
-                        _contentGlueSizeCache = contentGlueSize;
-
-                        //apply correct contentGlue size
-                        if (sizeAutoCapable) {
-                            //size contentGlue correctly to make sure the element has correct size if the sizing switches to auto
-                            if (contentGlueSize.c || (heightAuto || widthAuto)) {
-                                contentGlueElementCSS[_strWidth] = contentGlueSize.w;
-                                contentGlueElementCSS[_strHeight] = contentGlueSize.h;
-
-                                //textarea-sizes are already calculated correctly at this point
-                                if (!_isTextarea) {
-                                    contentSize = {
-                                        //use clientSize because natively overlaidScrollbars add borders
-                                        w: contentMeasureElement[LEXICON.cW],
-                                        h: contentMeasureElement[LEXICON.cH]
-                                    };
-                                }
-                            }
-                            var textareaCoverCSS = {};
-                            var setContentGlueElementCSSfunction = function (horizontal) {
-                                var scrollbarVars = getScrollbarVars(horizontal);
-                                var wh = scrollbarVars._w_h;
-                                var strWH = scrollbarVars._width_height;
-                                var autoSize = horizontal ? widthAuto : heightAuto;
-                                var borderSize = horizontal ? _borderX : _borderY;
-                                var paddingSize = horizontal ? _paddingX : _paddingY;
-                                var marginSize = horizontal ? _marginX : _marginY;
-                                var viewportSize = _viewportSize[wh] - borderSize - marginSize - (_isBorderBox ? 0 : paddingSize);
-
-                                //make contentGlue size -1 if element is not auto sized, to make sure that a resize event happens when the element shrinks
-                                if (!autoSize || (!autoSize && border.c))
-                                    contentGlueElementCSS[strWH] = hostAbsoluteRectSize[wh] - 1;
-
-                                //if size is auto and host is smaller than size as min size, make content glue size -1 to make sure size changes will be detected (this is only needed if padding is 0)
-                                if (autoSize && (contentSize[wh] < viewportSize) && (horizontal && _isTextarea ? !textareaAutoWrapping : true)) {
-                                    if (_isTextarea)
-                                        textareaCoverCSS[strWH] = parseToZeroOrNumber(_textareaCoverElement.css(strWH)) - 1;
-                                    contentGlueElementCSS[strWH] -= 1;
-                                }
-
-                                //make sure content glue size is at least 1
-                                if (contentSize[wh] > 0)
-                                    contentGlueElementCSS[strWH] = MATH.max(1, contentGlueElementCSS[strWH]);
-                            };
-                            setContentGlueElementCSSfunction(true);
-                            setContentGlueElementCSSfunction(false);
-
-                            if (_isTextarea)
-                                _textareaCoverElement.css(textareaCoverCSS);
-                            _contentGlueElement.css(contentGlueElementCSS);
-                        }
-                        if (widthAuto)
-                            contentElementCSS[_strWidth] = _strHundredPercent;
-                        if (widthAuto && !_isBorderBox && !_mutationObserversConnected)
-                            contentElementCSS[_strFloat] = 'none';
-
-                        //apply and reset content style
-                        _contentElement.css(contentElementCSS);
-                        contentElementCSS = {};
-
-                        //measure again, but this time all correct sizes:
-                        var contentScrollSize = {
-                            w: contentMeasureElement[LEXICON.sW],
-                            h: contentMeasureElement[LEXICON.sH],
-                        };
-                        contentScrollSize.c = contentSizeChanged = checkCacheAutoForce(contentScrollSize, _contentScrollSizeCache);
-                        _contentScrollSizeCache = contentScrollSize;
-
-                        //refresh viewport size after correct measuring
-                        _viewportSize = getViewportSize();
-
-                        hostSize = getHostSize();
-                        hostSizeChanged = checkCacheAutoForce(hostSize, _hostSizeCache);
-                        _hostSizeCache = hostSize;
-
-                        var hideOverflowForceTextarea = _isTextarea && (_viewportSize.w === 0 || _viewportSize.h === 0);
-                        var previousOverflowAmount = _overflowAmountCache;
-                        var overflowBehaviorIsVS = {};
-                        var overflowBehaviorIsVH = {};
-                        var overflowBehaviorIsS = {};
-                        var overflowAmount = {};
-                        var hasOverflow = {};
-                        var hideOverflow = {};
-                        var canScroll = {};
-                        var viewportRect = _paddingElementNative[LEXICON.bCR]();
-                        var setOverflowVariables = function (horizontal) {
-                            var scrollbarVars = getScrollbarVars(horizontal);
-                            var scrollbarVarsInverted = getScrollbarVars(!horizontal);
-                            var xyI = scrollbarVarsInverted._x_y;
-                            var xy = scrollbarVars._x_y;
-                            var wh = scrollbarVars._w_h;
-                            var widthHeight = scrollbarVars._width_height;
-                            var scrollMax = _strScroll + scrollbarVars._Left_Top + 'Max';
-                            var fractionalOverflowAmount = viewportRect[widthHeight] ? MATH.abs(viewportRect[widthHeight] - _viewportSize[wh]) : 0;
-                            var checkFractionalOverflowAmount = previousOverflowAmount && previousOverflowAmount[xy] > 0 && _viewportElementNative[scrollMax] === 0;
-                            overflowBehaviorIsVS[xy] = overflowBehavior[xy] === 'v-s';
-                            overflowBehaviorIsVH[xy] = overflowBehavior[xy] === 'v-h';
-                            overflowBehaviorIsS[xy] = overflowBehavior[xy] === 's';
-                            overflowAmount[xy] = MATH.max(0, MATH.round((contentScrollSize[wh] - _viewportSize[wh]) * 100) / 100);
-                            overflowAmount[xy] *= (hideOverflowForceTextarea || (checkFractionalOverflowAmount && fractionalOverflowAmount > 0 && fractionalOverflowAmount < 1)) ? 0 : 1;
-                            hasOverflow[xy] = overflowAmount[xy] > 0;
-
-                            //hideOverflow:
-                            //x || y : true === overflow is hidden by "overflow: scroll" OR "overflow: hidden"
-                            //xs || ys : true === overflow is hidden by "overflow: scroll"
-                            hideOverflow[xy] = overflowBehaviorIsVS[xy] || overflowBehaviorIsVH[xy] ? (hasOverflow[xyI] && !overflowBehaviorIsVS[xyI] && !overflowBehaviorIsVH[xyI]) : hasOverflow[xy];
-                            hideOverflow[xy + 's'] = hideOverflow[xy] ? (overflowBehaviorIsS[xy] || overflowBehaviorIsVS[xy]) : false;
-
-                            canScroll[xy] = hasOverflow[xy] && hideOverflow[xy + 's'];
-                        };
-                        setOverflowVariables(true);
-                        setOverflowVariables(false);
-
-                        overflowAmount.c = checkCacheAutoForce(overflowAmount, _overflowAmountCache);
-                        _overflowAmountCache = overflowAmount;
-                        hasOverflow.c = checkCacheAutoForce(hasOverflow, _hasOverflowCache);
-                        _hasOverflowCache = hasOverflow;
-                        hideOverflow.c = checkCacheAutoForce(hideOverflow, _hideOverflowCache);
-                        _hideOverflowCache = hideOverflow;
-
-                        //if native scrollbar is overlay at x OR y axis, prepare DOM
-                        if (_nativeScrollbarIsOverlaid.x || _nativeScrollbarIsOverlaid.y) {
-                            var borderDesign = 'px solid transparent';
-                            var contentArrangeElementCSS = {};
-                            var arrangeContent = {};
-                            var arrangeChanged = force;
-                            var setContentElementCSS;
-
-                            if (hasOverflow.x || hasOverflow.y) {
-                                arrangeContent.w = _nativeScrollbarIsOverlaid.y && hasOverflow.y ? contentScrollSize.w + _overlayScrollbarDummySize.y : _strEmpty;
-                                arrangeContent.h = _nativeScrollbarIsOverlaid.x && hasOverflow.x ? contentScrollSize.h + _overlayScrollbarDummySize.x : _strEmpty;
-                                arrangeChanged = checkCacheAutoForce(arrangeContent, _arrangeContentSizeCache);
-                                _arrangeContentSizeCache = arrangeContent;
-                            }
-
-                            if (hasOverflow.c || hideOverflow.c || contentScrollSize.c || cssDirectionChanged || widthAutoChanged || heightAutoChanged || widthAuto || heightAuto || ignoreOverlayScrollbarHidingChanged) {
-                                contentElementCSS[_strMarginMinus + isRTLRight] = contentElementCSS[_strBorderMinus + isRTLRight] = _strEmpty;
-                                setContentElementCSS = function (horizontal) {
-                                    var scrollbarVars = getScrollbarVars(horizontal);
-                                    var scrollbarVarsInverted = getScrollbarVars(!horizontal);
-                                    var xy = scrollbarVars._x_y;
-                                    var strDirection = horizontal ? _strBottom : isRTLLeft;
-                                    var invertedAutoSize = horizontal ? heightAuto : widthAuto;
-
-                                    if (_nativeScrollbarIsOverlaid[xy] && hasOverflow[xy] && hideOverflow[xy + 's']) {
-                                        contentElementCSS[_strMarginMinus + strDirection] = invertedAutoSize ? (ignoreOverlayScrollbarHiding ? _strEmpty : _overlayScrollbarDummySize[xy]) : _strEmpty;
-                                        contentElementCSS[_strBorderMinus + strDirection] = ((horizontal ? !invertedAutoSize : true) && !ignoreOverlayScrollbarHiding) ? (_overlayScrollbarDummySize[xy] + borderDesign) : _strEmpty;
-                                    }
-                                    else {
-                                        arrangeContent[scrollbarVarsInverted._w_h] =
-                                            contentElementCSS[_strMarginMinus + strDirection] =
-                                                contentElementCSS[_strBorderMinus + strDirection] = _strEmpty;
-                                        arrangeChanged = true;
-                                    }
-                                };
-
-                                if (_nativeScrollbarStyling) {
-                                    addRemoveClass(_viewportElement, _classNameViewportNativeScrollbarsInvisible, !ignoreOverlayScrollbarHiding)
-                                }
-                                else {
-                                    setContentElementCSS(true);
-                                    setContentElementCSS(false);
-                                }
-                            }
-                            if (ignoreOverlayScrollbarHiding) {
-                                arrangeContent.w = arrangeContent.h = _strEmpty;
-                                arrangeChanged = true;
-                            }
-                            if (arrangeChanged && !_nativeScrollbarStyling) {
-                                contentArrangeElementCSS[_strWidth] = hideOverflow.y ? arrangeContent.w : _strEmpty;
-                                contentArrangeElementCSS[_strHeight] = hideOverflow.x ? arrangeContent.h : _strEmpty;
-
-                                if (!_contentArrangeElement) {
-                                    _contentArrangeElement = FRAMEWORK(generateDiv(_classNameContentArrangeElement));
-                                    _viewportElement.prepend(_contentArrangeElement);
-                                }
-                                _contentArrangeElement.css(contentArrangeElementCSS);
-                            }
-                            _contentElement.css(contentElementCSS);
-                        }
-
-                        var viewportElementCSS = {};
-                        var paddingElementCSS = {};
-                        var setViewportCSS;
-                        if (hostSizeChanged || hasOverflow.c || hideOverflow.c || contentScrollSize.c || overflowBehaviorChanged || boxSizingChanged || ignoreOverlayScrollbarHidingChanged || cssDirectionChanged || clipAlwaysChanged || heightAutoChanged) {
-                            viewportElementCSS[isRTLRight] = _strEmpty;
-                            setViewportCSS = function (horizontal) {
-                                var scrollbarVars = getScrollbarVars(horizontal);
-                                var scrollbarVarsInverted = getScrollbarVars(!horizontal);
-                                var xy = scrollbarVars._x_y;
-                                var XY = scrollbarVars._X_Y;
-                                var strDirection = horizontal ? _strBottom : isRTLLeft;
-
-                                var reset = function () {
-                                    viewportElementCSS[strDirection] = _strEmpty;
-                                    _contentBorderSize[scrollbarVarsInverted._w_h] = 0;
-                                };
-                                if (hasOverflow[xy] && hideOverflow[xy + 's']) {
-                                    viewportElementCSS[strOverflow + XY] = _strScroll;
-                                    if (ignoreOverlayScrollbarHiding || _nativeScrollbarStyling) {
-                                        reset();
-                                    }
-                                    else {
-                                        viewportElementCSS[strDirection] = -(_nativeScrollbarIsOverlaid[xy] ? _overlayScrollbarDummySize[xy] : _nativeScrollbarSize[xy]);
-                                        _contentBorderSize[scrollbarVarsInverted._w_h] = _nativeScrollbarIsOverlaid[xy] ? _overlayScrollbarDummySize[scrollbarVarsInverted._x_y] : 0;
-                                    }
-                                } else {
-                                    viewportElementCSS[strOverflow + XY] = _strEmpty;
-                                    reset();
-                                }
-                            };
-                            setViewportCSS(true);
-                            setViewportCSS(false);
-
-                            // if the scroll container is too small and if there is any overflow with no overlay scrollbar (and scrollbar styling isn't possible),
-                            // make viewport element greater in size (Firefox hide Scrollbars fix)
-                            // because firefox starts hiding scrollbars on too small elements
-                            // with this behavior the overflow calculation may be incorrect or the scrollbars would appear suddenly
-                            // https://bugzilla.mozilla.org/show_bug.cgi?id=292284
-                            if (!_nativeScrollbarStyling
-                                && (_viewportSize.h < _nativeScrollbarMinSize.x || _viewportSize.w < _nativeScrollbarMinSize.y)
-                                && ((hasOverflow.x && hideOverflow.x && !_nativeScrollbarIsOverlaid.x) || (hasOverflow.y && hideOverflow.y && !_nativeScrollbarIsOverlaid.y))) {
-                                viewportElementCSS[_strPaddingMinus + _strTop] = _nativeScrollbarMinSize.x;
-                                viewportElementCSS[_strMarginMinus + _strTop] = -_nativeScrollbarMinSize.x;
-
-                                viewportElementCSS[_strPaddingMinus + isRTLRight] = _nativeScrollbarMinSize.y;
-                                viewportElementCSS[_strMarginMinus + isRTLRight] = -_nativeScrollbarMinSize.y;
-                            }
-                            else {
-                                viewportElementCSS[_strPaddingMinus + _strTop] =
-                                    viewportElementCSS[_strMarginMinus + _strTop] =
-                                        viewportElementCSS[_strPaddingMinus + isRTLRight] =
-                                            viewportElementCSS[_strMarginMinus + isRTLRight] = _strEmpty;
-                            }
-                            viewportElementCSS[_strPaddingMinus + isRTLLeft] =
-                                viewportElementCSS[_strMarginMinus + isRTLLeft] = _strEmpty;
-
-                            //if there is any overflow (x OR y axis) and this overflow shall be hidden, make overflow hidden, else overflow visible
-                            if ((hasOverflow.x && hideOverflow.x) || (hasOverflow.y && hideOverflow.y) || hideOverflowForceTextarea) {
-                                //only hide if is Textarea
-                                if (_isTextarea && hideOverflowForceTextarea) {
-                                    paddingElementCSS[strOverflowX] =
-                                        paddingElementCSS[strOverflowY] = strHidden;
-                                }
-                            }
-                            else {
-                                if (!clipAlways || (overflowBehaviorIsVH.x || overflowBehaviorIsVS.x || overflowBehaviorIsVH.y || overflowBehaviorIsVS.y)) {
-                                    //only un-hide if Textarea
-                                    if (_isTextarea) {
-                                        paddingElementCSS[strOverflowX] =
-                                            paddingElementCSS[strOverflowY] = _strEmpty;
-                                    }
-                                    viewportElementCSS[strOverflowX] =
-                                        viewportElementCSS[strOverflowY] = strVisible;
-                                }
-                            }
-
-                            _paddingElement.css(paddingElementCSS);
-                            _viewportElement.css(viewportElementCSS);
-                            viewportElementCSS = {};
-
-                            //force soft redraw in webkit because without the scrollbars will may appear because DOM wont be redrawn under special conditions
-                            if ((hasOverflow.c || boxSizingChanged || widthAutoChanged || heightAutoChanged) && !(_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y)) {
-                                var elementStyle = _contentElementNative[LEXICON.s];
-                                var dump;
-                                elementStyle.webkitTransform = 'scale(1)';
-                                elementStyle.display = 'run-in';
-                                dump = _contentElementNative[LEXICON.oH];
-                                elementStyle.display = _strEmpty; //|| dump; //use dump to prevent it from deletion if minify
-                                elementStyle.webkitTransform = _strEmpty;
-                            }
-                            /*
-                            //force hard redraw in webkit if native overlaid scrollbars shall appear
-                            if (ignoreOverlayScrollbarHidingChanged && ignoreOverlayScrollbarHiding) {
-                                _hostElement.hide();
-                                var dump = _hostElementNative[LEXICON.oH];
-                                _hostElement.show();
-                            }
-                            */
-                        }
-
-                        //change to direction RTL and width auto Bugfix in Webkit
-                        //without this fix, the DOM still thinks the scrollbar is LTR and thus the content is shifted to the left
-                        contentElementCSS = {};
-                        if (cssDirectionChanged || widthAutoChanged || heightAutoChanged) {
-                            if (_isRTL && widthAuto) {
-                                var floatTmp = _contentElement.css(_strFloat);
-                                var posLeftWithoutFloat = MATH.round(_contentElement.css(_strFloat, _strEmpty).css(_strLeft, _strEmpty).position().left);
-                                _contentElement.css(_strFloat, floatTmp);
-                                var posLeftWithFloat = MATH.round(_contentElement.position().left);
-
-                                if (posLeftWithoutFloat !== posLeftWithFloat)
-                                    contentElementCSS[_strLeft] = posLeftWithoutFloat;
-                            }
-                            else {
-                                contentElementCSS[_strLeft] = _strEmpty;
-                            }
-                        }
-                        _contentElement.css(contentElementCSS);
-
-                        //handle scroll position
-                        if (_isTextarea && contentSizeChanged) {
-                            var textareaInfo = getTextareaInfo();
-                            if (textareaInfo) {
-                                var textareaRowsChanged = _textareaInfoCache === undefined ? true : textareaInfo._rows !== _textareaInfoCache._rows;
-                                var cursorRow = textareaInfo._cursorRow;
-                                var cursorCol = textareaInfo._cursorColumn;
-                                var widestRow = textareaInfo._widestRow;
-                                var lastRow = textareaInfo._rows;
-                                var lastCol = textareaInfo._columns;
-                                var cursorPos = textareaInfo._cursorPosition;
-                                var cursorMax = textareaInfo._cursorMax;
-                                var cursorIsLastPosition = (cursorPos >= cursorMax && _textareaHasFocus);
-                                var textareaScrollAmount = {
-                                    x: (!textareaAutoWrapping && (cursorCol === lastCol && cursorRow === widestRow)) ? _overflowAmountCache.x : -1,
-                                    y: (textareaAutoWrapping ? cursorIsLastPosition || textareaRowsChanged && (previousOverflowAmount ? (currScroll.y === previousOverflowAmount.y) : false) : (cursorIsLastPosition || textareaRowsChanged) && cursorRow === lastRow) ? _overflowAmountCache.y : -1
-                                };
-                                currScroll.x = textareaScrollAmount.x > -1 ? (_isRTL && _normalizeRTLCache && _rtlScrollBehavior.i ? 0 : textareaScrollAmount.x) : currScroll.x; //if inverted, scroll to 0 -> normalized this means to max scroll offset.
-                                currScroll.y = textareaScrollAmount.y > -1 ? textareaScrollAmount.y : currScroll.y;
-                            }
-                            _textareaInfoCache = textareaInfo;
-                        }
-                        if (_isRTL && _rtlScrollBehavior.i && _nativeScrollbarIsOverlaid.y && hasOverflow.x && _normalizeRTLCache)
-                            currScroll.x += _contentBorderSize.w || 0;
-                        if (widthAuto)
-                            _hostElement[_strScrollLeft](0);
-                        if (heightAuto)
-                            _hostElement[_strScrollTop](0);
-                        _viewportElement[_strScrollLeft](currScroll.x)[_strScrollTop](currScroll.y);
-
-                        //scrollbars management:
-                        var scrollbarsVisibilityVisible = scrollbarsVisibility === 'v';
-                        var scrollbarsVisibilityHidden = scrollbarsVisibility === 'h';
-                        var scrollbarsVisibilityAuto = scrollbarsVisibility === 'a';
-                        var refreshScrollbarsVisibility = function (showX, showY) {
-                            showY = showY === undefined ? showX : showY;
-                            refreshScrollbarAppearance(true, showX, canScroll.x)
-                            refreshScrollbarAppearance(false, showY, canScroll.y)
-                        };
-
-                        //manage class name which indicates scrollable overflow
-                        addRemoveClass(_hostElement, _classNameHostOverflow, hideOverflow.x || hideOverflow.y);
-                        addRemoveClass(_hostElement, _classNameHostOverflowX, hideOverflow.x);
-                        addRemoveClass(_hostElement, _classNameHostOverflowY, hideOverflow.y);
-
-                        //add or remove rtl class name for styling purposes except when its body, then the scrollbar stays
-                        if (cssDirectionChanged && !_isBody) {
-                            addRemoveClass(_hostElement, _classNameHostRTL, _isRTL);
-                        }
-
-                        //manage the resize feature (CSS3 resize "polyfill" for this plugin)
-                        if (_isBody)
-                            addClass(_hostElement, _classNameHostResizeDisabled);
-                        if (resizeChanged) {
-                            addRemoveClass(_hostElement, _classNameHostResizeDisabled, _resizeNone);
-                            addRemoveClass(_scrollbarCornerElement, _classNameScrollbarCornerResize, !_resizeNone);
-                            addRemoveClass(_scrollbarCornerElement, _classNameScrollbarCornerResizeB, _resizeBoth);
-                            addRemoveClass(_scrollbarCornerElement, _classNameScrollbarCornerResizeH, _resizeHorizontal);
-                            addRemoveClass(_scrollbarCornerElement, _classNameScrollbarCornerResizeV, _resizeVertical);
-                        }
-
-                        //manage the scrollbars general visibility + the scrollbar interactivity (unusable class name)
-                        if (scrollbarsVisibilityChanged || overflowBehaviorChanged || hideOverflow.c || hasOverflow.c || ignoreOverlayScrollbarHidingChanged) {
-                            if (ignoreOverlayScrollbarHiding) {
-                                if (ignoreOverlayScrollbarHidingChanged) {
-                                    removeClass(_hostElement, _classNameHostScrolling);
-                                    if (ignoreOverlayScrollbarHiding) {
-                                        refreshScrollbarsVisibility(false);
-                                    }
-                                }
-                            }
-                            else if (scrollbarsVisibilityAuto) {
-                                refreshScrollbarsVisibility(canScroll.x, canScroll.y);
-                            }
-                            else if (scrollbarsVisibilityVisible) {
-                                refreshScrollbarsVisibility(true);
-                            }
-                            else if (scrollbarsVisibilityHidden) {
-                                refreshScrollbarsVisibility(false);
-                            }
-                        }
-
-                        //manage the scrollbars auto hide feature (auto hide them after specific actions)
-                        if (scrollbarsAutoHideChanged || ignoreOverlayScrollbarHidingChanged) {
-                            setupHostMouseTouchEvents(!_scrollbarsAutoHideLeave && !_scrollbarsAutoHideMove);
-                            refreshScrollbarsAutoHide(_scrollbarsAutoHideNever, !_scrollbarsAutoHideNever);
-                        }
-
-                        //manage scrollbars handle length & offset - don't remove!
-                        if (hostSizeChanged || overflowAmount.c || heightAutoChanged || widthAutoChanged || resizeChanged || boxSizingChanged || paddingAbsoluteChanged || ignoreOverlayScrollbarHidingChanged || cssDirectionChanged) {
-                            refreshScrollbarHandleLength(true);
-                            refreshScrollbarHandleOffset(true);
-                            refreshScrollbarHandleLength(false);
-                            refreshScrollbarHandleOffset(false);
-                        }
-
-                        //manage interactivity
-                        if (scrollbarsClickScrollingChanged)
-                            refreshScrollbarsInteractive(true, scrollbarsClickScrolling);
-                        if (scrollbarsDragScrollingChanged)
-                            refreshScrollbarsInteractive(false, scrollbarsDragScrolling);
-
-                        //callbacks:
-                        dispatchCallback('onDirectionChanged', {
-                            isRTL: _isRTL,
-                            dir: cssDirection
-                        }, cssDirectionChanged);
-                        dispatchCallback('onHostSizeChanged', {
-                            width: _hostSizeCache.w,
-                            height: _hostSizeCache.h
-                        }, hostSizeChanged);
-                        dispatchCallback('onContentSizeChanged', {
-                            width: _contentScrollSizeCache.w,
-                            height: _contentScrollSizeCache.h
-                        }, contentSizeChanged);
-                        dispatchCallback('onOverflowChanged', {
-                            x: hasOverflow.x,
-                            y: hasOverflow.y,
-                            xScrollable: hideOverflow.xs,
-                            yScrollable: hideOverflow.ys,
-                            clipped: hideOverflow.x || hideOverflow.y
-                        }, hasOverflow.c || hideOverflow.c);
-                        dispatchCallback('onOverflowAmountChanged', {
-                            x: overflowAmount.x,
-                            y: overflowAmount.y
-                        }, overflowAmount.c);
-                    }
-
-                    //fix body min size
-                    if (_isBody && _bodyMinSizeCache && (_hasOverflowCache.c || _bodyMinSizeCache.c)) {
-                        //its possible that no min size was measured until now, because the content arrange element was just added now, in this case, measure now the min size.
-                        if (!_bodyMinSizeCache.f)
-                            bodyMinSizeChanged();
-                        if (_nativeScrollbarIsOverlaid.y && _hasOverflowCache.x)
-                            _contentElement.css(_strMinMinus + _strWidth, _bodyMinSizeCache.w + _overlayScrollbarDummySize.y);
-                        if (_nativeScrollbarIsOverlaid.x && _hasOverflowCache.y)
-                            _contentElement.css(_strMinMinus + _strHeight, _bodyMinSizeCache.h + _overlayScrollbarDummySize.x);
-                        _bodyMinSizeCache.c = false;
-                    }
-
-                    if (_initialized && changedOptions.updateOnLoad) {
-                        updateElementsOnLoad();
-                    }
-
-                    //freezeResizeObserver(_sizeObserverElement, false);
-                    //freezeResizeObserver(_sizeAutoObserverElement, false);
-
-                    dispatchCallback('onUpdated', { forced: force });
-                }
-
-                /**
-                 * Updates the found elements of which the load event shall be handled.
-                 */
-                function updateElementsOnLoad() {
-                    if (!_isTextarea) {
-                        eachUpdateOnLoad(function (i, updateOnLoadSelector) {
-                            _contentElement.find(updateOnLoadSelector).each(function (i, el) {
-                                // if element doesn't have a updateOnLoadCallback applied
-                                if (COMPATIBILITY.inA(el, _updateOnLoadElms) < 0) {
-                                    _updateOnLoadElms.push(el);
-                                    FRAMEWORK(el)
-                                        .off(_updateOnLoadEventName, updateOnLoadCallback)
-                                        .on(_updateOnLoadEventName, updateOnLoadCallback);
-                                }
-                            });
-                        });
-                    }
-                }
-
-                //==== Options ====//
-
-                /**
-                 * Sets new options but doesn't call the update method.
-                 * @param newOptions The object which contains the new options.
-                 * @returns {*} A object which contains the changed options.
-                 */
-                function setOptions(newOptions) {
-                    var validatedOpts = _pluginsOptions._validate(newOptions, _pluginsOptions._template, true, _currentOptions)
-
-                    _currentOptions = extendDeep({}, _currentOptions, validatedOpts._default);
-                    _currentPreparedOptions = extendDeep({}, _currentPreparedOptions, validatedOpts._prepared);
-
-                    return validatedOpts._prepared;
-                }
-
-
-                //==== Structure ====//
-
-                /**
-                 * Builds or destroys the wrapper and helper DOM elements.
-                 * @param destroy Indicates whether the DOM shall be build or destroyed.
-                 */
-                /**
-                 * Builds or destroys the wrapper and helper DOM elements.
-                 * @param destroy Indicates whether the DOM shall be build or destroyed.
-                 */
-                function setupStructureDOM(destroy) {
-                    var strParent = 'parent';
-                    var classNameResizeObserverHost = 'os-resize-observer-host';
-                    var classNameTextareaElementFull = _classNameTextareaElement + _strSpace + _classNameTextInherit;
-                    var textareaClass = _isTextarea ? _strSpace + _classNameTextInherit : _strEmpty;
-                    var adoptAttrs = _currentPreparedOptions.textarea.inheritedAttrs;
-                    var adoptAttrsMap = {};
-                    var applyAdoptedAttrs = function () {
-                        var applyAdoptedAttrsElm = destroy ? _targetElement : _hostElement;
-                        each(adoptAttrsMap, function (key, value) {
-                            if (type(value) == TYPES.s) {
-                                if (key == LEXICON.c)
-                                    applyAdoptedAttrsElm.addClass(value);
-                                else
-                                    applyAdoptedAttrsElm.attr(key, value);
-                            }
-                        });
-                    };
-                    var hostElementClassNames = [
-                        _classNameHostElement,
-                        _classNameHostElementForeign,
-                        _classNameHostTextareaElement,
-                        _classNameHostResizeDisabled,
-                        _classNameHostRTL,
-                        _classNameHostScrollbarHorizontalHidden,
-                        _classNameHostScrollbarVerticalHidden,
-                        _classNameHostTransition,
-                        _classNameHostScrolling,
-                        _classNameHostOverflow,
-                        _classNameHostOverflowX,
-                        _classNameHostOverflowY,
-                        _classNameThemeNone,
-                        _classNameTextareaElement,
-                        _classNameTextInherit,
-                        _classNameCache].join(_strSpace);
-                    var hostElementCSS = {};
-
-                    //get host element as first element, because that's the most upper element and required for the other elements
-                    _hostElement = _hostElement || (_isTextarea ? (_domExists ? _targetElement[strParent]()[strParent]()[strParent]()[strParent]() : FRAMEWORK(generateDiv(_classNameHostTextareaElement))) : _targetElement);
-                    _contentElement = _contentElement || selectOrGenerateDivByClass(_classNameContentElement + textareaClass);
-                    _viewportElement = _viewportElement || selectOrGenerateDivByClass(_classNameViewportElement + textareaClass);
-                    _paddingElement = _paddingElement || selectOrGenerateDivByClass(_classNamePaddingElement + textareaClass);
-                    _sizeObserverElement = _sizeObserverElement || selectOrGenerateDivByClass(classNameResizeObserverHost);
-                    _textareaCoverElement = _textareaCoverElement || (_isTextarea ? selectOrGenerateDivByClass(_classNameTextareaCoverElement) : undefined);
-
-                    //add this class to workaround class changing issues with UI frameworks especially Vue
-                    if (_domExists)
-                        addClass(_hostElement, _classNameHostElementForeign);
-
-                    //on destroy, remove all generated class names from the host element before collecting the adopted attributes
-                    //to prevent adopting generated class names
-                    if (destroy)
-                        removeClass(_hostElement, hostElementClassNames);
-
-                    //collect all adopted attributes
-                    adoptAttrs = type(adoptAttrs) == TYPES.s ? adoptAttrs.split(_strSpace) : adoptAttrs;
-                    if (COMPATIBILITY.isA(adoptAttrs) && _isTextarea) {
-                        each(adoptAttrs, function (i, v) {
-                            if (type(v) == TYPES.s) {
-                                adoptAttrsMap[v] = destroy ? _hostElement.attr(v) : _targetElement.attr(v);
-                            }
-                        });
-                    }
-
-                    if (!destroy) {
-                        if (_isTextarea) {
-                            if (!_currentPreparedOptions.sizeAutoCapable) {
-                                hostElementCSS[_strWidth] = _targetElement.css(_strWidth);
-                                hostElementCSS[_strHeight] = _targetElement.css(_strHeight);
-                            }
-
-                            if (!_domExists)
-                                _targetElement.addClass(_classNameTextInherit).wrap(_hostElement);
-
-                            //jQuery clones elements in wrap functions, so we have to select them again
-                            _hostElement = _targetElement[strParent]().css(hostElementCSS);
-                        }
-
-                        if (!_domExists) {
-                            //add the correct class to the target element
-                            addClass(_targetElement, _isTextarea ? classNameTextareaElementFull : _classNameHostElement);
-
-                            //wrap the content into the generated elements to create the required DOM
-                            _hostElement.wrapInner(_contentElement)
-                                .wrapInner(_viewportElement)
-                                .wrapInner(_paddingElement)
-                                .prepend(_sizeObserverElement);
-
-                            //jQuery clones elements in wrap functions, so we have to select them again
-                            _contentElement = findFirst(_hostElement, _strDot + _classNameContentElement);
-                            _viewportElement = findFirst(_hostElement, _strDot + _classNameViewportElement);
-                            _paddingElement = findFirst(_hostElement, _strDot + _classNamePaddingElement);
-
-                            if (_isTextarea) {
-                                _contentElement.prepend(_textareaCoverElement);
-                                applyAdoptedAttrs();
-                            }
-                        }
-
-                        if (_nativeScrollbarStyling)
-                            addClass(_viewportElement, _classNameViewportNativeScrollbarsInvisible);
-                        if (_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y)
-                            addClass(_viewportElement, _classNameViewportNativeScrollbarsOverlaid);
-                        if (_isBody)
-                            addClass(_htmlElement, _classNameHTMLElement);
-
-                        _sizeObserverElementNative = _sizeObserverElement[0];
-                        _hostElementNative = _hostElement[0];
-                        _paddingElementNative = _paddingElement[0];
-                        _viewportElementNative = _viewportElement[0];
-                        _contentElementNative = _contentElement[0];
-
-                        updateViewportAttrsFromTarget();
-                    }
-                    else {
-                        if (_domExists && _initialized) {
-                            //clear size observer
-                            _sizeObserverElement.children().remove();
-
-                            //remove the style property and classes from already generated elements
-                            each([_paddingElement, _viewportElement, _contentElement, _textareaCoverElement], function (i, elm) {
-                                if (elm) {
-                                    removeClass(elm.removeAttr(LEXICON.s), _classNamesDynamicDestroy);
-                                }
-                            });
-
-                            //add classes to the host element which was removed previously to match the expected DOM
-                            addClass(_hostElement, _isTextarea ? _classNameHostTextareaElement : _classNameHostElement);
-                        }
-                        else {
-                            //remove size observer
-                            remove(_sizeObserverElement);
-
-                            //unwrap the content to restore DOM
-                            _contentElement.contents()
-                                .unwrap()
-                                .unwrap()
-                                .unwrap();
-
-                            if (_isTextarea) {
-                                _targetElement.unwrap();
-                                remove(_hostElement);
-                                remove(_textareaCoverElement);
-                                applyAdoptedAttrs();
-                            }
-                        }
-
-                        if (_isTextarea)
-                            _targetElement.removeAttr(LEXICON.s);
-
-                        if (_isBody)
-                            removeClass(_htmlElement, _classNameHTMLElement);
-                    }
-                }
-
-                /**
-                 * Adds or removes all wrapper elements interactivity events.
-                 * @param destroy Indicates whether the Events shall be added or removed.
-                 */
-                function setupStructureEvents() {
-                    var textareaKeyDownRestrictedKeyCodes = [
-                        112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 123,    //F1 to F12
-                        33, 34,                                                   //page up, page down
-                        37, 38, 39, 40,                                           //left, up, right, down arrows
-                        16, 17, 18, 19, 20, 144                                   //Shift, Ctrl, Alt, Pause, CapsLock, NumLock
-                    ];
-                    var textareaKeyDownKeyCodesList = [];
-                    var textareaUpdateIntervalID;
-                    var scrollStopTimeoutId;
-                    var scrollStopDelay = 175;
-                    var strFocus = 'focus';
-
-                    function updateTextarea(doClearInterval) {
-                        textareaUpdate();
-                        _base.update(_strAuto);
-                        if (doClearInterval && _autoUpdateRecommended)
-                            clearInterval(textareaUpdateIntervalID);
-                    }
-                    function textareaOnScroll(event) {
-                        _targetElement[_strScrollLeft](_rtlScrollBehavior.i && _normalizeRTLCache ? 9999999 : 0);
-                        _targetElement[_strScrollTop](0);
-                        COMPATIBILITY.prvD(event);
-                        COMPATIBILITY.stpP(event);
-                        return false;
-                    }
-                    function textareaOnDrop(event) {
-                        setTimeout(function () {
-                            if (!_destroyed)
-                                updateTextarea();
-                        }, 50);
-                    }
-                    function textareaOnFocus() {
-                        _textareaHasFocus = true;
-                        addClass(_hostElement, strFocus);
-                    }
-                    function textareaOnFocusout() {
-                        _textareaHasFocus = false;
-                        textareaKeyDownKeyCodesList = [];
-                        removeClass(_hostElement, strFocus);
-                        updateTextarea(true);
-                    }
-                    function textareaOnKeyDown(event) {
-                        var keyCode = event.keyCode;
-
-                        if (inArray(keyCode, textareaKeyDownRestrictedKeyCodes) < 0) {
-                            if (!textareaKeyDownKeyCodesList[LEXICON.l]) {
-                                updateTextarea();
-                                textareaUpdateIntervalID = setInterval(updateTextarea, 1000 / 60);
-                            }
-                            if (inArray(keyCode, textareaKeyDownKeyCodesList) < 0)
-                                textareaKeyDownKeyCodesList.push(keyCode);
-                        }
-                    }
-                    function textareaOnKeyUp(event) {
-                        var keyCode = event.keyCode;
-                        var index = inArray(keyCode, textareaKeyDownKeyCodesList);
-
-                        if (inArray(keyCode, textareaKeyDownRestrictedKeyCodes) < 0) {
-                            if (index > -1)
-                                textareaKeyDownKeyCodesList.splice(index, 1);
-                            if (!textareaKeyDownKeyCodesList[LEXICON.l])
-                                updateTextarea(true);
-                        }
-                    }
-                    function contentOnTransitionEnd(event) {
-                        if (_autoUpdateCache === true)
-                            return;
-                        event = event.originalEvent || event;
-                        if (isSizeAffectingCSSProperty(event.propertyName))
-                            _base.update(_strAuto);
-                    }
-                    function viewportOnScroll(event) {
-                        if (!_sleeping) {
-                            if (scrollStopTimeoutId !== undefined)
-                                clearTimeout(scrollStopTimeoutId);
-                            else {
-                                if (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove)
-                                    refreshScrollbarsAutoHide(true);
-
-                                if (!nativeOverlayScrollbarsAreActive())
-                                    addClass(_hostElement, _classNameHostScrolling);
-
-                                dispatchCallback('onScrollStart', event);
-                            }
-
-                            //if a scrollbars handle gets dragged, the mousemove event is responsible for refreshing the handle offset
-                            //because if CSS scroll-snap is used, the handle offset gets only refreshed on every snap point
-                            //this looks laggy & clunky, it looks much better if the offset refreshes with the mousemove
-                            if (!_scrollbarsHandlesDefineScrollPos) {
-                                refreshScrollbarHandleOffset(true);
-                                refreshScrollbarHandleOffset(false);
-                            }
-                            dispatchCallback('onScroll', event);
-
-                            scrollStopTimeoutId = setTimeout(function () {
-                                if (!_destroyed) {
-                                    //OnScrollStop:
-                                    clearTimeout(scrollStopTimeoutId);
-                                    scrollStopTimeoutId = undefined;
-
-                                    if (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove)
-                                        refreshScrollbarsAutoHide(false);
-
-                                    if (!nativeOverlayScrollbarsAreActive())
-                                        removeClass(_hostElement, _classNameHostScrolling);
-
-                                    dispatchCallback('onScrollStop', event);
-                                }
-                            }, scrollStopDelay);
-                        }
-                    }
-
-
-                    if (_isTextarea) {
-                        if (_msieVersion > 9 || !_autoUpdateRecommended) {
-                            addDestroyEventListener(_targetElement, 'input', updateTextarea);
-                        }
-                        else {
-                            addDestroyEventListener(_targetElement,
-                                [_strKeyDownEvent, _strKeyUpEvent],
-                                [textareaOnKeyDown, textareaOnKeyUp]);
-                        }
-
-                        addDestroyEventListener(_targetElement,
-                            [_strScroll, 'drop', strFocus, strFocus + 'out'],
-                            [textareaOnScroll, textareaOnDrop, textareaOnFocus, textareaOnFocusout]);
-                    }
-                    else {
-                        addDestroyEventListener(_contentElement, _strTransitionEndEvent, contentOnTransitionEnd);
-                    }
-                    addDestroyEventListener(_viewportElement, _strScroll, viewportOnScroll, true);
-                }
-
-
-                //==== Scrollbars ====//
-
-                /**
-                 * Builds or destroys all scrollbar DOM elements (scrollbar, track, handle)
-                 * @param destroy Indicates whether the DOM shall be build or destroyed.
-                 */
-                function setupScrollbarsDOM(destroy) {
-                    var selectOrGenerateScrollbarDOM = function (isHorizontal) {
-                        var scrollbarClassName = isHorizontal ? _classNameScrollbarHorizontal : _classNameScrollbarVertical;
-                        var scrollbar = selectOrGenerateDivByClass(_classNameScrollbar + _strSpace + scrollbarClassName, true);
-                        var track = selectOrGenerateDivByClass(_classNameScrollbarTrack, scrollbar);
-                        var handle = selectOrGenerateDivByClass(_classNameScrollbarHandle, scrollbar);
-
-                        if (!_domExists && !destroy) {
-                            scrollbar.append(track);
-                            track.append(handle);
-                        }
-
-                        return {
-                            _scrollbar: scrollbar,
-                            _track: track,
-                            _handle: handle
-                        };
-                    };
-                    function resetScrollbarDOM(isHorizontal) {
-                        var scrollbarVars = getScrollbarVars(isHorizontal);
-                        var scrollbar = scrollbarVars._scrollbar;
-                        var track = scrollbarVars._track;
-                        var handle = scrollbarVars._handle;
-
-                        if (_domExists && _initialized) {
-                            each([scrollbar, track, handle], function (i, elm) {
-                                removeClass(elm.removeAttr(LEXICON.s), _classNamesDynamicDestroy);
-                            });
-                        }
-                        else {
-                            remove(scrollbar || selectOrGenerateScrollbarDOM(isHorizontal)._scrollbar);
-                        }
-                    }
-                    var horizontalElements;
-                    var verticalElements;
-
-                    if (!destroy) {
-                        horizontalElements = selectOrGenerateScrollbarDOM(true);
-                        verticalElements = selectOrGenerateScrollbarDOM();
-
-                        _scrollbarHorizontalElement = horizontalElements._scrollbar;
-                        _scrollbarHorizontalTrackElement = horizontalElements._track;
-                        _scrollbarHorizontalHandleElement = horizontalElements._handle;
-                        _scrollbarVerticalElement = verticalElements._scrollbar;
-                        _scrollbarVerticalTrackElement = verticalElements._track;
-                        _scrollbarVerticalHandleElement = verticalElements._handle;
-
-                        if (!_domExists) {
-                            _paddingElement.after(_scrollbarVerticalElement);
-                            _paddingElement.after(_scrollbarHorizontalElement);
-                        }
-                    }
-                    else {
-                        resetScrollbarDOM(true);
-                        resetScrollbarDOM();
-                    }
-                }
-
-                /**
-                 * Initializes all scrollbar interactivity events. (track and handle dragging, clicking, scrolling)
-                 * @param isHorizontal True if the target scrollbar is the horizontal scrollbar, false if the target scrollbar is the vertical scrollbar.
-                 */
-                function setupScrollbarEvents(isHorizontal) {
-                    var scrollbarVars = getScrollbarVars(isHorizontal);
-                    var scrollbarVarsInfo = scrollbarVars._info;
-                    var insideIFrame = _windowElementNative.top !== _windowElementNative;
-                    var xy = scrollbarVars._x_y;
-                    var XY = scrollbarVars._X_Y;
-                    var scroll = _strScroll + scrollbarVars._Left_Top;
-                    var strActive = 'active';
-                    var strSnapHandle = 'snapHandle';
-                    var strClickEvent = 'click';
-                    var scrollDurationFactor = 1;
-                    var increaseDecreaseScrollAmountKeyCodes = [16, 17]; //shift, ctrl
-                    var trackTimeout;
-                    var mouseDownScroll;
-                    var mouseDownOffset;
-                    var mouseDownInvertedScale;
-
-                    function getPointerPosition(event) {
-                        return _msieVersion && insideIFrame ? event['screen' + XY] : COMPATIBILITY.page(event)[xy]; //use screen coordinates in EDGE & IE because the page values are incorrect in frames.
-                    }
-                    function getPreparedScrollbarsOption(name) {
-                        return _currentPreparedOptions.scrollbars[name];
-                    }
-                    function increaseTrackScrollAmount() {
-                        scrollDurationFactor = 0.5;
-                    }
-                    function decreaseTrackScrollAmount() {
-                        scrollDurationFactor = 1;
-                    }
-                    function stopClickEventPropagation(event) {
-                        COMPATIBILITY.stpP(event);
-                    }
-                    function documentKeyDown(event) {
-                        if (inArray(event.keyCode, increaseDecreaseScrollAmountKeyCodes) > -1)
-                            increaseTrackScrollAmount();
-                    }
-                    function documentKeyUp(event) {
-                        if (inArray(event.keyCode, increaseDecreaseScrollAmountKeyCodes) > -1)
-                            decreaseTrackScrollAmount();
-                    }
-                    function onMouseTouchDownContinue(event) {
-                        var originalEvent = event.originalEvent || event;
-                        var isTouchEvent = originalEvent.touches !== undefined;
-                        return _sleeping || _destroyed || nativeOverlayScrollbarsAreActive() || !_scrollbarsDragScrollingCache || (isTouchEvent && !getPreparedScrollbarsOption('touchSupport')) ? false : COMPATIBILITY.mBtn(event) === 1 || isTouchEvent;
-                    }
-                    function documentDragMove(event) {
-                        if (onMouseTouchDownContinue(event)) {
-                            var trackLength = scrollbarVarsInfo._trackLength;
-                            var handleLength = scrollbarVarsInfo._handleLength;
-                            var scrollRange = scrollbarVarsInfo._maxScroll;
-                            var scrollRaw = (getPointerPosition(event) - mouseDownOffset) * mouseDownInvertedScale;
-                            var scrollDeltaPercent = scrollRaw / (trackLength - handleLength);
-                            var scrollDelta = (scrollRange * scrollDeltaPercent);
-                            scrollDelta = isFinite(scrollDelta) ? scrollDelta : 0;
-                            if (_isRTL && isHorizontal && !_rtlScrollBehavior.i)
-                                scrollDelta *= -1;
-
-                            _viewportElement[scroll](MATH.round(mouseDownScroll + scrollDelta));
-
-                            if (_scrollbarsHandlesDefineScrollPos)
-                                refreshScrollbarHandleOffset(isHorizontal, mouseDownScroll + scrollDelta);
-
-                            if (!_supportPassiveEvents)
-                                COMPATIBILITY.prvD(event);
-                        }
-                        else
-                            documentMouseTouchUp(event);
-                    }
-                    function documentMouseTouchUp(event) {
-                        event = event || event.originalEvent;
-
-                        setupResponsiveEventListener(_documentElement,
-                            [_strMouseTouchMoveEvent, _strMouseTouchUpEvent, _strKeyDownEvent, _strKeyUpEvent, _strSelectStartEvent],
-                            [documentDragMove, documentMouseTouchUp, documentKeyDown, documentKeyUp, documentOnSelectStart],
-                            true);
-                        COMPATIBILITY.rAF()(function() {
-                            setupResponsiveEventListener(_documentElement, strClickEvent, stopClickEventPropagation, true, { _capture: true });
-                        });
-
-
-                        if (_scrollbarsHandlesDefineScrollPos)
-                            refreshScrollbarHandleOffset(isHorizontal, true);
-
-                        _scrollbarsHandlesDefineScrollPos = false;
-                        removeClass(_bodyElement, _classNameDragging);
-                        removeClass(scrollbarVars._handle, strActive);
-                        removeClass(scrollbarVars._track, strActive);
-                        removeClass(scrollbarVars._scrollbar, strActive);
-
-                        mouseDownScroll = undefined;
-                        mouseDownOffset = undefined;
-                        mouseDownInvertedScale = 1;
-
-                        decreaseTrackScrollAmount();
-
-                        if (trackTimeout !== undefined) {
-                            _base.scrollStop();
-                            clearTimeout(trackTimeout);
-                            trackTimeout = undefined;
-                        }
-
-                        if (event) {
-                            var rect = _hostElementNative[LEXICON.bCR]();
-                            var mouseInsideHost = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-
-                            //if mouse is outside host element
-                            if (!mouseInsideHost)
-                                hostOnMouseLeave();
-
-                            if (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove)
-                                refreshScrollbarsAutoHide(false);
-                        }
-                    }
-                    function onHandleMouseTouchDown(event) {
-                        if (onMouseTouchDownContinue(event))
-                            onHandleMouseTouchDownAction(event);
-                    }
-                    function onHandleMouseTouchDownAction(event) {
-                        mouseDownScroll = _viewportElement[scroll]();
-                        mouseDownScroll = isNaN(mouseDownScroll) ? 0 : mouseDownScroll;
-                        if (_isRTL && isHorizontal && !_rtlScrollBehavior.n || !_isRTL)
-                            mouseDownScroll = mouseDownScroll < 0 ? 0 : mouseDownScroll;
-
-                        mouseDownInvertedScale = getHostElementInvertedScale()[xy];
-                        mouseDownOffset = getPointerPosition(event);
-
-                        _scrollbarsHandlesDefineScrollPos = !getPreparedScrollbarsOption(strSnapHandle);
-                        addClass(_bodyElement, _classNameDragging);
-                        addClass(scrollbarVars._handle, strActive);
-                        addClass(scrollbarVars._scrollbar, strActive);
-
-                        setupResponsiveEventListener(_documentElement,
-                            [_strMouseTouchMoveEvent, _strMouseTouchUpEvent, _strSelectStartEvent],
-                            [documentDragMove, documentMouseTouchUp, documentOnSelectStart]);
-                        COMPATIBILITY.rAF()(function() {
-                            setupResponsiveEventListener(_documentElement, strClickEvent, stopClickEventPropagation, false, { _capture: true });
-                        });
-
-
-                        if (_msieVersion || !_documentMixed)
-                            COMPATIBILITY.prvD(event);
-                        COMPATIBILITY.stpP(event);
-                    }
-                    function onTrackMouseTouchDown(event) {
-                        if (onMouseTouchDownContinue(event)) {
-                            var handleToViewportRatio = scrollbarVars._info._handleLength / Math.round(MATH.min(1, _viewportSize[scrollbarVars._w_h] / _contentScrollSizeCache[scrollbarVars._w_h]) * scrollbarVars._info._trackLength);
-                            var scrollDistance = MATH.round(_viewportSize[scrollbarVars._w_h] * handleToViewportRatio);
-                            var scrollBaseDuration = 270 * handleToViewportRatio;
-                            var scrollFirstIterationDelay = 400 * handleToViewportRatio;
-                            var trackOffset = scrollbarVars._track.offset()[scrollbarVars._left_top];
-                            var ctrlKey = event.ctrlKey;
-                            var instantScroll = event.shiftKey;
-                            var instantScrollTransition = instantScroll && ctrlKey;
-                            var isFirstIteration = true;
-                            var easing = 'linear';
-                            var decreaseScroll;
-                            var finishedCondition;
-                            var scrollActionFinsished = function (transition) {
-                                if (_scrollbarsHandlesDefineScrollPos)
-                                    refreshScrollbarHandleOffset(isHorizontal, transition);
-                            };
-                            var scrollActionInstantFinished = function () {
-                                scrollActionFinsished();
-                                onHandleMouseTouchDownAction(event);
-                            };
-                            var scrollAction = function () {
-                                if (!_destroyed) {
-                                    var mouseOffset = (mouseDownOffset - trackOffset) * mouseDownInvertedScale;
-                                    var handleOffset = scrollbarVarsInfo._handleOffset;
-                                    var trackLength = scrollbarVarsInfo._trackLength;
-                                    var handleLength = scrollbarVarsInfo._handleLength;
-                                    var scrollRange = scrollbarVarsInfo._maxScroll;
-                                    var currScroll = scrollbarVarsInfo._currentScroll;
-                                    var scrollDuration = scrollBaseDuration * scrollDurationFactor;
-                                    var timeoutDelay = isFirstIteration ? MATH.max(scrollFirstIterationDelay, scrollDuration) : scrollDuration;
-                                    var instantScrollPosition = scrollRange * ((mouseOffset - (handleLength / 2)) / (trackLength - handleLength)); // 100% * positionPercent
-                                    var rtlIsNormal = _isRTL && isHorizontal && ((!_rtlScrollBehavior.i && !_rtlScrollBehavior.n) || _normalizeRTLCache);
-                                    var decreaseScrollCondition = rtlIsNormal ? handleOffset < mouseOffset : handleOffset > mouseOffset;
-                                    var scrollObj = {};
-                                    var animationObj = {
-                                        easing: easing,
-                                        step: function (now) {
-                                            if (_scrollbarsHandlesDefineScrollPos) {
-                                                _viewportElement[scroll](now); //https://github.com/jquery/jquery/issues/4340
-                                                refreshScrollbarHandleOffset(isHorizontal, now);
-                                            }
-                                        }
-                                    };
-                                    instantScrollPosition = isFinite(instantScrollPosition) ? instantScrollPosition : 0;
-                                    instantScrollPosition = _isRTL && isHorizontal && !_rtlScrollBehavior.i ? (scrollRange - instantScrollPosition) : instantScrollPosition;
-
-                                    //_base.scrollStop();
-
-                                    if (instantScroll) {
-                                        _viewportElement[scroll](instantScrollPosition); //scroll instantly to new position
-                                        if (instantScrollTransition) {
-                                            //get the scroll position after instant scroll (in case CSS Snap Points are used) to get the correct snapped scroll position
-                                            //and the animation stops at the correct point
-                                            instantScrollPosition = _viewportElement[scroll]();
-                                            //scroll back to the position before instant scrolling so animation can be performed
-                                            _viewportElement[scroll](currScroll);
-
-                                            instantScrollPosition = rtlIsNormal && _rtlScrollBehavior.i ? (scrollRange - instantScrollPosition) : instantScrollPosition;
-                                            instantScrollPosition = rtlIsNormal && _rtlScrollBehavior.n ? -instantScrollPosition : instantScrollPosition;
-
-                                            scrollObj[xy] = instantScrollPosition;
-                                            _base.scroll(scrollObj, extendDeep(animationObj, {
-                                                duration: 130,
-                                                complete: scrollActionInstantFinished
-                                            }));
-                                        }
-                                        else
-                                            scrollActionInstantFinished();
-                                    }
-                                    else {
-                                        decreaseScroll = isFirstIteration ? decreaseScrollCondition : decreaseScroll;
-                                        finishedCondition = rtlIsNormal
-                                            ? (decreaseScroll ? handleOffset + handleLength >= mouseOffset : handleOffset <= mouseOffset)
-                                            : (decreaseScroll ? handleOffset <= mouseOffset : handleOffset + handleLength >= mouseOffset);
-
-                                        if (finishedCondition) {
-                                            clearTimeout(trackTimeout);
-                                            _base.scrollStop();
-                                            trackTimeout = undefined;
-                                            scrollActionFinsished(true);
-                                        }
-                                        else {
-                                            trackTimeout = setTimeout(scrollAction, timeoutDelay);
-
-                                            scrollObj[xy] = (decreaseScroll ? '-=' : '+=') + scrollDistance;
-                                            _base.scroll(scrollObj, extendDeep(animationObj, {
-                                                duration: scrollDuration
-                                            }));
-                                        }
-                                        isFirstIteration = false;
-                                    }
-                                }
-                            };
-                            if (ctrlKey)
-                                increaseTrackScrollAmount();
-
-                            mouseDownInvertedScale = getHostElementInvertedScale()[xy];
-                            mouseDownOffset = COMPATIBILITY.page(event)[xy];
-
-                            _scrollbarsHandlesDefineScrollPos = !getPreparedScrollbarsOption(strSnapHandle);
-                            addClass(_bodyElement, _classNameDragging);
-                            addClass(scrollbarVars._track, strActive);
-                            addClass(scrollbarVars._scrollbar, strActive);
-
-                            setupResponsiveEventListener(_documentElement,
-                                [_strMouseTouchUpEvent, _strKeyDownEvent, _strKeyUpEvent, _strSelectStartEvent],
-                                [documentMouseTouchUp, documentKeyDown, documentKeyUp, documentOnSelectStart]);
-
-                            scrollAction();
-                            COMPATIBILITY.prvD(event);
-                            COMPATIBILITY.stpP(event);
-                        }
-                    }
-                    function onTrackMouseTouchEnter(event) {
-                        //make sure both scrollbars will stay visible if one scrollbar is hovered if autoHide is "scroll" or "move".
-                        _scrollbarsHandleHovered = true;
-                        if (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove)
-                            refreshScrollbarsAutoHide(true);
-                    }
-                    function onTrackMouseTouchLeave(event) {
-                        _scrollbarsHandleHovered = false;
-                        if (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove)
-                            refreshScrollbarsAutoHide(false);
-                    }
-                    function onScrollbarMouseTouchDown(event) {
-                        COMPATIBILITY.stpP(event);
-                    }
-
-                    addDestroyEventListener(scrollbarVars._handle,
-                        _strMouseTouchDownEvent,
-                        onHandleMouseTouchDown);
-                    addDestroyEventListener(scrollbarVars._track,
-                        [_strMouseTouchDownEvent, _strMouseEnter, _strMouseLeave],
-                        [onTrackMouseTouchDown, onTrackMouseTouchEnter, onTrackMouseTouchLeave]);
-                    addDestroyEventListener(scrollbarVars._scrollbar,
-                        _strMouseTouchDownEvent,
-                        onScrollbarMouseTouchDown);
-
-                    if (_supportTransition) {
-                        addDestroyEventListener(scrollbarVars._scrollbar, _strTransitionEndEvent, function (event) {
-                            if (event.target !== scrollbarVars._scrollbar[0])
-                                return;
-                            refreshScrollbarHandleLength(isHorizontal);
-                            refreshScrollbarHandleOffset(isHorizontal);
-                        });
-                    }
-                }
-
-                /**
-                 * Shows or hides the given scrollbar and applied a class name which indicates if the scrollbar is scrollable or not.
-                 * @param isHorizontal True if the horizontal scrollbar is the target, false if the vertical scrollbar is the target.
-                 * @param shallBeVisible True if the scrollbar shall be shown, false if hidden.
-                 * @param canScroll True if the scrollbar is scrollable, false otherwise.
-                 */
-                function refreshScrollbarAppearance(isHorizontal, shallBeVisible, canScroll) {
-                    var scrollbarHiddenClassName = isHorizontal ? _classNameHostScrollbarHorizontalHidden : _classNameHostScrollbarVerticalHidden;
-                    var scrollbarElement = isHorizontal ? _scrollbarHorizontalElement : _scrollbarVerticalElement;
-
-                    addRemoveClass(_hostElement, scrollbarHiddenClassName, !shallBeVisible);
-                    addRemoveClass(scrollbarElement, _classNameScrollbarUnusable, !canScroll);
-                }
-
-                /**
-                 * Autoshows / autohides both scrollbars with.
-                 * @param shallBeVisible True if the scrollbars shall be autoshown (only the case if they are hidden by a autohide), false if the shall be auto hidden.
-                 * @param delayfree True if the scrollbars shall be hidden without a delay, false or undefined otherwise.
-                 */
-                function refreshScrollbarsAutoHide(shallBeVisible, delayfree) {
-                    clearTimeout(_scrollbarsAutoHideTimeoutId);
-                    if (shallBeVisible) {
-                        //if(_hasOverflowCache.x && _hideOverflowCache.xs)
-                        removeClass(_scrollbarHorizontalElement, _classNameScrollbarAutoHidden);
-                        //if(_hasOverflowCache.y && _hideOverflowCache.ys)
-                        removeClass(_scrollbarVerticalElement, _classNameScrollbarAutoHidden);
-                    }
-                    else {
-                        var anyActive;
-                        var strActive = 'active';
-                        var hide = function () {
-                            if (!_scrollbarsHandleHovered && !_destroyed) {
-                                anyActive = _scrollbarHorizontalHandleElement.hasClass(strActive) || _scrollbarVerticalHandleElement.hasClass(strActive);
-                                if (!anyActive && (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove || _scrollbarsAutoHideLeave))
-                                    addClass(_scrollbarHorizontalElement, _classNameScrollbarAutoHidden);
-                                if (!anyActive && (_scrollbarsAutoHideScroll || _scrollbarsAutoHideMove || _scrollbarsAutoHideLeave))
-                                    addClass(_scrollbarVerticalElement, _classNameScrollbarAutoHidden);
-                            }
-                        };
-                        if (_scrollbarsAutoHideDelay > 0 && delayfree !== true)
-                            _scrollbarsAutoHideTimeoutId = setTimeout(hide, _scrollbarsAutoHideDelay);
-                        else
-                            hide();
-                    }
-                }
-
-                /**
-                 * Refreshes the handle length of the given scrollbar.
-                 * @param isHorizontal True if the horizontal scrollbar handle shall be refreshed, false if the vertical one shall be refreshed.
-                 */
-                function refreshScrollbarHandleLength(isHorizontal) {
-                    var handleCSS = {};
-                    var scrollbarVars = getScrollbarVars(isHorizontal);
-                    var scrollbarVarsInfo = scrollbarVars._info;
-                    var digit = 1000000;
-                    //get and apply intended handle length
-                    var handleRatio = MATH.min(1, _viewportSize[scrollbarVars._w_h] / _contentScrollSizeCache[scrollbarVars._w_h]);
-                    handleCSS[scrollbarVars._width_height] = (MATH.floor(handleRatio * 100 * digit) / digit) + '%'; //the last * digit / digit is for flooring to the 4th digit
-
-                    if (!nativeOverlayScrollbarsAreActive())
-                        scrollbarVars._handle.css(handleCSS);
-
-                    //measure the handle length to respect min & max length
-                    scrollbarVarsInfo._handleLength = scrollbarVars._handle[0]['offset' + scrollbarVars._Width_Height];
-                    scrollbarVarsInfo._handleLengthRatio = handleRatio;
-                }
-
-                /**
-                 * Refreshes the handle offset of the given scrollbar.
-                 * @param isHorizontal True if the horizontal scrollbar handle shall be refreshed, false if the vertical one shall be refreshed.
-                 * @param scrollOrTransition The scroll position of the given scrollbar axis to which the handle shall be moved or a boolean which indicates whether a transition shall be applied. If undefined or boolean if the current scroll-offset is taken. (if isHorizontal ? scrollLeft : scrollTop)
-                 */
-                function refreshScrollbarHandleOffset(isHorizontal, scrollOrTransition) {
-                    var transition = type(scrollOrTransition) == TYPES.b;
-                    var transitionDuration = 250;
-                    var isRTLisHorizontal = _isRTL && isHorizontal;
-                    var scrollbarVars = getScrollbarVars(isHorizontal);
-                    var scrollbarVarsInfo = scrollbarVars._info;
-                    var strTranslateBrace = 'translate(';
-                    var strTransform = VENDORS._cssProperty('transform');
-                    var strTransition = VENDORS._cssProperty('transition');
-                    var nativeScroll = isHorizontal ? _viewportElement[_strScrollLeft]() : _viewportElement[_strScrollTop]();
-                    var currentScroll = scrollOrTransition === undefined || transition ? nativeScroll : scrollOrTransition;
-
-                    //measure the handle length to respect min & max length
-                    var handleLength = scrollbarVarsInfo._handleLength;
-                    var trackLength = scrollbarVars._track[0]['offset' + scrollbarVars._Width_Height];
-                    var handleTrackDiff = trackLength - handleLength;
-                    var handleCSS = {};
-                    var transformOffset;
-                    var translateValue;
-
-                    //DONT use the variable '_contentScrollSizeCache[scrollbarVars._w_h]' instead of '_viewportElement[0]['scroll' + scrollbarVars._Width_Height]'
-                    // because its a bit behind during the small delay when content size updates
-                    //(delay = mutationObserverContentLag, if its 0 then this var could be used)
-                    var maxScroll = (_viewportElementNative[_strScroll + scrollbarVars._Width_Height] - _viewportElementNative['client' + scrollbarVars._Width_Height]) * (_rtlScrollBehavior.n && isRTLisHorizontal ? -1 : 1); //* -1 if rtl scroll max is negative
-                    var getScrollRatio = function (base) {
-                        return isNaN(base / maxScroll) ? 0 : MATH.max(0, MATH.min(1, base / maxScroll));
-                    };
-                    var getHandleOffset = function (scrollRatio) {
-                        var offset = handleTrackDiff * scrollRatio;
-                        offset = isNaN(offset) ? 0 : offset;
-                        offset = (isRTLisHorizontal && !_rtlScrollBehavior.i) ? (trackLength - handleLength - offset) : offset;
-                        offset = MATH.max(0, offset);
-                        return offset;
-                    };
-                    var scrollRatio = getScrollRatio(nativeScroll);
-                    var unsnappedScrollRatio = getScrollRatio(currentScroll);
-                    var handleOffset = getHandleOffset(unsnappedScrollRatio);
-                    var snappedHandleOffset = getHandleOffset(scrollRatio);
-
-                    scrollbarVarsInfo._maxScroll = maxScroll;
-                    scrollbarVarsInfo._currentScroll = nativeScroll;
-                    scrollbarVarsInfo._currentScrollRatio = scrollRatio;
-
-                    if (_supportTransform) {
-                        transformOffset = isRTLisHorizontal ? -(trackLength - handleLength - handleOffset) : handleOffset; //in px
-                        //transformOffset = (transformOffset / trackLength * 100) * (trackLength / handleLength); //in %
-                        translateValue = isHorizontal ? strTranslateBrace + transformOffset + 'px, 0)' : strTranslateBrace + '0, ' + transformOffset + 'px)';
-
-                        handleCSS[strTransform] = translateValue;
-
-                        //apply or clear up transition
-                        if (_supportTransition)
-                            handleCSS[strTransition] = transition && MATH.abs(handleOffset - scrollbarVarsInfo._handleOffset) > 1 ? getCSSTransitionString(scrollbarVars._handle) + ', ' + (strTransform + _strSpace + transitionDuration + 'ms') : _strEmpty;
-                    }
-                    else
-                        handleCSS[scrollbarVars._left_top] = handleOffset;
-
-
-                    //only apply css if offset has changed and overflow exists.
-                    if (!nativeOverlayScrollbarsAreActive()) {
-                        scrollbarVars._handle.css(handleCSS);
-
-                        //clear up transition
-                        if (_supportTransform && _supportTransition && transition) {
-                            scrollbarVars._handle.one(_strTransitionEndEvent, function () {
-                                if (!_destroyed)
-                                    scrollbarVars._handle.css(strTransition, _strEmpty);
-                            });
-                        }
-                    }
-
-                    scrollbarVarsInfo._handleOffset = handleOffset;
-                    scrollbarVarsInfo._snappedHandleOffset = snappedHandleOffset;
-                    scrollbarVarsInfo._trackLength = trackLength;
-                }
-
-                /**
-                 * Refreshes the interactivity of the given scrollbar element.
-                 * @param isTrack True if the track element is the target, false if the handle element is the target.
-                 * @param value True for interactivity false for no interactivity.
-                 */
-                function refreshScrollbarsInteractive(isTrack, value) {
-                    var action = value ? 'removeClass' : 'addClass';
-                    var element1 = isTrack ? _scrollbarHorizontalTrackElement : _scrollbarHorizontalHandleElement;
-                    var element2 = isTrack ? _scrollbarVerticalTrackElement : _scrollbarVerticalHandleElement;
-                    var className = isTrack ? _classNameScrollbarTrackOff : _classNameScrollbarHandleOff;
-
-                    element1[action](className);
-                    element2[action](className);
-                }
-
-                /**
-                 * Returns a object which is used for fast access for specific variables.
-                 * @param isHorizontal True if the horizontal scrollbar vars shall be accessed, false if the vertical scrollbar vars shall be accessed.
-                 * @returns {{wh: string, WH: string, lt: string, _wh: string, _lt: string, t: *, h: *, c: {}, s: *}}
-                 */
-                function getScrollbarVars(isHorizontal) {
-                    return {
-                        _width_height: isHorizontal ? _strWidth : _strHeight,
-                        _Width_Height: isHorizontal ? 'Width' : 'Height',
-                        _left_top: isHorizontal ? _strLeft : _strTop,
-                        _Left_Top: isHorizontal ? 'Left' : 'Top',
-                        _x_y: isHorizontal ? _strX : _strY,
-                        _X_Y: isHorizontal ? 'X' : 'Y',
-                        _w_h: isHorizontal ? 'w' : 'h',
-                        _l_t: isHorizontal ? 'l' : 't',
-                        _track: isHorizontal ? _scrollbarHorizontalTrackElement : _scrollbarVerticalTrackElement,
-                        _handle: isHorizontal ? _scrollbarHorizontalHandleElement : _scrollbarVerticalHandleElement,
-                        _scrollbar: isHorizontal ? _scrollbarHorizontalElement : _scrollbarVerticalElement,
-                        _info: isHorizontal ? _scrollHorizontalInfo : _scrollVerticalInfo
-                    };
-                }
-
-
-                //==== Scrollbar Corner ====//
-
-                /**
-                 * Builds or destroys the scrollbar corner DOM element.
-                 * @param destroy Indicates whether the DOM shall be build or destroyed.
-                 */
-                function setupScrollbarCornerDOM(destroy) {
-                    _scrollbarCornerElement = _scrollbarCornerElement || selectOrGenerateDivByClass(_classNameScrollbarCorner, true);
-
-                    if (!destroy) {
-                        if (!_domExists) {
-                            _hostElement.append(_scrollbarCornerElement);
-                        }
-                    }
-                    else {
-                        if (_domExists && _initialized) {
-                            removeClass(_scrollbarCornerElement.removeAttr(LEXICON.s), _classNamesDynamicDestroy);
-                        }
-                        else {
-                            remove(_scrollbarCornerElement);
-                        }
-                    }
-                }
-
-                /**
-                 * Initializes all scrollbar corner interactivity events.
-                 */
-                function setupScrollbarCornerEvents() {
-                    var insideIFrame = _windowElementNative.top !== _windowElementNative;
-                    var mouseDownPosition = {};
-                    var mouseDownSize = {};
-                    var mouseDownInvertedScale = {};
-                    var reconnectMutationObserver;
-
-                    function documentDragMove(event) {
-                        if (onMouseTouchDownContinue(event)) {
-                            var pageOffset = getCoordinates(event);
-                            var hostElementCSS = {};
-                            if (_resizeHorizontal || _resizeBoth)
-                                hostElementCSS[_strWidth] = (mouseDownSize.w + (pageOffset.x - mouseDownPosition.x) * mouseDownInvertedScale.x);
-                            if (_resizeVertical || _resizeBoth)
-                                hostElementCSS[_strHeight] = (mouseDownSize.h + (pageOffset.y - mouseDownPosition.y) * mouseDownInvertedScale.y);
-                            _hostElement.css(hostElementCSS);
-                            COMPATIBILITY.stpP(event);
-                        }
-                        else {
-                            documentMouseTouchUp(event);
-                        }
-                    }
-                    function documentMouseTouchUp(event) {
-                        var eventIsTrusted = event !== undefined;
-
-                        setupResponsiveEventListener(_documentElement,
-                            [_strSelectStartEvent, _strMouseTouchMoveEvent, _strMouseTouchUpEvent],
-                            [documentOnSelectStart, documentDragMove, documentMouseTouchUp],
-                            true);
-
-                        removeClass(_bodyElement, _classNameDragging);
-                        if (_scrollbarCornerElement.releaseCapture)
-                            _scrollbarCornerElement.releaseCapture();
-
-                        if (eventIsTrusted) {
-                            if (reconnectMutationObserver)
-                                connectMutationObservers();
-                            _base.update(_strAuto);
-                        }
-                        reconnectMutationObserver = false;
-                    }
-                    function onMouseTouchDownContinue(event) {
-                        var originalEvent = event.originalEvent || event;
-                        var isTouchEvent = originalEvent.touches !== undefined;
-                        return _sleeping || _destroyed ? false : COMPATIBILITY.mBtn(event) === 1 || isTouchEvent;
-                    }
-                    function getCoordinates(event) {
-                        return _msieVersion && insideIFrame ? { x: event.screenX, y: event.screenY } : COMPATIBILITY.page(event);
-                    }
-
-                    addDestroyEventListener(_scrollbarCornerElement, _strMouseTouchDownEvent, function (event) {
-                        if (onMouseTouchDownContinue(event) && !_resizeNone) {
-                            if (_mutationObserversConnected) {
-                                reconnectMutationObserver = true;
-                                disconnectMutationObservers();
-                            }
-
-                            mouseDownPosition = getCoordinates(event);
-
-                            mouseDownSize.w = _hostElementNative[LEXICON.oW] - (!_isBorderBox ? _paddingX : 0);
-                            mouseDownSize.h = _hostElementNative[LEXICON.oH] - (!_isBorderBox ? _paddingY : 0);
-                            mouseDownInvertedScale = getHostElementInvertedScale();
-
-                            setupResponsiveEventListener(_documentElement,
-                                [_strSelectStartEvent, _strMouseTouchMoveEvent, _strMouseTouchUpEvent],
-                                [documentOnSelectStart, documentDragMove, documentMouseTouchUp]);
-
-                            addClass(_bodyElement, _classNameDragging);
-                            if (_scrollbarCornerElement.setCapture)
-                                _scrollbarCornerElement.setCapture();
-
-                            COMPATIBILITY.prvD(event);
-                            COMPATIBILITY.stpP(event);
-                        }
-                    });
-                }
-
-
-                //==== Utils ====//
-
-                /**
-                 * Calls the callback with the given name. The Context of this callback is always _base (this).
-                 * @param name The name of the target which shall be called.
-                 * @param args The args with which the callback shall be called.
-                 * @param dependent Boolean which decides whether the callback shall be fired, undefined is like a "true" value.
-                 */
-                function dispatchCallback(name, args, dependent) {
-                    if (dependent === false)
-                        return;
-                    if (_initialized) {
-                        var callback = _currentPreparedOptions.callbacks[name];
-                        var extensionOnName = name;
-                        var ext;
-
-                        if (extensionOnName.substr(0, 2) === 'on')
-                            extensionOnName = extensionOnName.substr(2, 1).toLowerCase() + extensionOnName.substr(3);
-
-                        if (type(callback) == TYPES.f)
-                            callback.call(_base, args);
-
-                        each(_extensions, function () {
-                            ext = this;
-                            if (type(ext.on) == TYPES.f)
-                                ext.on(extensionOnName, args);
-                        });
-                    }
-                    else if (!_destroyed)
-                        _callbacksInitQeueue.push({ n: name, a: args });
-                }
-
-                /**
-                 * Sets the "top, right, bottom, left" properties, with a given prefix, of the given css object.
-                 * @param targetCSSObject The css object to which the values shall be applied.
-                 * @param prefix The prefix of the "top, right, bottom, left" css properties. (example: 'padding-' is a valid prefix)
-                 * @param values A array of values which shall be applied to the "top, right, bottom, left" -properties. The array order is [top, right, bottom, left].
-                 * If this argument is undefined the value '' (empty string) will be applied to all properties.
-                 */
-                function setTopRightBottomLeft(targetCSSObject, prefix, values) {
-                    prefix = prefix || _strEmpty;
-                    values = values || [_strEmpty, _strEmpty, _strEmpty, _strEmpty];
-
-                    targetCSSObject[prefix + _strTop] = values[0];
-                    targetCSSObject[prefix + _strRight] = values[1];
-                    targetCSSObject[prefix + _strBottom] = values[2];
-                    targetCSSObject[prefix + _strLeft] = values[3];
-                }
-
-                /**
-                 * Gets the "top, right, bottom, left" CSS properties of the CSS property with the given prefix from the host element.
-                 * @param prefix The prefix of the "top, right, bottom, left" css properties. (example: 'padding-' is a valid prefix)
-                 * @param suffix The suffix of the "top, right, bottom, left" css properties. (example: 'border-' is a valid prefix with '-width' is a valid suffix)
-                 * @param zeroX True if the x axis shall be 0.
-                 * @param zeroY True if the y axis shall be 0.
-                 * @returns {{}} The object which contains the numbers of the read CSS properties.
-                 */
-                function getTopRightBottomLeftHost(prefix, suffix, zeroX, zeroY) {
-                    suffix = suffix || _strEmpty;
-                    prefix = prefix || _strEmpty;
-                    return {
-                        t: zeroY ? 0 : parseToZeroOrNumber(_hostElement.css(prefix + _strTop + suffix)),
-                        r: zeroX ? 0 : parseToZeroOrNumber(_hostElement.css(prefix + _strRight + suffix)),
-                        b: zeroY ? 0 : parseToZeroOrNumber(_hostElement.css(prefix + _strBottom + suffix)),
-                        l: zeroX ? 0 : parseToZeroOrNumber(_hostElement.css(prefix + _strLeft + suffix))
-                    };
-                }
-
-                /**
-                 * Returns the computed CSS transition string from the given element.
-                 * @param element The element from which the transition string shall be returned.
-                 * @returns {string} The CSS transition string from the given element.
-                 */
-                function getCSSTransitionString(element) {
-                    var transitionStr = VENDORS._cssProperty('transition');
-                    var assembledValue = element.css(transitionStr);
-                    if (assembledValue)
-                        return assembledValue;
-                    var regExpString = '\\s*(' + '([^,(]+(\\(.+?\\))?)+' + ')[\\s,]*';
-                    var regExpMain = new RegExp(regExpString);
-                    var regExpValidate = new RegExp('^(' + regExpString + ')+$');
-                    var properties = 'property duration timing-function delay'.split(' ');
-                    var result = [];
-                    var strResult;
-                    var valueArray;
-                    var i = 0;
-                    var j;
-                    var splitCssStyleByComma = function (str) {
-                        strResult = [];
-                        if (!str.match(regExpValidate))
-                            return str;
-                        while (str.match(regExpMain)) {
-                            strResult.push(RegExp.$1);
-                            str = str.replace(regExpMain, _strEmpty);
-                        }
-
-                        return strResult;
-                    };
-                    for (; i < properties[LEXICON.l]; i++) {
-                        valueArray = splitCssStyleByComma(element.css(transitionStr + '-' + properties[i]));
-                        for (j = 0; j < valueArray[LEXICON.l]; j++)
-                            result[j] = (result[j] ? result[j] + _strSpace : _strEmpty) + valueArray[j];
-                    }
-                    return result.join(', ');
-                }
-
-                /**
-                 * Generates a Regular Expression which matches with a string which starts with 'os-host'.
-                 * @param {boolean} withCurrClassNameOption The Regular Expression also matches if the string is the current ClassName option (multiple values splitted by space possible).
-                 * @param {boolean} withOldClassNameOption The Regular Expression also matches if the string is the old ClassName option (multiple values splitted by space possible).
-                 */
-                function createHostClassNameRegExp(withCurrClassNameOption, withOldClassNameOption) {
-                    var i;
-                    var split;
-                    var appendix;
-                    var appendClasses = function (classes, condition) {
-                        appendix = '';
-                        if (condition && typeof classes == TYPES.s) {
-                            split = classes.split(_strSpace);
-                            for (i = 0; i < split[LEXICON.l]; i++)
-                                appendix += '|' + split[i] + '$';
-                            // split[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') for escaping regex characters
-                        }
-                        return appendix;
-                    };
-
-                    return new RegExp(
-                        '(^' + _classNameHostElement + '([-_].+|)$)' +
-                        appendClasses(_classNameCache, withCurrClassNameOption) +
-                        appendClasses(_oldClassName, withOldClassNameOption), 'g');
-                }
-
-                /**
-                 * Calculates the host-elements inverted scale. (invertedScale = 1 / scale)
-                 * @returns {{x: number, y: number}} The scale of the host-element.
-                 */
-                function getHostElementInvertedScale() {
-                    var rect = _paddingElementNative[LEXICON.bCR]();
-                    return {
-                        x: _supportTransform ? 1 / (MATH.round(rect.width) / _paddingElementNative[LEXICON.oW]) || 1 : 1,
-                        y: _supportTransform ? 1 / (MATH.round(rect.height) / _paddingElementNative[LEXICON.oH]) || 1 : 1
-                    };
-                }
-
-                /**
-                 * Checks whether the given object is a HTMLElement.
-                 * @param o The object which shall be checked.
-                 * @returns {boolean} True the given object is a HTMLElement, false otherwise.
-                 */
-                function isHTMLElement(o) {
-                    var strOwnerDocument = 'ownerDocument';
-                    var strHTMLElement = 'HTMLElement';
-                    var wnd = o && o[strOwnerDocument] ? (o[strOwnerDocument].parentWindow || window) : window;
-                    return (
-                        typeof wnd[strHTMLElement] == TYPES.o ? o instanceof wnd[strHTMLElement] : //DOM2
-                            o && typeof o == TYPES.o && o !== null && o.nodeType === 1 && typeof o.nodeName == TYPES.s
-                    );
-                }
-
-                /**
-                 * Compares 2 arrays and returns the differences between them as a array.
-                 * @param a1 The first array which shall be compared.
-                 * @param a2 The second array which shall be compared.
-                 * @returns {Array} The differences between the two arrays.
-                 */
-                function getArrayDifferences(a1, a2) {
-                    var a = [];
-                    var diff = [];
-                    var i;
-                    var k;
-                    for (i = 0; i < a1.length; i++)
-                        a[a1[i]] = true;
-                    for (i = 0; i < a2.length; i++) {
-                        if (a[a2[i]])
-                            delete a[a2[i]];
-                        else
-                            a[a2[i]] = true;
-                    }
-                    for (k in a)
-                        diff.push(k);
-                    return diff;
-                }
-
-                /**
-                 * Returns Zero or the number to which the value can be parsed.
-                 * @param value The value which shall be parsed.
-                 * @param toFloat Indicates whether the number shall be parsed to a float.
-                 */
-                function parseToZeroOrNumber(value, toFloat) {
-                    var num = toFloat ? parseFloat(value) : parseInt(value, 10);
-                    return isNaN(num) ? 0 : num;
-                }
-
-                /**
-                 * Gets several information of the textarea and returns them as a object or undefined if the browser doesn't support it.
-                 * @returns {{cursorRow: Number, cursorCol, rows: Number, cols: number, wRow: number, pos: number, max : number}} or undefined if not supported.
-                 */
-                function getTextareaInfo() {
-                    //read needed values
-                    var textareaCursorPosition = _targetElementNative.selectionStart;
-                    if (textareaCursorPosition === undefined)
-                        return;
-
-                    var textareaValue = _targetElement.val();
-                    var textareaLength = textareaValue[LEXICON.l];
-                    var textareaRowSplit = textareaValue.split('\n');
-                    var textareaLastRow = textareaRowSplit[LEXICON.l];
-                    var textareaCurrentCursorRowSplit = textareaValue.substr(0, textareaCursorPosition).split('\n');
-                    var widestRow = 0;
-                    var textareaLastCol = 0;
-                    var cursorRow = textareaCurrentCursorRowSplit[LEXICON.l];
-                    var cursorCol = textareaCurrentCursorRowSplit[textareaCurrentCursorRowSplit[LEXICON.l] - 1][LEXICON.l];
-                    var rowCols;
-                    var i;
-
-                    //get widest Row and the last column of the textarea
-                    for (i = 0; i < textareaRowSplit[LEXICON.l]; i++) {
-                        rowCols = textareaRowSplit[i][LEXICON.l];
-                        if (rowCols > textareaLastCol) {
-                            widestRow = i + 1;
-                            textareaLastCol = rowCols;
-                        }
-                    }
-
-                    return {
-                        _cursorRow: cursorRow, //cursorRow
-                        _cursorColumn: cursorCol, //cursorCol
-                        _rows: textareaLastRow, //rows
-                        _columns: textareaLastCol, //cols
-                        _widestRow: widestRow, //wRow
-                        _cursorPosition: textareaCursorPosition, //pos
-                        _cursorMax: textareaLength //max
-                    };
-                }
-
-                /**
-                 * Determines whether native overlay scrollbars are active.
-                 * @returns {boolean} True if native overlay scrollbars are active, false otherwise.
-                 */
-                function nativeOverlayScrollbarsAreActive() {
-                    return (_ignoreOverlayScrollbarHidingCache && (_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y));
-                }
-
-                /**
-                 * Gets the element which is used to measure the content size.
-                 * @returns {*} TextareaCover if target element is textarea else the ContentElement.
-                 */
-                function getContentMeasureElement() {
-                    return _isTextarea ? _textareaCoverElement[0] : _contentElementNative;
-                }
-
-                /**
-                 * Generates a string which represents a HTML div with the given classes or attributes.
-                 * @param classesOrAttrs The class of the div as string or a object which represents the attributes of the div. (The class attribute can also be written as "className".)
-                 * @param content The content of the div as string.
-                 * @returns {string} The concated string which represents a HTML div and its content.
-                 */
-                function generateDiv(classesOrAttrs, content) {
-                    return '<div ' + (classesOrAttrs ? type(classesOrAttrs) == TYPES.s ?
-                                'class="' + classesOrAttrs + '"' :
-                                (function () {
-                                    var key;
-                                    var attrs = _strEmpty;
-                                    if (FRAMEWORK.isPlainObject(classesOrAttrs)) {
-                                        for (key in classesOrAttrs)
-                                            attrs += (key === 'c' ? 'class' : key) + '="' + classesOrAttrs[key] + '" ';
-                                    }
-                                    return attrs;
-                                })() :
-                            _strEmpty) +
-                        '>' +
-                        (content || _strEmpty) +
-                        '</div>';
-                }
-
-                /**
-                 * Selects or generates a div with the given class attribute.
-                 * @param className The class names (divided by spaces) of the div which shall be selected or generated.
-                 * @param selectParentOrOnlyChildren The parent element from which of the element shall be selected. (if undefined or boolean its hostElement)
-                 * If its a boolean it decides whether only the children of the host element shall be selected.
-                 * @returns {*} The generated or selected element.
-                 */
-                function selectOrGenerateDivByClass(className, selectParentOrOnlyChildren) {
-                    var onlyChildren = type(selectParentOrOnlyChildren) == TYPES.b;
-                    var selectParent = onlyChildren ? _hostElement : (selectParentOrOnlyChildren || _hostElement);
-
-                    return (_domExists && !selectParent[LEXICON.l])
-                        ? null
-                        : _domExists
-                            ? selectParent[onlyChildren ? 'children' : 'find'](_strDot + className.replace(/\s/g, _strDot)).eq(0)
-                            : FRAMEWORK(generateDiv(className))
-                }
-
-                /**
-                 * Gets the value of the given property from the given object.
-                 * @param obj The object from which the property value shall be got.
-                 * @param path The property of which the value shall be got.
-                 * @returns {*} Returns the value of the searched property or undefined of the property wasn't found.
-                 */
-                function getObjectPropVal(obj, path) {
-                    var splits = path.split(_strDot);
-                    var i = 0;
-                    var val;
-                    for (; i < splits.length; i++) {
-                        if (!obj[LEXICON.hOP](splits[i]))
-                            return;
-                        val = obj[splits[i]];
-                        if (i < splits.length && type(val) == TYPES.o)
-                            obj = val;
-                    }
-                    return val;
-                }
-
-                /**
-                 * Sets the value of the given property from the given object.
-                 * @param obj The object from which the property value shall be set.
-                 * @param path The property of which the value shall be set.
-                 * @param val The value of the property which shall be set.
-                 */
-                function setObjectPropVal(obj, path, val) {
-                    var splits = path.split(_strDot);
-                    var splitsLength = splits.length;
-                    var i = 0;
-                    var extendObj = {};
-                    var extendObjRoot = extendObj;
-                    for (; i < splitsLength; i++)
-                        extendObj = extendObj[splits[i]] = i + 1 < splitsLength ? {} : val;
-                    FRAMEWORK.extend(obj, extendObjRoot, true);
-                }
-
-                /**
-                 * Runs a action for each selector inside the updateOnLoad option.
-                 * @param {Function} action The action for each updateOnLoad selector, the arguments the function takes is the index and the value (the selector).
-                 */
-                function eachUpdateOnLoad(action) {
-                    var updateOnLoad = _currentPreparedOptions.updateOnLoad;
-                    updateOnLoad = type(updateOnLoad) == TYPES.s ? updateOnLoad.split(_strSpace) : updateOnLoad;
-
-                    if (COMPATIBILITY.isA(updateOnLoad) && !_destroyed) {
-                        each(updateOnLoad, action);
-                    }
-                }
-
-
-                //==== Utils Cache ====//
-
-                /**
-                 * Compares two values or objects and returns true if they aren't equal.
-                 * @param current The first value or object which shall be compared.
-                 * @param cache The second value or object which shall be compared.
-                 * @param force If true the returned value is always true.
-                 * @returns {boolean} True if both values or objects aren't equal or force is true, false otherwise.
-                 */
-                function checkCache(current, cache, force) {
-                    if (force)
-                        return force;
-                    if (type(current) == TYPES.o && type(cache) == TYPES.o) {
-                        for (var prop in current) {
-                            if (prop !== 'c') {
-                                if (current[LEXICON.hOP](prop) && cache[LEXICON.hOP](prop)) {
-                                    if (checkCache(current[prop], cache[prop]))
-                                        return true;
-                                }
-                                else {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        return current !== cache;
-                    }
-                    return false;
-                }
-
-
-                //==== Shortcuts ====//
-
-                /**
-                 * jQuery extend method shortcut with a appended "true" as first argument.
-                 */
-                function extendDeep() {
-                    return FRAMEWORK.extend.apply(this, [true].concat([].slice.call(arguments)));
-                }
-
-                /**
-                 * jQuery addClass method shortcut.
-                 */
-                function addClass(el, classes) {
-                    return _frameworkProto.addClass.call(el, classes);
-                }
-
-                /**
-                 * jQuery removeClass method shortcut.
-                 */
-                function removeClass(el, classes) {
-                    return _frameworkProto.removeClass.call(el, classes);
-                }
-
-                /**
-                 * Adds or removes the given classes dependent on the boolean value. True for add, false for remove.
-                 */
-                function addRemoveClass(el, classes, doAdd) {
-                    return doAdd ? addClass(el, classes) : removeClass(el, classes);
-                }
-
-                /**
-                 * jQuery remove method shortcut.
-                 */
-                function remove(el) {
-                    return _frameworkProto.remove.call(el);
-                }
-
-                /**
-                 * Finds the first child element with the given selector of the given element.
-                 * @param el The root element from which the selector shall be valid.
-                 * @param selector The selector of the searched element.
-                 * @returns {*} The first element which is a child of the given element and matches the givens selector.
-                 */
-                function findFirst(el, selector) {
-                    return _frameworkProto.find.call(el, selector).eq(0);
-                }
-
-
-                //==== API ====//
-
-                /**
-                 * Puts the instance to sleep. It wont respond to any changes in the DOM and won't update. Scrollbar Interactivity is also disabled as well as the resize handle.
-                 * This behavior can be reset by calling the update method.
-                 */
-                _base.sleep = function () {
-                    _sleeping = true;
-                };
-
-                /**
-                 * Updates the plugin and DOM to the current options.
-                 * This method should only be called if a update is 100% required.
-                 * @param force True if every property shall be updated and the cache shall be ignored.
-                 * !INTERNAL USAGE! : force can be a string "auto", "sync" or "zoom" too
-                 * if "auto" then before a real update the content size and host element attributes gets checked, and if they changed only then the update method will be called.
-                 * if "sync" then the async update process (MutationObserver or UpdateLoop) gets synchronized and a corresponding update takes place if one was needed due to pending changes.
-                 * if "zoom" then a update takes place where it's assumed that content and host size changed
-                 * @returns {boolean|undefined}
-                 * If force is "sync" then a boolean is returned which indicates whether a update was needed due to pending changes.
-                 * If force is "auto" then a boolean is returned whether a update was needed due to attribute or size changes.
-                 * undefined otherwise.
-                 */
-                _base.update = function (force) {
-                    if (_destroyed)
-                        return;
-
-                    var attrsChanged;
-                    var contentSizeC;
-                    var isString = type(force) == TYPES.s;
-                    var doUpdateAuto;
-                    var mutHost;
-                    var mutContent;
-
-                    if (isString) {
-                        if (force === _strAuto) {
-                            attrsChanged = meaningfulAttrsChanged();
-                            contentSizeC = updateAutoContentSizeChanged();
-                            doUpdateAuto = attrsChanged || contentSizeC;
-                            if (doUpdateAuto) {
-                                update({
-                                    _contentSizeChanged: contentSizeC,
-                                    _changedOptions: _initialized ? undefined : _currentPreparedOptions
-                                });
-                            }
-                        }
-                        else if (force === _strSync) {
-                            if (_mutationObserversConnected) {
-                                mutHost = _mutationObserverHostCallback(_mutationObserverHost.takeRecords());
-                                mutContent = _mutationObserverContentCallback(_mutationObserverContent.takeRecords());
-                            }
-                            else {
-                                mutHost = _base.update(_strAuto);
-                            }
-                        }
-                        else if (force === 'zoom') {
-                            update({
-                                _hostSizeChanged: true,
-                                _contentSizeChanged: true
-                            });
-                        }
-                    }
-                    else {
-                        force = _sleeping || force;
-                        _sleeping = false;
-                        if (!_base.update(_strSync) || force)
-                            update({ _force: force });
-                    }
-
-                    updateElementsOnLoad();
-
-                    return doUpdateAuto || mutHost || mutContent;
-                };
-
-                /**
-                 Gets or sets the current options. The update method will be called automatically if new options were set.
-                 * @param newOptions If new options are given, then the new options will be set, if new options aren't given (undefined or a not a plain object) then the current options will be returned.
-                 * @param value If new options is a property path string, then this value will be used to set the option to which the property path string leads.
-                 * @returns {*}
-                 */
-                _base.options = function (newOptions, value) {
-                    var option = {};
-                    var changedOps;
-
-                    //return current options if newOptions are undefined or empty
-                    if (FRAMEWORK.isEmptyObject(newOptions) || !FRAMEWORK.isPlainObject(newOptions)) {
-                        if (type(newOptions) == TYPES.s) {
-                            if (arguments.length > 1) {
-                                setObjectPropVal(option, newOptions, value);
-                                changedOps = setOptions(option);
-                            }
-                            else
-                                return getObjectPropVal(_currentOptions, newOptions);
-                        }
-                        else
-                            return _currentOptions;
-                    }
-                    else {
-                        changedOps = setOptions(newOptions);
-                    }
-
-                    if (!FRAMEWORK.isEmptyObject(changedOps)) {
-                        update({ _changedOptions: changedOps });
-                    }
-                };
-
-                /**
-                 * Restore the DOM, disconnects all observers, remove all resize observers and put the instance to sleep.
-                 */
-                _base.destroy = function () {
-                    if (_destroyed)
-                        return;
-
-                    //remove this instance from auto update loop
-                    autoUpdateLoop.remove(_base);
-
-                    //disconnect all mutation observers
-                    disconnectMutationObservers();
-
-                    //remove all resize observers
-                    setupResizeObserver(_sizeObserverElement);
-                    setupResizeObserver(_sizeAutoObserverElement);
-
-                    //remove all extensions
-                    for (var extName in _extensions)
-                        _base.removeExt(extName);
-
-                    //remove all 'destroy' events
-                    while (_destroyEvents[LEXICON.l] > 0)
-                        _destroyEvents.pop()();
-
-                    //remove all events from host element
-                    setupHostMouseTouchEvents(true);
-
-                    //remove all helper / detection elements
-                    if (_contentGlueElement)
-                        remove(_contentGlueElement);
-                    if (_contentArrangeElement)
-                        remove(_contentArrangeElement);
-                    if (_sizeAutoObserverAdded)
-                        remove(_sizeAutoObserverElement);
-
-                    //remove all generated DOM
-                    setupScrollbarsDOM(true);
-                    setupScrollbarCornerDOM(true);
-                    setupStructureDOM(true);
-
-                    //remove all generated image load events
-                    for (var i = 0; i < _updateOnLoadElms[LEXICON.l]; i++)
-                        FRAMEWORK(_updateOnLoadElms[i]).off(_updateOnLoadEventName, updateOnLoadCallback);
-                    _updateOnLoadElms = undefined;
-
-                    _destroyed = true;
-                    _sleeping = true;
-
-                    //remove this instance from the instances list
-                    INSTANCES(pluginTargetElement, 0);
-                    dispatchCallback('onDestroyed');
-
-                    //remove all properties and methods
-                    //for (var property in _base)
-                    //    delete _base[property];
-                    //_base = undefined;
-                };
-
-                /**
-                 * Scrolls to a given position or element.
-                 * @param coordinates
-                 * 1. Can be "coordinates" which looks like:
-                 *    { x : ?, y : ? } OR          Object with x and y properties
-                 *    { left : ?, top : ? } OR     Object with left and top properties
-                 *    { l : ?, t : ? } OR          Object with l and t properties
-                 *    [ ?, ? ] OR                  Array where the first two element are the coordinates (first is x, second is y)
-                 *    ?                            A single value which stays for both axis
-                 *    A value can be a number, a string or a calculation.
-                 *
-                 *    Operators:
-                 *    [NONE]  The current scroll will be overwritten by the value.
-                 *    '+='    The value will be added to the current scroll offset
-                 *    '-='    The value will be subtracted from the current scroll offset
-                 *    '*='    The current scroll wil be multiplicated by the value.
-                 *    '/='    The current scroll wil be divided by the value.
-                 *
-                 *    Units:
-                 *    [NONE]  The value is the final scroll amount.                   final = (value * 1)
-                 *    'px'    Same as none
-                 *    '%'     The value is dependent on the current scroll value.     final = ((currentScrollValue / 100) * value)
-                 *    'vw'    The value is multiplicated by the viewport width.       final = (value * viewportWidth)
-                 *    'vh'    The value is multiplicated by the viewport height.      final = (value * viewportHeight)
-                 *
-                 *    example final values:
-                 *    200, '200px', '50%', '1vw', '1vh', '+=200', '/=1vw', '*=2px', '-=5vh', '+=33%', '+= 50% - 2px', '-= 1vw - 50%'
-                 *
-                 * 2. Can be a HTML or jQuery element:
-                 *    The final scroll offset is the offset (without margin) of the given HTML / jQuery element.
-                 *
-                 * 3. Can be a object with a HTML or jQuery element with additional settings:
-                 *    {
-                 *      el : [HTMLElement, jQuery element],             MUST be specified, else this object isn't valid.
-                 *      scroll : [string, array, object],               Default value is 'always'.
-                 *      block : [string, array, object],                Default value is 'begin'.
-                 *      margin : [number, boolean, array, object]       Default value is false.
-                 *    }
-                 *
-                 *    Possible scroll settings are:
-                 *    'always'      Scrolls always.
-                 *    'ifneeded'    Scrolls only if the element isnt fully in view.
-                 *    'never'       Scrolls never.
-                 *
-                 *    Possible block settings are:
-                 *    'begin'   Both axis shall be docked to the "begin" edge. - The element will be docked to the top and left edge of the viewport.
-                 *    'end'     Both axis shall be docked to the "end" edge. - The element will be docked to the bottom and right edge of the viewport. (If direction is RTL to the bottom and left edge.)
-                 *    'center'  Both axis shall be docked to "center". - The element will be centered in the viewport.
-                 *    'nearest' The element will be docked to the nearest edge(s).
-                 *
-                 *    Possible margin settings are: -- The actual margin of the element wont be affect, this option affects only the final scroll offset.
-                 *    [BOOLEAN]                                         If true the css margin of the element will be used, if false no margin will be used.
-                 *    [NUMBER]                                          The margin will be used for all edges.
-                 *
-                 * @param duration The duration of the scroll animation, OR a jQuery animation configuration object.
-                 * @param easing The animation easing.
-                 * @param complete The animation complete callback.
-                 * @returns {{
-                 *   position: {x: number, y: number},
-                 *   ratio: {x: number, y: number},
-                 *   max: {x: number, y: number},
-                 *   handleOffset: {x: number, y: number},
-                 *   handleLength: {x: number, y: number},
-                 *   handleLengthRatio: {x: number, y: number}, t
-                 *   rackLength: {x: number, y: number},
-                 *   isRTL: boolean,
-                 *   isRTLNormalized: boolean
-                 *  }}
-                 */
-                _base.scroll = function (coordinates, duration, easing, complete) {
-                    if (arguments.length === 0 || coordinates === undefined) {
-                        var infoX = _scrollHorizontalInfo;
-                        var infoY = _scrollVerticalInfo;
-                        var normalizeInvert = _normalizeRTLCache && _isRTL && _rtlScrollBehavior.i;
-                        var normalizeNegate = _normalizeRTLCache && _isRTL && _rtlScrollBehavior.n;
-                        var scrollX = infoX._currentScroll;
-                        var scrollXRatio = infoX._currentScrollRatio;
-                        var maxScrollX = infoX._maxScroll;
-                        scrollXRatio = normalizeInvert ? 1 - scrollXRatio : scrollXRatio;
-                        scrollX = normalizeInvert ? maxScrollX - scrollX : scrollX;
-                        scrollX *= normalizeNegate ? -1 : 1;
-                        maxScrollX *= normalizeNegate ? -1 : 1;
-
-                        return {
-                            position: {
-                                x: scrollX,
-                                y: infoY._currentScroll
-                            },
-                            ratio: {
-                                x: scrollXRatio,
-                                y: infoY._currentScrollRatio
-                            },
-                            max: {
-                                x: maxScrollX,
-                                y: infoY._maxScroll
-                            },
-                            handleOffset: {
-                                x: infoX._handleOffset,
-                                y: infoY._handleOffset
-                            },
-                            handleLength: {
-                                x: infoX._handleLength,
-                                y: infoY._handleLength
-                            },
-                            handleLengthRatio: {
-                                x: infoX._handleLengthRatio,
-                                y: infoY._handleLengthRatio
-                            },
-                            trackLength: {
-                                x: infoX._trackLength,
-                                y: infoY._trackLength
-                            },
-                            snappedHandleOffset: {
-                                x: infoX._snappedHandleOffset,
-                                y: infoY._snappedHandleOffset
-                            },
-                            isRTL: _isRTL,
-                            isRTLNormalized: _normalizeRTLCache
-                        };
-                    }
-
-                    _base.update(_strSync);
-
-                    var normalizeRTL = _normalizeRTLCache;
-                    var coordinatesXAxisProps = [_strX, _strLeft, 'l'];
-                    var coordinatesYAxisProps = [_strY, _strTop, 't'];
-                    var coordinatesOperators = ['+=', '-=', '*=', '/='];
-                    var durationIsObject = type(duration) == TYPES.o;
-                    var completeCallback = durationIsObject ? duration.complete : complete;
-                    var i;
-                    var finalScroll = {};
-                    var specialEasing = {};
-                    var doScrollLeft;
-                    var doScrollTop;
-                    var animationOptions;
-                    var strEnd = 'end';
-                    var strBegin = 'begin';
-                    var strCenter = 'center';
-                    var strNearest = 'nearest';
-                    var strAlways = 'always';
-                    var strNever = 'never';
-                    var strIfNeeded = 'ifneeded';
-                    var strLength = LEXICON.l;
-                    var settingsAxis;
-                    var settingsScroll;
-                    var settingsBlock;
-                    var settingsMargin;
-                    var finalElement;
-                    var elementObjSettingsAxisValues = [_strX, _strY, 'xy', 'yx'];
-                    var elementObjSettingsBlockValues = [strBegin, strEnd, strCenter, strNearest];
-                    var elementObjSettingsScrollValues = [strAlways, strNever, strIfNeeded];
-                    var coordinatesIsElementObj = coordinates[LEXICON.hOP]('el');
-                    var possibleElement = coordinatesIsElementObj ? coordinates.el : coordinates;
-                    var possibleElementIsJQuery = possibleElement instanceof FRAMEWORK || JQUERY ? possibleElement instanceof JQUERY : false;
-                    var possibleElementIsHTMLElement = possibleElementIsJQuery ? false : isHTMLElement(possibleElement);
-                    var updateScrollbarInfos = function () {
-                        if (doScrollLeft)
-                            refreshScrollbarHandleOffset(true);
-                        if (doScrollTop)
-                            refreshScrollbarHandleOffset(false);
-                    };
-                    var proxyCompleteCallback = type(completeCallback) != TYPES.f ? undefined : function () {
-                        updateScrollbarInfos();
-                        completeCallback();
-                    };
-                    function checkSettingsStringValue(currValue, allowedValues) {
-                        for (i = 0; i < allowedValues[strLength]; i++) {
-                            if (currValue === allowedValues[i])
-                                return true;
-                        }
-                        return false;
-                    }
-                    function getRawScroll(isX, coordinates) {
-                        var coordinateProps = isX ? coordinatesXAxisProps : coordinatesYAxisProps;
-                        coordinates = type(coordinates) == TYPES.s || type(coordinates) == TYPES.n ? [coordinates, coordinates] : coordinates;
-
-                        if (COMPATIBILITY.isA(coordinates))
-                            return isX ? coordinates[0] : coordinates[1];
-                        else if (type(coordinates) == TYPES.o) {
-                            //decides RTL normalization "hack" with .n
-                            //normalizeRTL = type(coordinates.n) == TYPES.b ? coordinates.n : normalizeRTL;
-                            for (i = 0; i < coordinateProps[strLength]; i++)
-                                if (coordinateProps[i] in coordinates)
-                                    return coordinates[coordinateProps[i]];
-                        }
-                    }
-                    function getFinalScroll(isX, rawScroll) {
-                        var isString = type(rawScroll) == TYPES.s;
-                        var operator;
-                        var amount;
-                        var scrollInfo = isX ? _scrollHorizontalInfo : _scrollVerticalInfo;
-                        var currScroll = scrollInfo._currentScroll;
-                        var maxScroll = scrollInfo._maxScroll;
-                        var mult = ' * ';
-                        var finalValue;
-                        var isRTLisX = _isRTL && isX;
-                        var normalizeShortcuts = isRTLisX && _rtlScrollBehavior.n && !normalizeRTL;
-                        var strReplace = 'replace';
-                        var evalFunc = eval;
-                        var possibleOperator;
-                        if (isString) {
-                            //check operator
-                            if (rawScroll[strLength] > 2) {
-                                possibleOperator = rawScroll.substr(0, 2);
-                                if (inArray(possibleOperator, coordinatesOperators) > -1)
-                                    operator = possibleOperator;
-                            }
-
-                            //calculate units and shortcuts
-                            rawScroll = operator ? rawScroll.substr(2) : rawScroll;
-                            rawScroll = rawScroll
-                                [strReplace](/min/g, 0) //'min' = 0%
-                                [strReplace](/</g, 0)   //'<'   = 0%
-                                [strReplace](/max/g, (normalizeShortcuts ? '-' : _strEmpty) + _strHundredPercent)    //'max' = 100%
-                                [strReplace](/>/g, (normalizeShortcuts ? '-' : _strEmpty) + _strHundredPercent)      //'>'   = 100%
-                                [strReplace](/px/g, _strEmpty)
-                                [strReplace](/%/g, mult + (maxScroll * (isRTLisX && _rtlScrollBehavior.n ? -1 : 1) / 100.0))
-                                [strReplace](/vw/g, mult + _viewportSize.w)
-                                [strReplace](/vh/g, mult + _viewportSize.h);
-                            amount = parseToZeroOrNumber(isNaN(rawScroll) ? parseToZeroOrNumber(evalFunc(rawScroll), true).toFixed() : rawScroll);
-                        }
-                        else {
-                            amount = rawScroll;
-                        }
-
-                        if (amount !== undefined && !isNaN(amount) && type(amount) == TYPES.n) {
-                            var normalizeIsRTLisX = normalizeRTL && isRTLisX;
-                            var operatorCurrScroll = currScroll * (normalizeIsRTLisX && _rtlScrollBehavior.n ? -1 : 1);
-                            var invert = normalizeIsRTLisX && _rtlScrollBehavior.i;
-                            var negate = normalizeIsRTLisX && _rtlScrollBehavior.n;
-                            operatorCurrScroll = invert ? (maxScroll - operatorCurrScroll) : operatorCurrScroll;
-                            switch (operator) {
-                                case '+=':
-                                    finalValue = operatorCurrScroll + amount;
-                                    break;
-                                case '-=':
-                                    finalValue = operatorCurrScroll - amount;
-                                    break;
-                                case '*=':
-                                    finalValue = operatorCurrScroll * amount;
-                                    break;
-                                case '/=':
-                                    finalValue = operatorCurrScroll / amount;
-                                    break;
-                                default:
-                                    finalValue = amount;
-                                    break;
-                            }
-                            finalValue = invert ? maxScroll - finalValue : finalValue;
-                            finalValue *= negate ? -1 : 1;
-                            finalValue = isRTLisX && _rtlScrollBehavior.n ? MATH.min(0, MATH.max(maxScroll, finalValue)) : MATH.max(0, MATH.min(maxScroll, finalValue));
-                        }
-                        return finalValue === currScroll ? undefined : finalValue;
-                    }
-                    function getPerAxisValue(value, valueInternalType, defaultValue, allowedValues) {
-                        var resultDefault = [defaultValue, defaultValue];
-                        var valueType = type(value);
-                        var valueArrLength;
-                        var valueArrItem;
-
-                        //value can be [ string, or array of two strings ]
-                        if (valueType == valueInternalType) {
-                            value = [value, value];
-                        }
-                        else if (valueType == TYPES.a) {
-                            valueArrLength = value[strLength];
-                            if (valueArrLength > 2 || valueArrLength < 1)
-                                value = resultDefault;
-                            else {
-                                if (valueArrLength === 1)
-                                    value[1] = defaultValue;
-                                for (i = 0; i < valueArrLength; i++) {
-                                    valueArrItem = value[i];
-                                    if (type(valueArrItem) != valueInternalType || !checkSettingsStringValue(valueArrItem, allowedValues)) {
-                                        value = resultDefault;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        else if (valueType == TYPES.o)
-                            value = [value[_strX] || defaultValue, value[_strY] || defaultValue];
-                        else
-                            value = resultDefault;
-                        return { x: value[0], y: value[1] };
-                    }
-                    function generateMargin(marginTopRightBottomLeftArray) {
-                        var result = [];
-                        var currValue;
-                        var currValueType;
-                        var valueDirections = [_strTop, _strRight, _strBottom, _strLeft];
-                        for (i = 0; i < marginTopRightBottomLeftArray[strLength]; i++) {
-                            if (i === valueDirections[strLength])
-                                break;
-                            currValue = marginTopRightBottomLeftArray[i];
-                            currValueType = type(currValue);
-                            if (currValueType == TYPES.b)
-                                result.push(currValue ? parseToZeroOrNumber(finalElement.css(_strMarginMinus + valueDirections[i])) : 0);
-                            else
-                                result.push(currValueType == TYPES.n ? currValue : 0);
-                        }
-                        return result;
-                    }
-
-                    if (possibleElementIsJQuery || possibleElementIsHTMLElement) {
-                        //get settings
-                        var margin = coordinatesIsElementObj ? coordinates.margin : 0;
-                        var axis = coordinatesIsElementObj ? coordinates.axis : 0;
-                        var scroll = coordinatesIsElementObj ? coordinates.scroll : 0;
-                        var block = coordinatesIsElementObj ? coordinates.block : 0;
-                        var marginDefault = [0, 0, 0, 0];
-                        var marginType = type(margin);
-                        var marginLength;
-                        finalElement = possibleElementIsJQuery ? possibleElement : FRAMEWORK(possibleElement);
-
-                        if (finalElement[strLength] > 0) {
-                            //margin can be [ boolean, number, array of 2, array of 4, object ]
-                            if (marginType == TYPES.n || marginType == TYPES.b)
-                                margin = generateMargin([margin, margin, margin, margin]);
-                            else if (marginType == TYPES.a) {
-                                marginLength = margin[strLength];
-                                if (marginLength === 2)
-                                    margin = generateMargin([margin[0], margin[1], margin[0], margin[1]]);
-                                else if (marginLength >= 4)
-                                    margin = generateMargin(margin);
-                                else
-                                    margin = marginDefault;
-                            }
-                            else if (marginType == TYPES.o)
-                                margin = generateMargin([margin[_strTop], margin[_strRight], margin[_strBottom], margin[_strLeft]]);
-                            else
-                                margin = marginDefault;
-
-                            //block = type(block) === TYPES.b ? block ? [ strNearest, strBegin ] : [ strNearest, strEnd ] : block;
-                            settingsAxis = checkSettingsStringValue(axis, elementObjSettingsAxisValues) ? axis : 'xy';
-                            settingsScroll = getPerAxisValue(scroll, TYPES.s, strAlways, elementObjSettingsScrollValues);
-                            settingsBlock = getPerAxisValue(block, TYPES.s, strBegin, elementObjSettingsBlockValues);
-                            settingsMargin = margin;
-
-                            var viewportScroll = {
-                                l: _scrollHorizontalInfo._currentScroll,
-                                t: _scrollVerticalInfo._currentScroll
-                            };
-                            // use padding element instead of viewport element because padding element has never padding, margin or position applied.
-                            var viewportOffset = _paddingElement.offset();
-
-                            //get coordinates
-                            var elementOffset = finalElement.offset();
-                            var doNotScroll = {
-                                x: settingsScroll.x == strNever || settingsAxis == _strY,
-                                y: settingsScroll.y == strNever || settingsAxis == _strX
-                            };
-                            elementOffset[_strTop] -= settingsMargin[0];
-                            elementOffset[_strLeft] -= settingsMargin[3];
-                            var elementScrollCoordinates = {
-                                x: MATH.round(elementOffset[_strLeft] - viewportOffset[_strLeft] + viewportScroll.l),
-                                y: MATH.round(elementOffset[_strTop] - viewportOffset[_strTop] + viewportScroll.t)
-                            };
-                            if (_isRTL) {
-                                if (!_rtlScrollBehavior.n && !_rtlScrollBehavior.i)
-                                    elementScrollCoordinates.x = MATH.round(viewportOffset[_strLeft] - elementOffset[_strLeft] + viewportScroll.l);
-                                if (_rtlScrollBehavior.n && normalizeRTL)
-                                    elementScrollCoordinates.x *= -1;
-                                if (_rtlScrollBehavior.i && normalizeRTL)
-                                    elementScrollCoordinates.x = MATH.round(viewportOffset[_strLeft] - elementOffset[_strLeft] + (_scrollHorizontalInfo._maxScroll - viewportScroll.l));
-                            }
-
-                            //measuring is required
-                            if (settingsBlock.x != strBegin || settingsBlock.y != strBegin || settingsScroll.x == strIfNeeded || settingsScroll.y == strIfNeeded || _isRTL) {
-                                var measuringElm = finalElement[0];
-                                var rawElementSize = _supportTransform ? measuringElm[LEXICON.bCR]() : {
-                                    width: measuringElm[LEXICON.oW],
-                                    height: measuringElm[LEXICON.oH]
-                                };
-                                var elementSize = {
-                                    w: rawElementSize[_strWidth] + settingsMargin[3] + settingsMargin[1],
-                                    h: rawElementSize[_strHeight] + settingsMargin[0] + settingsMargin[2]
-                                };
-                                var finalizeBlock = function (isX) {
-                                    var vars = getScrollbarVars(isX);
-                                    var wh = vars._w_h;
-                                    var lt = vars._left_top;
-                                    var xy = vars._x_y;
-                                    var blockIsEnd = settingsBlock[xy] == (isX ? _isRTL ? strBegin : strEnd : strEnd);
-                                    var blockIsCenter = settingsBlock[xy] == strCenter;
-                                    var blockIsNearest = settingsBlock[xy] == strNearest;
-                                    var scrollNever = settingsScroll[xy] == strNever;
-                                    var scrollIfNeeded = settingsScroll[xy] == strIfNeeded;
-                                    var vpSize = _viewportSize[wh];
-                                    var vpOffset = viewportOffset[lt];
-                                    var elSize = elementSize[wh];
-                                    var elOffset = elementOffset[lt];
-                                    var divide = blockIsCenter ? 2 : 1;
-                                    var elementCenterOffset = elOffset + (elSize / 2);
-                                    var viewportCenterOffset = vpOffset + (vpSize / 2);
-                                    var isInView =
-                                        elSize <= vpSize
-                                        && elOffset >= vpOffset
-                                        && elOffset + elSize <= vpOffset + vpSize;
-
-                                    if (scrollNever)
-                                        doNotScroll[xy] = true;
-                                    else if (!doNotScroll[xy]) {
-                                        if (blockIsNearest || scrollIfNeeded) {
-                                            doNotScroll[xy] = scrollIfNeeded ? isInView : false;
-                                            blockIsEnd = elSize < vpSize ? elementCenterOffset > viewportCenterOffset : elementCenterOffset < viewportCenterOffset;
-                                        }
-                                        elementScrollCoordinates[xy] -= blockIsEnd || blockIsCenter ? ((vpSize / divide) - (elSize / divide)) * (isX && _isRTL && normalizeRTL ? -1 : 1) : 0;
-                                    }
-                                };
-                                finalizeBlock(true);
-                                finalizeBlock(false);
-                            }
-
-                            if (doNotScroll.y)
-                                delete elementScrollCoordinates.y;
-                            if (doNotScroll.x)
-                                delete elementScrollCoordinates.x;
-
-                            coordinates = elementScrollCoordinates;
-                        }
-                    }
-
-                    finalScroll[_strScrollLeft] = getFinalScroll(true, getRawScroll(true, coordinates));
-                    finalScroll[_strScrollTop] = getFinalScroll(false, getRawScroll(false, coordinates));
-                    doScrollLeft = finalScroll[_strScrollLeft] !== undefined;
-                    doScrollTop = finalScroll[_strScrollTop] !== undefined;
-
-                    if ((doScrollLeft || doScrollTop) && (duration > 0 || durationIsObject)) {
-                        if (durationIsObject) {
-                            duration.complete = proxyCompleteCallback;
-                            _viewportElement.animate(finalScroll, duration);
-                        }
-                        else {
-                            animationOptions = {
-                                duration: duration,
-                                complete: proxyCompleteCallback
-                            };
-                            if (COMPATIBILITY.isA(easing) || FRAMEWORK.isPlainObject(easing)) {
-                                specialEasing[_strScrollLeft] = easing[0] || easing.x;
-                                specialEasing[_strScrollTop] = easing[1] || easing.y;
-                                animationOptions.specialEasing = specialEasing;
-                            }
-                            else {
-                                animationOptions.easing = easing;
-                            }
-                            _viewportElement.animate(finalScroll, animationOptions);
-                        }
-                    }
-                    else {
-                        if (doScrollLeft)
-                            _viewportElement[_strScrollLeft](finalScroll[_strScrollLeft]);
-                        if (doScrollTop)
-                            _viewportElement[_strScrollTop](finalScroll[_strScrollTop]);
-                        updateScrollbarInfos();
-                    }
-                };
-
-                /**
-                 * Stops all scroll animations.
-                 * @returns {*} The current OverlayScrollbars instance (for chaining).
-                 */
-                _base.scrollStop = function (param1, param2, param3) {
-                    _viewportElement.stop(param1, param2, param3);
-                    return _base;
-                };
-
-                /**
-                 * Returns all relevant elements.
-                 * @param elementName The name of the element which shall be returned.
-                 * @returns {{target: *, host: *, padding: *, viewport: *, content: *, scrollbarHorizontal: {scrollbar: *, track: *, handle: *}, scrollbarVertical: {scrollbar: *, track: *, handle: *}, scrollbarCorner: *} | *}
-                 */
-                _base.getElements = function (elementName) {
-                    var obj = {
-                        target: _targetElementNative,
-                        host: _hostElementNative,
-                        padding: _paddingElementNative,
-                        viewport: _viewportElementNative,
-                        content: _contentElementNative,
-                        scrollbarHorizontal: {
-                            scrollbar: _scrollbarHorizontalElement[0],
-                            track: _scrollbarHorizontalTrackElement[0],
-                            handle: _scrollbarHorizontalHandleElement[0]
-                        },
-                        scrollbarVertical: {
-                            scrollbar: _scrollbarVerticalElement[0],
-                            track: _scrollbarVerticalTrackElement[0],
-                            handle: _scrollbarVerticalHandleElement[0]
-                        },
-                        scrollbarCorner: _scrollbarCornerElement[0]
-                    };
-                    return type(elementName) == TYPES.s ? getObjectPropVal(obj, elementName) : obj;
-                };
-
-                /**
-                 * Returns a object which describes the current state of this instance.
-                 * @param stateProperty A specific property from the state object which shall be returned.
-                 * @returns {{widthAuto, heightAuto, overflowAmount, hideOverflow, hasOverflow, contentScrollSize, viewportSize, hostSize, autoUpdate} | *}
-                 */
-                _base.getState = function (stateProperty) {
-                    function prepare(obj) {
-                        if (!FRAMEWORK.isPlainObject(obj))
-                            return obj;
-                        var extended = extendDeep({}, obj);
-                        var changePropertyName = function (from, to) {
-                            if (extended[LEXICON.hOP](from)) {
-                                extended[to] = extended[from];
-                                delete extended[from];
-                            }
-                        };
-                        changePropertyName('w', _strWidth); //change w to width
-                        changePropertyName('h', _strHeight); //change h to height
-                        delete extended.c; //delete c (the 'changed' prop)
-                        return extended;
-                    };
-                    var obj = {
-                        destroyed: !!prepare(_destroyed),
-                        sleeping: !!prepare(_sleeping),
-                        autoUpdate: prepare(!_mutationObserversConnected),
-                        widthAuto: prepare(_widthAutoCache),
-                        heightAuto: prepare(_heightAutoCache),
-                        padding: prepare(_cssPaddingCache),
-                        overflowAmount: prepare(_overflowAmountCache),
-                        hideOverflow: prepare(_hideOverflowCache),
-                        hasOverflow: prepare(_hasOverflowCache),
-                        contentScrollSize: prepare(_contentScrollSizeCache),
-                        viewportSize: prepare(_viewportSize),
-                        hostSize: prepare(_hostSizeCache),
-                        documentMixed: prepare(_documentMixed)
-                    };
-                    return type(stateProperty) == TYPES.s ? getObjectPropVal(obj, stateProperty) : obj;
-                };
-
-                /**
-                 * Gets all or specific extension instance.
-                 * @param extName The name of the extension from which the instance shall be got.
-                 * @returns {{}} The instance of the extension with the given name or undefined if the instance couldn't be found.
-                 */
-                _base.ext = function (extName) {
-                    var result;
-                    var privateMethods = _extensionsPrivateMethods.split(' ');
-                    var i = 0;
-                    if (type(extName) == TYPES.s) {
-                        if (_extensions[LEXICON.hOP](extName)) {
-                            result = extendDeep({}, _extensions[extName]);
-                            for (; i < privateMethods.length; i++)
-                                delete result[privateMethods[i]];
-                        }
-                    }
-                    else {
-                        result = {};
-                        for (i in _extensions)
-                            result[i] = extendDeep({}, _base.ext(i));
-                    }
-                    return result;
-                };
-
-                /**
-                 * Adds a extension to this instance.
-                 * @param extName The name of the extension which shall be added.
-                 * @param extensionOptions The extension options which shall be used.
-                 * @returns {{}} The instance of the added extension or undefined if the extension couldn't be added properly.
-                 */
-                _base.addExt = function (extName, extensionOptions) {
-                    var registeredExtensionObj = _plugin.extension(extName);
-                    var instance;
-                    var instanceAdded;
-                    var instanceContract;
-                    var contractResult;
-                    var contractFulfilled = true;
-                    if (registeredExtensionObj) {
-                        if (!_extensions[LEXICON.hOP](extName)) {
-                            instance = registeredExtensionObj.extensionFactory.call(_base,
-                                extendDeep({}, registeredExtensionObj.defaultOptions),
-                                FRAMEWORK,
-                                COMPATIBILITY);
-
-                            if (instance) {
-                                instanceContract = instance.contract;
-                                if (type(instanceContract) == TYPES.f) {
-                                    contractResult = instanceContract(window);
-                                    contractFulfilled = type(contractResult) == TYPES.b ? contractResult : contractFulfilled;
-                                }
-                                if (contractFulfilled) {
-                                    _extensions[extName] = instance;
-                                    instanceAdded = instance.added;
-                                    if (type(instanceAdded) == TYPES.f)
-                                        instanceAdded(extensionOptions);
-
-                                    return _base.ext(extName);
-                                }
-                            }
-                        }
-                        else
-                            return _base.ext(extName);
-                    }
-                    else
-                        console.warn("A extension with the name \"" + extName + "\" isn't registered.");
-                };
-
-                /**
-                 * Removes a extension from this instance.
-                 * @param extName The name of the extension which shall be removed.
-                 * @returns {boolean} True if the extension was removed, false otherwise e.g. if the extension wasn't added before.
-                 */
-                _base.removeExt = function (extName) {
-                    var instance = _extensions[extName];
-                    var instanceRemoved;
-                    if (instance) {
-                        delete _extensions[extName];
-
-                        instanceRemoved = instance.removed;
-                        if (type(instanceRemoved) == TYPES.f)
-                            instanceRemoved();
-
-                        return true;
-                    }
-                    return false;
-                };
-
-                /**
-                 * Constructs the plugin.
-                 * @param targetElement The element to which the plugin shall be applied.
-                 * @param options The initial options of the plugin.
-                 * @param extensions The extension(s) which shall be added right after the initialization.
-                 * @returns {boolean} True if the plugin was successfully initialized, false otherwise.
-                 */
-                function construct(targetElement, options, extensions) {
-                    _defaultOptions = globals.defaultOptions;
-                    _nativeScrollbarStyling = globals.nativeScrollbarStyling;
-                    _nativeScrollbarSize = extendDeep({}, globals.nativeScrollbarSize);
-                    _nativeScrollbarIsOverlaid = extendDeep({}, globals.nativeScrollbarIsOverlaid);
-                    _overlayScrollbarDummySize = extendDeep({}, globals.overlayScrollbarDummySize);
-                    _rtlScrollBehavior = extendDeep({}, globals.rtlScrollBehavior);
-
-                    //parse & set options but don't update
-                    setOptions(extendDeep({}, _defaultOptions, options));
-
-                    _cssCalc = globals.cssCalc;
-                    _msieVersion = globals.msie;
-                    _autoUpdateRecommended = globals.autoUpdateRecommended;
-                    _supportTransition = globals.supportTransition;
-                    _supportTransform = globals.supportTransform;
-                    _supportPassiveEvents = globals.supportPassiveEvents;
-                    _supportResizeObserver = globals.supportResizeObserver;
-                    _supportMutationObserver = globals.supportMutationObserver;
-                    _restrictedMeasuring = globals.restrictedMeasuring;
-                    _documentElement = FRAMEWORK(targetElement.ownerDocument);
-                    _documentElementNative = _documentElement[0];
-                    _windowElement = FRAMEWORK(_documentElementNative.defaultView || _documentElementNative.parentWindow);
-                    _windowElementNative = _windowElement[0];
-                    _htmlElement = findFirst(_documentElement, 'html');
-                    _bodyElement = findFirst(_htmlElement, 'body');
-                    _targetElement = FRAMEWORK(targetElement);
-                    _targetElementNative = _targetElement[0];
-                    _isTextarea = _targetElement.is('textarea');
-                    _isBody = _targetElement.is('body');
-                    _documentMixed = _documentElementNative !== document;
-
-                    /* On a div Element The if checks only whether:
-                     * - the targetElement has the class "os-host"
-                     * - the targetElement has a a child with the class "os-padding"
-                     *
-                     * If that's the case, its assumed the DOM has already the following structure:
-                     * (The ".os-host" element is the targetElement)
-                     *
-                     *  <div class="os-host">
-                     *      <div class="os-resize-observer-host"></div>
-                     *      <div class="os-padding">
-                     *          <div class="os-viewport">
-                     *              <div class="os-content"></div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar os-scrollbar-horizontal ">
-                     *          <div class="os-scrollbar-track">
-                     *              <div class="os-scrollbar-handle"></div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar os-scrollbar-vertical">
-                     *          <div class="os-scrollbar-track">
-                     *              <div class="os-scrollbar-handle"></div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar-corner"></div>
-                     *  </div>
-                     *
-                     * =====================================================================================
-                     *
-                     * On a Textarea Element The if checks only whether:
-                     * - the targetElement has the class "os-textarea"
-                     * - the targetElement is inside a element with the class "os-content"
-                     *
-                     * If that's the case, its assumed the DOM has already the following structure:
-                     * (The ".os-textarea" (textarea) element is the targetElement)
-                     *
-                     *  <div class="os-host-textarea">
-                     *      <div class="os-resize-observer-host"></div>
-                     *      <div class="os-padding os-text-inherit">
-                     *          <div class="os-viewport os-text-inherit">
-                     *              <div class="os-content os-text-inherit">
-                     *                  <div class="os-textarea-cover"></div>
-                     *                  <textarea class="os-textarea os-text-inherit"></textarea>
-                     *              </div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar os-scrollbar-horizontal ">
-                     *          <div class="os-scrollbar-track">
-                     *              <div class="os-scrollbar-handle"></div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar os-scrollbar-vertical">
-                     *          <div class="os-scrollbar-track">
-                     *              <div class="os-scrollbar-handle"></div>
-                     *          </div>
-                     *      </div>
-                     *      <div class="os-scrollbar-corner"></div>
-                     *  </div>
-                     */
-                    _domExists = _isTextarea
-                        ? _targetElement.hasClass(_classNameTextareaElement) && _targetElement.parent().hasClass(_classNameContentElement)
-                        : _targetElement.hasClass(_classNameHostElement) && _targetElement.children(_strDot + _classNamePaddingElement)[LEXICON.l];
-
-                    var initBodyScroll;
-                    var bodyMouseTouchDownListener;
-
-                    //check if the plugin hasn't to be initialized
-                    if (_nativeScrollbarIsOverlaid.x && _nativeScrollbarIsOverlaid.y && !_currentPreparedOptions.nativeScrollbarsOverlaid.initialize) {
-                        _initialized = true; // workaround so the onInitializationWithdrawn callback below is fired
-                        dispatchCallback('onInitializationWithdrawn');
-                        if (_domExists) {
-                            setupStructureDOM(true);
-                            setupScrollbarsDOM(true);
-                            setupScrollbarCornerDOM(true);
-                        }
-
-                        _initialized = false;
-                        _destroyed = true;
-                        _sleeping = true;
-
-                        return _base;
-                    }
-
-                    if (_isBody) {
-                        initBodyScroll = {};
-                        initBodyScroll.l = MATH.max(_targetElement[_strScrollLeft](), _htmlElement[_strScrollLeft](), _windowElement[_strScrollLeft]());
-                        initBodyScroll.t = MATH.max(_targetElement[_strScrollTop](), _htmlElement[_strScrollTop](), _windowElement[_strScrollTop]());
-
-                        bodyMouseTouchDownListener = function () {
-                            _viewportElement.removeAttr(LEXICON.ti);
-                            setupResponsiveEventListener(_viewportElement, _strMouseTouchDownEvent, bodyMouseTouchDownListener, true, true);
-                        }
-                    }
-
-                    //build OverlayScrollbars DOM
-                    setupStructureDOM();
-                    setupScrollbarsDOM();
-                    setupScrollbarCornerDOM();
-
-                    //create OverlayScrollbars events
-                    setupStructureEvents();
-                    setupScrollbarEvents(true);
-                    setupScrollbarEvents(false);
-                    setupScrollbarCornerEvents();
-
-                    //create mutation observers
-                    createMutationObservers();
-
-                    //build resize observer for the host element
-                    setupResizeObserver(_sizeObserverElement, hostOnResized);
-
-                    if (_isBody) {
-                        //apply the body scroll to handle it right in the update method
-                        _viewportElement[_strScrollLeft](initBodyScroll.l)[_strScrollTop](initBodyScroll.t);
-
-                        //set the focus on the viewport element so you dont have to click on the page to use keyboard keys (up / down / space) for scrolling
-                        if (document.activeElement == targetElement && _viewportElementNative.focus) {
-                            //set a tabindex to make the viewportElement focusable
-                            _viewportElement.attr(LEXICON.ti, '-1');
-                            _viewportElementNative.focus();
-
-                            /* the tabindex has to be removed due to;
-                             * If you set the tabindex attribute on an <div>, then its child content cannot be scrolled with the arrow keys unless you set tabindex on the content, too
-                             * https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/tabindex
-                             */
-                            setupResponsiveEventListener(_viewportElement, _strMouseTouchDownEvent, bodyMouseTouchDownListener, false, true);
-                        }
-                    }
-
-                    //update for the first time & initialize cache
-                    _base.update(_strAuto);
-
-                    //the plugin is initialized now!
-                    _initialized = true;
-                    dispatchCallback('onInitialized');
-
-                    //call all callbacks which would fire before the initialized was complete
-                    each(_callbacksInitQeueue, function (index, value) { dispatchCallback(value.n, value.a); });
-                    _callbacksInitQeueue = [];
-
-                    //add extensions
-                    if (type(extensions) == TYPES.s)
-                        extensions = [extensions];
-                    if (COMPATIBILITY.isA(extensions))
-                        each(extensions, function (index, value) { _base.addExt(value); });
-                    else if (FRAMEWORK.isPlainObject(extensions))
-                        each(extensions, function (key, value) { _base.addExt(key, value); });
-
-                    //add the transition class for transitions AFTER the first update & AFTER the applied extensions (for preventing unwanted transitions)
-                    setTimeout(function () {
-                        if (_supportTransition && !_destroyed)
-                            addClass(_hostElement, _classNameHostTransition);
-                    }, 333);
-
-                    return _base;
-                }
-
-                if (_plugin.valid(construct(pluginTargetElement, options, extensions))) {
-                    INSTANCES(pluginTargetElement, _base);
-                }
-
-                return _base;
-            }
-
-            /**
-             * Initializes a new OverlayScrollbarsInstance object or changes options if already initialized or returns the current instance.
-             * @param pluginTargetElements The elements to which the Plugin shall be initialized.
-             * @param options The custom options with which the plugin shall be initialized.
-             * @param extensions The extension(s) which shall be added right after initialization.
-             * @returns {*}
-             */
-            _plugin = window[PLUGINNAME] = function (pluginTargetElements, options, extensions) {
-                if (arguments[LEXICON.l] === 0)
-                    return this;
-
-                var arr = [];
-                var optsIsPlainObj = FRAMEWORK.isPlainObject(options);
-                var inst;
-                var result;
-
-                //pluginTargetElements is null or undefined
-                if (!pluginTargetElements)
-                    return optsIsPlainObj || !options ? result : arr;
-
-                /*
-                   pluginTargetElements will be converted to:
-                   1. A jQueryElement Array
-                   2. A HTMLElement Array
-                   3. A Array with a single HTML Element
-                   so pluginTargetElements is always a array.
-                */
-                pluginTargetElements = pluginTargetElements[LEXICON.l] != undefined ? pluginTargetElements : [pluginTargetElements[0] || pluginTargetElements];
-                initOverlayScrollbarsStatics();
-
-                if (pluginTargetElements[LEXICON.l] > 0) {
-                    if (optsIsPlainObj) {
-                        FRAMEWORK.each(pluginTargetElements, function (i, v) {
-                            inst = v;
-                            if (inst !== undefined)
-                                arr.push(OverlayScrollbarsInstance(inst, options, extensions, _pluginsGlobals, _pluginsAutoUpdateLoop));
-                        });
-                    }
-                    else {
-                        FRAMEWORK.each(pluginTargetElements, function (i, v) {
-                            inst = INSTANCES(v);
-                            if ((options === '!' && _plugin.valid(inst)) || (COMPATIBILITY.type(options) == TYPES.f && options(v, inst)))
-                                arr.push(inst);
-                            else if (options === undefined)
-                                arr.push(inst);
-                        });
-                    }
-                    result = arr[LEXICON.l] === 1 ? arr[0] : arr;
-                }
-                return result;
-            };
-
-            /**
-             * Returns a object which contains global information about the plugin and each instance of it.
-             * The returned object is just a copy, that means that changes to the returned object won't have any effect to the original object.
-             */
-            _plugin.globals = function () {
-                initOverlayScrollbarsStatics();
-                var globals = FRAMEWORK.extend(true, {}, _pluginsGlobals);
-                delete globals['msie'];
-                return globals;
-            };
-
-            /**
-             * Gets or Sets the default options for each new plugin initialization.
-             * @param newDefaultOptions The object with which the default options shall be extended.
-             */
-            _plugin.defaultOptions = function (newDefaultOptions) {
-                initOverlayScrollbarsStatics();
-                var currDefaultOptions = _pluginsGlobals.defaultOptions;
-                if (newDefaultOptions === undefined)
-                    return FRAMEWORK.extend(true, {}, currDefaultOptions);
-
-                //set the new default options
-                _pluginsGlobals.defaultOptions = FRAMEWORK.extend(true, {}, currDefaultOptions, _pluginsOptions._validate(newDefaultOptions, _pluginsOptions._template, true, currDefaultOptions)._default);
-            };
-
-            /**
-             * Checks whether the passed instance is a non-destroyed OverlayScrollbars instance.
-             * @param osInstance The potential OverlayScrollbars instance which shall be checked.
-             * @returns {boolean} True if the passed value is a non-destroyed OverlayScrollbars instance, false otherwise.
-             */
-            _plugin.valid = function (osInstance) {
-                return osInstance instanceof _plugin && !osInstance.getState().destroyed;
-            };
-
-            /**
-             * Registers, Unregisters or returns a extension.
-             * Register: Pass the name and the extension. (defaultOptions is optional)
-             * Unregister: Pass the name and anything except a function as extension parameter.
-             * Get extension: Pass the name of the extension which shall be got.
-             * Get all extensions: Pass no arguments.
-             * @param extensionName The name of the extension which shall be registered, unregistered or returned.
-             * @param extension A function which generates the instance of the extension or anything other to remove a already registered extension.
-             * @param defaultOptions The default options which shall be used for the registered extension.
-             */
-            _plugin.extension = function (extensionName, extension, defaultOptions) {
-                var extNameTypeString = COMPATIBILITY.type(extensionName) == TYPES.s;
-                var argLen = arguments[LEXICON.l];
-                var i = 0;
-                if (argLen < 1 || !extNameTypeString) {
-                    //return a copy of all extension objects
-                    return FRAMEWORK.extend(true, { length: _pluginsExtensions[LEXICON.l] }, _pluginsExtensions);
-                }
-                else if (extNameTypeString) {
-                    if (COMPATIBILITY.type(extension) == TYPES.f) {
-                        //register extension
-                        _pluginsExtensions.push({
-                            name: extensionName,
-                            extensionFactory: extension,
-                            defaultOptions: defaultOptions
-                        });
-                    }
-                    else {
-                        for (; i < _pluginsExtensions[LEXICON.l]; i++) {
-                            if (_pluginsExtensions[i].name === extensionName) {
-                                if (argLen > 1)
-                                    _pluginsExtensions.splice(i, 1); //remove extension
-                                else
-                                    return FRAMEWORK.extend(true, {}, _pluginsExtensions[i]); //return extension with the given name
-                            }
-                        }
-                    }
-                }
-            };
-
-            return _plugin;
-        })();
-
-        if (JQUERY && JQUERY.fn) {
-            /**
-             * The jQuery initialization interface.
-             * @param options The initial options for the construction of the plugin. To initialize the plugin, this option has to be a object! If it isn't a object, the instance(s) are returned and the plugin wont be initialized.
-             * @param extensions The extension(s) which shall be added right after initialization.
-             * @returns {*} After initialization it returns the jQuery element array, else it returns the instance(s) of the elements which are selected.
-             */
-            JQUERY.fn.overlayScrollbars = function (options, extensions) {
-                var _elements = this;
-                if (JQUERY.isPlainObject(options)) {
-                    JQUERY.each(_elements, function () { PLUGIN(this, options, extensions); });
-                    return _elements;
-                }
-                else
-                    return PLUGIN(_elements, options);
-            };
-        }
-        return PLUGIN;
-    }
-));
-
-class Shomoy {
-
-    #datetime;
-
-    /**
-     * Create a shomoy object.
-     *
-     * @param {number|string|Date|Shomoy} datetime The value can a valid value that JS accepts
-     * for Date object. Moreover, another date or shomoy object can passed-in as value.
-     * By default, it creates from the current datetime.
-     * */
-    constructor(datetime = new Date()) {
-        if (datetime instanceof Date) this.#datetime = new Date(datetime.toISOString());
-        else if (datetime instanceof Shomoy) this.#datetime = new Date(datetime.iso());
-        else if (jQuery.type(datetime) === 'string') this.#datetime =  new Date(datetime);
-        else if (jQuery.type(datetime) === 'number') this.#datetime =  new Date(datetime);
-        else new Error('Invalid time value was passed');
-    }
-
-    /**
-     * Using this method, the starting millisecond of the shomoy can be calculated.
-     *
-     * @return {number} the starting millisecond of the shomoy object.
-     */
-    shomoyStart() { return new Date(this.iso()).setHours(0, 0, 0, 0); }
-
-    /**
-     * Using this method, the ending millisecond of the shomoy can be calculated.
-     *
-     * @return {number} the ending milliseconds of the shomoy object.
-     */
-    shomoyEnd() { return this.shomoyStart() - 1 + Shomoy.msInDay(1); }
-
-    /**
-     * A shomoy object can compare itself with other shomoy object. Internally it
-     * uses the valueOf() method of date object to calculate the difference in
-     * timestamp and returns either 0, 1, or -1 based on the calculation.
-     *
-     * @param {Shomoy} shomoy The Shomoy object to calculate against
-     *
-     * @return {number} int the difference between two shomoy objects. Returns 0 if both
-     * shomoy are equal, -1 if the comparing shomoy is bigger, otherwise 1.
-     * */
-    compare (shomoy) {
-        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
-
-        let shomoyA = this.datetime.valueOf();
-        let shomoyB = shomoy.dateTime.valueOf();
-
-        if (shomoyA < shomoyB) return -1;
-        else if (shomoyA > shomoyB) return 1;
-        else return 0;
-    }
-
-    /**
-     * The difference between two shomoy objects can be calculated either in
-     * milliseconds(which is default) or microseconds(timestamp) value. It always
-     * finds the difference from $this object to passed one.
-     *
-     * @param {Shomoy} shomoy the Shomoy object to calculate the difference against
-     * @param {boolean} inMilli indicates whether to calculate in milliseconds or microseconds
-     * @return {number} the difference between two Shomoy objects.
-     * */
-    diff(shomoy, inMilli = true) {
-        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
-
-        if (inMilli) return this.getMilliseconds() - shomoy.getMilliseconds();
-        else return this.getTimestamp() - shomoy.getTimestamp();
-    }
-
-    /**
-     * Difference in hour with another shomoy object can be calculated. It internally
-     * uses Shomoy.diff() method.
-     *
-     * @param {Shomoy} shomoy A shomoy to calculate against
-     * @return {number} The difference from the passed-in shomoy
-     * */
-    diffHour(shomoy) {
-        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
-        let diff = this.diff(shomoy, false);
-        return diff / 3600;
-    }
-
-    /**
-     * Difference with another shomoy object can be calculated and returned as an array of components
-     * of time in order: sec, min, hour, day.
-     *
-     * @param {Shomoy} shomoy The shomoy object to calculate against
-     * @return {array} Containing time components
-     * */
-    diffCompo(shomoy) {
-        if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
-
-        let time = this.diff(shomoy, false);
-
-        let secInDay = 60 * 60 * 24;
-
-        // day
-        let day = time / secInDay;
-        let dayLeft = ~~day;
-
-        // hour
-        let hour = (day % 1) * 24;
-        let hourLeft = ~~hour;
-
-        // min
-        let min = (hour % 1) * 60;
-        let minLeft = ~~min;
-
-        // sec
-        let secLeft = (min % 1) * 60;
-
-        // fix the round up second problem
-        if (Math.round(secLeft) === 60) {
-            secLeft = 0;
-            minLeft += 1;
-        }
-
-        return [secLeft, minLeft, hourLeft, dayLeft];
-    }
-
-    /**
-     * Any number of milliseconds can be added to the Shomoy object using this method.
-     * Negative value can be added too.
-     *
-     * @param {number} ms number of milliseconds to be added.
-     * */
-    addMs(ms) {
-        ms = this.datetime.getMilliseconds() + ms;
-        this.datetime.setMilliseconds(ms);
-        return this;
-    }
-
-    /**
-     * Any number of seconds can be added to the Shomoy object using this method.
-     * Negative value can be added too.
-     *
-     * @param {number} sec number of seconds to be added.
-     * */
-    addSec(sec) {
-        sec = this.datetime.getSeconds() + sec;
-        this.datetime.setSeconds(sec);
-        return this;
-    }
-
-    /**
-     * Any number of minutes can be added to the Shomoy object using this method.
-     * Negative value can be added too.
-     *
-     * @param {number} min number of minutes to be added.
-     * */
-    addMin(min) {
-        min = this.datetime.getMinutes() + min;
-        this.datetime.setMinutes(min);
-        return this;
-    }
-
-    /**
-     * Any number of hours can be added to the Shomoy object using this method.
-     * It also takes negative hours which subtracts the hours from the shomoy,
-     *
-     * @param {number} hour number of hours to be added.
-     * */
-    addHour(hour) {
-        hour = this.datetime.getHours() + hour;
-        this.datetime.setHours(hour);
-        return this;
-    }
-
-    /**
-     * Any number of days can be added to the Shomoy object using this method.
-     * It also takes negative day which subtracts the days from the shomoy,
-     *
-     * @param {number} day number of days to be added.
-     * */
-    addDay(day) {
-        day = this.datetime.getDate() + day;
-        this.datetime.setDate(day);
-        return this;
-    }
-
-    /**
-     * Any number of months can be added to the Shomoy object using this method.
-     * Negative value can be added too.
-     *
-     * @param {number} month number of months to be added.
-     * */
-    addMonth(month) {
-        month = this.datetime.getMonth() + month;
-        this.datetime.setMonth(month);
-        return this;
-    }
-
-    /**
-     * Any number of years can be added to the Shomoy object using this method.
-     * Negative value can be added too.
-     *
-     * @param {number} year number of years to be added.
-     * */
-    addYear(year) {
-        year = this.year() + year;
-        this.datetime.setFullYear(year);
-        return this;
-    }
-
-    iso() { return `${this.year()}-${this.month()}-${this.date()} ${this.hour()}:${this.min()}:${this.sec()}`; }
-
-    toString() { return this.iso(); }
-
-    isoDate () { return this.iso().slice(0, 10); }
-
-    isoTime() { return `${this.hour()}:${this.min()}:${this.sec()}`; }
-
-    getMilliseconds () { return this.datetime.getTime(); }
-
-    getTimestamp () { return this.getMilliseconds() / 1000; }
-
-    getDate = () => this.#datetime.getDate();
-
-    getMonth = () => this.#datetime.getMonth();
-
-    getYear = () => this.#datetime.getFullYear();
-
-    getDay = () => this.#datetime.getDay();
-
-    getHours = () => this.#datetime.getHours();
-
-    getMinutes = () => this.#datetime.getMinutes();
-
-    getSeconds = () => this.#datetime.getSeconds();
-
-    setYear = (year) => {
-        this.#datetime.setYear(year);
-        return this;
-    }
-
-    setMonth = (month) => {
-        this.#datetime.setMonth(month);
-        return this;
-    }
-
-    setDate = (date) => {
-        this.#datetime.setDate(date);
-        return this;
-    }
-
-    setHour = (hour) => {
-        this.#datetime.setHours(hour);
-        return this;
-    }
-
-    setMin = (min) => {
-        this.#datetime.setMinutes(min);
-        return this;
-    }
-
-    setSec = (sec) => {
-        this.#datetime.setSeconds(sec);
-        return this;
-    }
-
-    setMilli = (milli) => {
-        this.#datetime.setMilliseconds(milli);
-        return this;
-    }
-
-    valueOf = () => this.#datetime.valueOf();
-
-    hour (twenty_four = true, lead0 = true) {
-        let hour = this.datetime.getHours();
-        if (!twenty_four) {
-            hour = hour % 12;
-            hour = hour === 0 ? 12 : hour;
-        }
-        return lead0 ? Num.lead0(hour) : hour;
-    }
-
-    min (lead0 = true) {
-        let min = this.datetime.getMinutes();
-        return lead0 ? Num.lead0(min) : min;
-    }
-
-    sec (lead0 = true) {
-        let sec = this.datetime.getSeconds();
-        return lead0 ? Num.lead0(sec) : sec;
-    }
-
-    year () { return this.datetime.getFullYear(); }
-
-    month (lead0 = true) {
-        let month = this.datetime.getMonth() + 1;
-        return lead0 ? Num.lead0(month) : month;
-    }
-
-    date (lead0 = true) {
-        let date = this.datetime.getDate();
-        return lead0 ? Num.lead0(date) : date;
-    }
-
-    day(short = true) {
-        let days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        let day = days[this.datetime.getDay()];
-        return short ? day.slice(0, 3) : day;
-    }
-
-    monthStr(short = true) {
-        let months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        let month = months[this.month() - 1];
-        return short ? month.slice(0, 3) : month;
-    }
-
-    ampm(uppercase = true) {
-        let hour = this.datetime.getHours() + 1;
-        if (hour >= 12 && hour <= 23) {
-            return uppercase ? 'PM' : 'pm';
-        } else { return uppercase ? 'AM' : 'am'; }
-    }
-
-    strTime24(sec = true) {
-        if (sec) return `${this.hour()}:${this.min()}:${this.sec()}`;
-        else return `${this.hour()}:${this.min()}`;
-    }
-
-    strTime(sec = true, ampm = true, uppercase = true) {
-        if (sec) {
-            if (ampm)
-                return `${this.hour(false)}:${this.min()}:${this.sec()} ${this.ampm(uppercase)}`;
-            else
-                return `${this.hour(false)}:${this.min()}:${this.sec()}`;
-        } else {
-            if (ampm)
-                return `${this.hour(false)}:${this.min()} ${this.ampm(uppercase)}`;
-            else
-                return `${this.hour(false)}:${this.min()}`;
-        }
-    }
-
-    strDate(separated = false) {
-        if (separated) return `${this.date()}-${this.month()}-${this.year()}`;
-        else return `${this.date()} ${this.monthStr(true)}, ${this.year()}`;
-    }
-
-    strDateTime() {
-        return `${this.date()} ${this.monthStr()} ${this.year()}, ${this.hour()}:${this.min()}`;
-    }
-
-    get datetime () { return this.#datetime; }
-
-    static isoNow = () => { return new Shomoy().iso(); };
-
-    static secInMin(of) { return 60 * of; }
-
-    static secInHour(of) { return 60 * 60 * of; }
-
-    static secInDay(of) { return 60 * 60 * 24 * of; }
-
-    static msInDay(of) { return 1000 * 60 * 60 * 24 * of; }
-
-    static isoDate() { return new Shomoy().isoDate(); }
-
-    static isoTime() { return new Shomoy().isoTime(); }
-
-    static clone(shomoy) {
-        if (!shomoy instanceof Shomoy) throw new Error('Argument must be instance of Shomoy.');
-        return new Shomoy(shomoy);
-    }
-
-    /**
-     * For a specified month and year, it returns Date for the first of day of the month.
-     * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
-     * returns for the current month.
-     *
-     * @param {number} month Month
-     * @param {number} year Year
-     * @return {Date} Date object for the first of the month as specified
-     * */
-    static firstDayOfMonth(month, year) {
-        let now = new Shomoy();
-
-        if (!Number.isSafeInteger(year)) year = now.getYear();
-        month = !Number.isSafeInteger(month) ? now.getMonth() : month-1;
-
-        now.setYear(year).setMonth(month).setDate(1).setHour(0).setMin(0).setSec(0).setMilli(0);
-        return now.datetime;
-    }
-
-    /**
-     * For a specified month and year, it returns Date for the last of day of the month.
-     * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
-     * returns for the current month.
-     *
-     * @param {number} month Month
-     * @param {number} year Year
-     * @return {Date} Date object for the last of the month as specified
-     * */
-    static lastDayOfMonth(month, year) {
-        let shomoy = new Shomoy();
-
-        if (!Number.isSafeInteger(year)) year = shomoy.getYear();
-        month = !Number.isSafeInteger(month) ? shomoy.getMonth() : month-1;
-
-        shomoy.setYear(year).setMonth(month+1).setDate(0).setHour(0).setMin(0).setSec(0).setMilli(0);
-        return shomoy.datetime;
-    }
-
-    /**
-     * For a time range, specified by month & year pair in two arrays (since & to), it calculates
-     * start & end times in Shomoy for each week found within the range specified.
-     *
-     * End range it not inclusive.
-     *
-     * For each week, it composes objects containing array of time range. Both key & value can be
-     * derived using decorator functions. Decorator functions take on from and to shomoy objects
-     * in order. <b>End range is not inclusive.</b>
-     *
-     * If no range is specified, then the current month & year is calculated only.
-     *
-     * Months are not zero. January is always 1 in this case. The week start from Monday.
-     *
-     * @param {Array} since Containing the month and year in order.
-     * @param {Array} to Containing the month and year in order.
-     * @param {function(Shomoy, Shomoy)} keyDecFn Decorator function for keys.
-     * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
-     * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
-     * */
-    static listWeek(since = [], to = [], keyDecFn = null, valDecFn = null) {
-        const WEEK_START = 1;
-
-        let valDecorator = valDecFn || Shomoy.#valDecorator;
-        let keyDecorator = keyDecFn || Shomoy.#weekKeyDecorator;
-
-        let weeks = [];
-
-        // get the limit parameters
-        let now = new Date();
-
-        let monthTo = Number.isSafeInteger(to[0]) ? (to[0] - 1) : (now.getMonth() + 1) ;
-        let yearTo = to[1] || now.getFullYear();
-
-        let monthFrom = Number.isSafeInteger(since[0]) ? (since[0] - 1) : now.getMonth();
-        let yearFrom = since[1] || now.getFullYear();
-
-        // build up shomoy objects for getting start and end limit
-        let end = new Shomoy(Shomoy.firstDayOfMonth(monthTo, yearTo)).addSec(-1).valueOf();
-
-        // construct a shomoy with given month and year
-        let shomoy  = new Shomoy(Shomoy.firstDayOfMonth(monthFrom, yearFrom));
-
-        // start with the 'from' month, where we may find broken week and discard that week
-        let momStartDay = shomoy.getDay();
-        if (momStartDay !== WEEK_START) {
-            // find out how far the next week start day is
-            // if it is sunday(0) which is one day to monday.
-            let daysTo = (momStartDay === 0) ? 1 : 8 - momStartDay;
-            shomoy.addDay(daysTo);
-        }
-
-        let makeStop = false;
-
-        while (true) {
-            if (makeStop) break;
-
-            let currentMilli = shomoy.valueOf();
-
-            // are we exceeding the limit?
-            if (currentMilli >= end) {
-                break;
-            }
-
-            let to = Shomoy.clone(shomoy);
-            to.addDay(7).addSec(-1);
-
-            let obj = {};
-            let key1 = keyDecorator(shomoy, to);
-            obj[key1] = valDecorator(shomoy, to);
-            weeks.push(obj);
-
-            shomoy.addDay(7);
-        }
-
-        return weeks;
-    }
-
-    /**
-     * For a time range, specified by month & year pair in two arrays (since & to), it calculates
-     * start & end times in Shomoy for each month found within the range specified. <b>End range
-     * is not inclusive.</b>
-     *
-     * If no range is specified, then the current month & year is calculated only.
-     *
-     * For each month, it composes objects containing array of time range. Both key & value can be
-     * derived using decorator functions. Decorator functions take on from and to shomoy objects
-     * in order.
-     *
-     * Months are not zero. January is always 1 in this case. The week start from Monday.
-     *
-     * @param {Array} since Containing the month and year in order.
-     * @param {Array} to Containing the month and year in order.
-     * @param {function(Shomoy)} keyDecFn Decorator function for keys.
-     * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
-     * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
-     * */
-    static listMonth(since = [], to = [], keyDecFn = null, valDecFn = null) {
-
-        // get the limit parameters
-        let now = new Date();
-
-        let monthFrom = Number.isSafeInteger(since[0]) ? (since[0] - 1) : now.getMonth();
-        let yearFrom = since[1] || now.getFullYear();
-
-        let monthTo = Number.isSafeInteger(to[0]) ? (to[0] - 1) : (now.getMonth()) ;
-        let yearTo = to[1] || now.getFullYear();
-
-        let end = new Shomoy(Shomoy.lastDayOfMonth(monthTo, yearTo)).addHour(24).addSec(-1).valueOf();
-
-        let shomoy = new Shomoy();
-        shomoy.setMonth(monthFrom);
-        shomoy.setYear(yearFrom);
-
-        let valDecorator = valDecFn || Shomoy.#valDecorator;
-        let keyDecorator = keyDecFn || Shomoy.#dayKeyDecorator;
-        let result = [];
-
-        while(true) {
-            let shoA = new Shomoy(Shomoy.firstDayOfMonth(shomoy.getMonth(), shomoy.getYear()));
-            let shoB = new Shomoy(Shomoy.lastDayOfMonth(shomoy.getMonth(), shomoy.getYear())).addHour(24).addSec(-1);
-            shoA.valueOf();
-            let b = shoB.valueOf();
-            if (b > end) break;
-
-            let obj = {};
-            obj[keyDecorator(shomoy)] = valDecorator(shoA, shoB);
-            result.push(obj);
-
-            // keep going until break
-            shomoy.addMonth(1);
-        }
-
-        return result;
-    }
-
-    /**
-     * This method adds given seconds, minutes, hours and day as seconds to current time. When no
-     * argument is set, then it returns current in milliseconds. All the argument's value will be
-     * converted into seconds before they get added to the current time in second except the sec
-     * argument.
-     *
-     * All the arguments values have to be of type number. If not, then an exception is thrown.
-     *
-     * This method can come in handy in situations like setting cookie value with expiration,
-     * calculating future date time etc.
-     *
-     * @param {number} sec Number of seconds is to be added to the current time in second.
-     * @param {number} min Number of minutes is to be added to the current time in second.
-     * @param {number} hour Number of hours is to be added to the current time in second.
-     * @param {number} day Number of days is to be added to the current time in second.
-     *
-     * @return {number} Seconds added to the current time as defined by the arguments.
-     *
-     * @throws {Error} If all the arguments are not of type integer
-     * */
-    addToNow(sec = 0, min = 0, hour = 0, day = 0) {
-        if (Number.isNaN(day) || Number.isNaN(hour) || Number.isNaN(min) || Number.isNaN(sec))
-            throw new Error('Make sure day, hour and minute are of type number.');
-
-        let now = new Date().valueOf();
-
-        if (sec !== 0) now += sec;
-        if (min !== 0) now += min * 60;
-        if (hour !== 0) now += hour * 60 * 60;
-        if (day !== 0) now += day * 24 * 60 * 60;
-
-        return now;
-    }
-
-    /**
-     * Default value decorator
-     *
-     * @param {Shomoy} from
-     * @param {Shomoy} to
-     * */
-    static #valDecorator(from, to) {
-        let start = from.getTimestamp();
-        let end = to.getTimestamp();
-        return [start, end];
-    };
-
-    /**
-     * Default week key decorator
-     *
-     * @param {Shomoy} from
-     * @param {Shomoy} to
-     * */
-    static #weekKeyDecorator(from, to) {
-        let month = from.getMonth() !== to.getMonth() ? `${from.monthStr()}-${to.monthStr()}` : `${from.monthStr()}`;
-        let year = from.getYear() !== to.getYear() ? `${from.year()}-${to.year()}` : `${from.year()}`;
-        return `${from.date()}-${to.date()} ${month}, ${year}`;
-    };
-
-    /**
-     * Default day key decorator
-     *
-     * @param {Shomoy} month
-     * */
-    static #dayKeyDecorator(month) {
-        return `${month.monthStr()} ${month.year()}`;
-    };
-
-}
-/*
-*	(C) COPRYRIGHT RESERVED BY THE AUTHOR OF THIS SCRIPT
-*
-*-------------------------------------------------------------------------------------------
-*										SimPro                                             *
-*-------------------------------------------------------------------------------------------
-*
-*	A Simple JavaScript library for Canvas based Circular Progress Bar. You can dynamically
-*	create & manage circular progress bars with variety simple methods & properties.
-*
-*	@author Abdul Ahad
-*	@version 1.8
-*	@date Wednesday, August 2, 2017 03:40 AM
-*
-*	Example :
-*		var simPro = new SimPro("containerDivID", "canvasID", canvasSize);
-*		simPro.setProgress(49.4);
-*
-*		containerDivID - where you want your progressBar/canvas to be
-*		canvasID       - Id for the canvas for later manipulation
-*		canvasSize	   - size of the progressBar/canvas. Minimum size is 100px
-*
-*	For complete licence and documentation, please refer to the given links below
-*		Licence 	  :: http://abdulahad.tk/simPro/licence
-*		Documentation :: http://abdulahad.tk/simPro/documentation
-*
-*/
-
-var SimPro = function(containerId, canvasId, size = 300) {
-
-    this.developerMode = false;
-    if (this.developerMode) console.log("initializing()");
-
-    if (typeof(containerId) != "string") throw "SimPro() : IllegalArgument - containerId must be string";
-    if (typeof(canvasId) != "string") throw "SimPro() : IllegalArgument - canvasId must be string";
-    if (typeof(size) != "number") throw "SimPro() : IllegalArgument - size must be number";
-    if (size < 100) throw "SimPro() : IllegalArgument - size must be greater than 99";
-
-    var container = document.getElementById(containerId);
-    if (container == null) throw "SimPro() : NullArgument - progress bar container can't be null";
-
-    SimPro.STYLE_LINE_BUTT 	= 0;
-    SimPro.STYLE_LINE_ROUND = 1;
-
-    //	create canvas with provided arguments and appeand to the container/holder div
-    var canvas = document.createElement("canvas");
-    canvas.id = canvasId;
-    canvas.width = canvas.height = size;
-    container.appendChild(canvas);
-
-    this.canvasId = canvasId;
-    this.context = canvas.getContext("2d");
-
-    this.smallGuide = false;
-
-    // the original width & height of the canvas
-    this.size = size;
-
-    // the half size of the canvas
-    this.halfSize;
-
-    /*
-    *	line width for circular progress bar.
-    *	For small guide it should be 6% of the size. For big guide be it would be 3% of the size
-    */
-    this.lineWidth;
-
-    /*
-    *	line width for guide.
-    *	For small guide it should be 3% of the size. For big guide be it would be 6% of the size
-    */
-    this.guideLineWidth;
-
-    // font size for percentage. This should be half of the halfSize meaning quater to the sizes
-    this.fontSize;
-
-    /*
-    *	the radius of the circular progress bar. This should be half of the the canvas
-    * 	we need to calculate this in such a way that, with lineWidth of the arc for the progress
-    *	doesn't get cut off by the size of the canvas
-    */
-    this.radius;
-
-    // with all those critical properties decleared above, let's calculate them correctly
-    this.calculateCanvasDimension();
-
-    this.progress = 0;
-    this.formattedProgress = "00";
-    this.counterClock = true;
-
-    this.startPoint = 1.5 * Math.PI;
-    this.fullPoint = 2 * Math.PI;
-    this.calculateProgress();
-
-    //	default styles of the progress bar
-    this.lineCap = SimPro.STYLE_LINE_BUTT;
-    this.fontColor = "rgba(0,0,0,1)";
-    this.color = "rgba(0,99,177, 1)";
-    this.guideColor = "rgba(0,99,177, 0.5)";
-
-    this.guideVisibility = true;
-    this.floatMode = false;
-    this.percentageSignVisibility = true;
-
-    // after initializing all the properties, let's paint the progressBar with 0 progress
-    this.paint();
-};
-
-SimPro.prototype.calculateCanvasDimension = function() {
-
-    if (this.developerMode) console.log("calculateCanvasDimension()");
-
-    this.halfSize = this.size / 2;
-
-    this.fontSize = this.halfSize / 2;
-    this.context.font = this.fontSize + "px Calibri";
-
-    this.calculateArcDimension();
-}
-
-SimPro.prototype.calculateArcDimension = function() {
-
-    if (this.developerMode) console.log("calculateArcDimension()");
-
-    var unitSize = this.size / 100;
-
-    var lineWidthScale = (this.smallGuide) ? 6 : 3;
-    var guideScale = (this.smallGuide) ? 3 : 6;
-
-    this.guideLineWidth = unitSize * guideScale;
-    this.lineWidth = unitSize * lineWidthScale;
-
-    // we calculate radius such a way, so the arc does not get cut off by the dimensions
-    var radiusScale = (this.smallGuide) ? this.lineWidth : this.guideLineWidth;
-    this.radius = this.halfSize - (radiusScale / 2);
-};
-
-SimPro.prototype.setSize = function(size) {
-
-    if (this.developerMode) console.log("setSize(" + size + ")");
-
-    if (typeof(size) != "number") throw "setSize() : IllegalArgument - argument must be a number";
-
-    if (size < 100) throw "setSize() : IllegalArgument - argument must be greater than 99";
-
-    // clear the old size canvas
-    this.context.clearRect(0, 0, this.size, this.size);
-
-    // let's first change the in memory canvas object
-    var canvas = document.getElementById(this.canvasId);
-    canvas.width = canvas.height = size;
-
-    this.size = size;
-
-    // since we have changed the size, then we need to calculate new dimesion based on new size
-    this.calculateCanvasDimension();
-
-    // paint so the changes will be visible instantly
-    this.paint();
-};
-
-
-SimPro.prototype.calculateProgress = function() {
-
-    if (this.developerMode) console.log("calculateProgress()");
-
-    this.endPoint = (this.fullPoint / 100) * this.progress;
-    this.endPointSigned = this.counterClock ? (- this.endPoint + this.startPoint) : (this.endPoint +this.startPoint);
-};
-
-SimPro.prototype.formatProgress = function() {
-
-    if (this.developerMode) console.log("formatProgress()");
-
-    /*
-    *	since with progress 0%, lineStyle round draws the arc, even though it should not because
-    *	the progress is 0%. Let's fix that
-    */
-    if (this.lineCap == SimPro.STYLE_LINE_ROUND && this.progress <= 0) {
-        this.context.lineCap = "butt";
-    } else {
-        this.context.lineCap = (this.lineCap == SimPro.STYLE_LINE_BUTT) ?  "butt" :  "round";
-    }
-
-    if (this.floatMode) {
-        /*
-        *	because of JavaScript number representation, the fraction number should be
-        *	fixed to one number after the decimal point
-        */
-        this.formattedProgress = this.progress.toFixed(1);
-
-        if (this.formattedProgress == 100) this.formattedProgress = 100;
-    } else {
-
-        this.formattedProgress = this.progress.toFixed(0);
-
-        /*
-        *	In order to be precise, when the progress is below 99, we use Math.floor function, so that
-        *	progress makes sense. For example 67.4 is actually 67% progress.
-        *
-        *	When the progress is above 99, we use Math.round function to obtain accuracy. For example if
-        *	progress is 99.4 then it should be 99. But if the progress is 99.5 then it is 100% progress
-        */
-        this.formattedProgress = (this.formattedProgress < 99) ? Math.floor(this.formattedProgress) : Math.round(this.formattedProgress);
-
-        this.formattedProgress = (this.formattedProgress < 10) ? ("0" + this.formattedProgress) : this.formattedProgress;
-    }
-
-    this.formattedProgress += this.percentageSignVisibility ? "%" : "";
-};
-
-
-SimPro.prototype.setProgress = function(progress) {
-
-    if (this.developerMode) console.log("setProgress(" + progress + ")");
-
-    if (typeof(progress) != "number" ) throw "setProgress() : IllegalArgument - argument must be a number";
-
-    if (progress > 100 || progress < 0) throw "setProgress() : IllegalArgument - argument must be between 0 - 100";
-
-    this.progress = progress;
-    this.calculateProgress();
-    this.paint();
-};
-
-SimPro.prototype.getProgress = function() {
-
-    //	we return progress based on floatMode
-    var progressValue = (this.floatMode) ? this.progress.toFixed(1) : this.progress.toFixed(0);
-
-    if (this.developerMode) console.log("getProgress() : " + progressValue);
-
-    return progressValue;
-};
-
-SimPro.prototype.paint = function() {
-
-    if (this.developerMode) console.log("paint()");
-
-    /*
-    *	before painting progress, first format progress string & adjust lineCap for
-    *	progress 0% if lineCap was choose to be Round
-    */
-    this.formatProgress();
-
-    this.context.clearRect(0, 0, this.size, this.size);
-
-    if (this.developerMode)	this.paintRuler();
-
-    // paint the guide arc
-    if (this.guideVisibility) {
-        this.context.beginPath();
-        this.context.lineWidth = this.guideLineWidth;
-        this.context.strokeStyle = this.guideColor;
-        this.context.arc(this.halfSize, this.halfSize, this.radius, 0, this.fullPoint);
-        this.context.stroke();
-    }
-
-    // paint the progress arc
-    this.context.beginPath();
-    this.context.lineWidth = this.lineWidth;
-    this.context.strokeStyle = this.color;
-    this.context.arc(this.halfSize, this.halfSize, this.radius, this.startPoint, this.endPointSigned, this.counterClock);
-    this.context.stroke();
-
-
-    // paint the text
-    this.context.fillStyle = this.fontColor;
-    this.context.textAlign = "center";
-    this.context.textBaseline = "middle";
-    this.context.fillText(this.formattedProgress, this.halfSize, this.halfSize);
-};
-
-SimPro.prototype.setLineCap = function(lineCap) {
-
-    if (this.developerMode) console.log("setLineCap(" + lineCap + ")");
-
-    if ((lineCap != SimPro.STYLE_LINE_ROUND) && (lineCap != SimPro.STYLE_LINE_BUTT))
-        throw "setLineCap() : IllegalArgument - argument must be constant of \"SimPro.STYLE_LINE_BUTT\" or \"SimPro.STYLE_LINE_ROUND\"";
-
-    this.lineCap = lineCap;
-    this.paint();
-};
-
-SimPro.prototype.setFloatMode = function (floatMode) {
-
-    if (this.developerMode) console.log("setFloatMode(" + floatMode + ")");
-
-    if (typeof(floatMode) != "boolean" ) throw "setFloatMode() : IllegalArgument - Argument must be true/false";
-
-    this.floatMode = floatMode;
-    this.paint();
-}
-
-SimPro.prototype.setSmallGuide = function(smallGuide) {
-
-    if (this.developerMode) console.log("setSmallGuide(" + smallGuide + ")");
-
-    if (typeof(smallGuide) != "boolean" ) throw "setSmallGuide() : IllegalArgument - Argument must be true/false";
-
-    this.smallGuide = smallGuide;
-    this.calculateArcDimension();
-    this.paint();
-};
-
-SimPro.prototype.setPercentageSignVisibility = function(visibility) {
-
-    if (this.developerMode) console.log("setPercentageSignVisibility(" + visibility + ")");
-
-    if (typeof(visibility) != "boolean" ) throw "setPercentageSignVisibility() : IllegalArgument - Argument must be true/false";
-
-    this.percentageSignVisibility = visibility;
-    this.paint();
-};
-
-SimPro.prototype.setCounterClock = function(counterClock) {
-
-    if (this.developerMode) console.log("setCounterClock(" + counterClock + ")");
-
-    if (typeof(counterClock) != "boolean" ) throw "setCounterClock() : IllegalArgument - Argument must be true/false";
-
-    this.counterClock = counterClock;
-    this.calculateProgress();
-    this.paint();
-};
-
-SimPro.prototype.setFontColor = function(color) {
-
-    if (this.developerMode) console.log("setFontColor(" + color + ")");
-
-    if (typeof(color) != "string" ) throw "setFontColor() : IllegalArgument - Argument must be a valid color string";
-
-    this.fontColor = color;
-    this.paint();
-};
-
-SimPro.prototype.setProgressBarColor = function(color) {
-
-    if (this.developerMode) console.log("setProgressBarColor(" + color + ")");
-
-    if (typeof(color) != "string" ) throw "setProgressBarColor() : IllegalArgument - Argument must be a valid color string";
-
-    this.color = color;
-    this.paint();
-};
-
-SimPro.prototype.setGuideColor = function(color) {
-
-    if (this.developerMode) console.log("setGuideColor(" + color + ")");
-
-    if (typeof(color) != "string" ) throw "setGuideColor() : IllegalArgument - Argument must be a valid color string";
-
-    this.guideColor = color;
-    this.paint();
-};
-
-SimPro.prototype.setGuideVisibility = function(visibility) {
-
-    if (this.developerMode) console.log("setGuideVisibility(" + visibility + ")");
-
-    if (typeof(visibility) != "boolean" ) throw "setGuideVisibility() : IllegalArgument - Argument must be true/false";
-
-    this.guideVisibility = visibility;
-    this.paint();
-};
-
-SimPro.prototype.setDeveloperMode = function(mode) {
-
-    if (typeof(mode) != "boolean" ) throw "setDeveloperMode() : IllegalArgument - Argument must be true/false";
-
-    this.developerMode = mode;
-
-    if (this.developerMode) console.log("turnOnDeveloperMode(" + mode + ")");
-
-    this.paintRuler();
-};
-
-SimPro.prototype.paintRuler = function() {
-
-    console.log("paintRuler()");
-
-    this.context.strokeStyle = "greenyellow";
-    this.context.lineWidth = 1;
-
-    this.context.beginPath();
-    this.context.lineTo(0, this.halfSize);
-    this.context.lineTo(this.size, this.halfSize);
-    this.context.stroke();
-
-    this.context.beginPath();
-    this.context.lineTo(this.halfSize, 0);
-    this.context.lineTo(this.halfSize, this.size);
-    this.context.stroke();
-
-    this.context.strokeRect(0, 0, this.size - 1, this.size - 1);
-    this.context.stroke();
-
-    console.log("");
-};
 
 
 /*
@@ -11191,104 +4839,104 @@ SimPro.prototype.paintRuler = function() {
 * show on document ready event and after showing the message it clears the toast cookies.
 * */
 (() => {
-
-    class Toast {
-
-        #toastMsg = 'A sweet and delicious toast to eat! 😎';
-
-        ERROR = -1;
-        WARNING = 0;
-        SUCCESS = 1;
-        INFO = 2;
-
-        #delay;
-
-        #injected = false;
-        #toast;
-        #icon;
-        #msg;
-        #guide;
-        #bar;
-
-        #autoHide;
-        #callback;
-
-        error(msg, autoHide = true, callback = null, delay = 3) {
-            this.show(this.ERROR, msg, autoHide, callback, delay);
-        }
-
-        warning(msg, autoHide = true, callback = null, delay = 3) {
-            this.show(this.WARNING, msg, autoHide, callback, delay);
-        }
-
-        success(msg, autoHide = true, callback = null, delay = 3) {
-            this.show(this.SUCCESS, msg, autoHide, callback, delay);
-        }
-
-        info(msg, autoHide = true, callback = null, delay = 3) {
-            this.show(this.INFO, msg, autoHide, callback, delay);
-        }
-
-        show(type, msg, autoHide = true, callback = null, delay = 3) {
-            this.#stopAnimation();
-
-            this.#toastMsg = msg;
-            this.#autoHide = autoHide;
-            this.#callback = callback;
-            this.#delay = delay;
-
-            // make sure we have injected DOM into the document
-            this.#injectDOM();
-
-            // hider bar border, if it was showing previously
-            $(this.#bar).hide();
-
-            // remove listeners from the toast, if added previously
-            this.#removeListener();
-
-            if (this.#autoHide) this.#addListener();
-
-            // apply themes, styles to toast DOMs and show the toast with animation
-            this.#setup(type);
-
-            if (this.#autoHide) {
-                // show bar border
-                $(this.#bar).show();
-                this.#startAnimation();
-            }
-        }
-
-        #setup(type) {
-            this.hide();
-            this.#decorate(type);
-
-            $(this.#toast).show().animate({right: 0}, 750, 'swing');
-        }
-
-        #addListener() {
-            $(this.#toast).on('mouseenter', () => { this.#stopAnimation(); });
-            $(this.#toast).on('mouseleave', () => { this.#startAnimation(); });
-        }
-
-        #removeListener() {
-            $(this.#toast).off('mouseenter, mouseleave');
-        }
-
-        #startAnimation() {
-            $(this.#bar).css('width', '0');
-            $(this.#bar).delay(750).animate({width: '100%'}, this.#delay * 1000, 'linear', () => {
-                $(this.#toast).delay(2000).animate({'right': '-360px'}, 1000, 'swing');
-                if (this.#callback != null) this.#callback();
-            });
-        }
-
-        #stopAnimation() { $(this.#bar).stop(); }
-
-        #injectDOM() {
-            if (this.#injected) return;
-
-            let dom = `
-                <div id="toast" style="display: none; overflow: clip; position: fixed; right: -360px; bottom: 32px; min-width: 280px; max-width: 360px; font-size: 0.98em; line-height: 1.15em; box-shadow: 1px 1px 2px black; z-index: 9999; border-radius: 0.25rem 0 0 0.25rem;">
+	
+	class JstToast {
+		
+		#toastMsg = 'A sweet and delicious toast to eat! 😎';
+		
+		ERROR = -1;
+		WARNING = 0;
+		SUCCESS = 1;
+		INFO = 2;
+		
+		#delay;
+		
+		#injected = false;
+		#toast;
+		#icon;
+		#msg;
+		#guide;
+		#bar;
+		
+		#autoHide;
+		#callback;
+		
+		error(msg, autoHide = true, callback = null, delay = 3) {
+			this.show(this.ERROR, msg, autoHide, callback, delay);
+		}
+		
+		warning(msg, autoHide = true, callback = null, delay = 3) {
+			this.show(this.WARNING, msg, autoHide, callback, delay);
+		}
+		
+		success(msg, autoHide = true, callback = null, delay = 3) {
+			this.show(this.SUCCESS, msg, autoHide, callback, delay);
+		}
+		
+		info(msg, autoHide = true, callback = null, delay = 3) {
+			this.show(this.INFO, msg, autoHide, callback, delay);
+		}
+		
+		show(type, msg, autoHide = true, callback = null, delay = 3) {
+			this.#stopAnimation();
+			
+			this.#toastMsg = msg;
+			this.#autoHide = autoHide;
+			this.#callback = callback;
+			this.#delay = delay;
+			
+			// make sure we have injected DOM into the document
+			this.#injectDOM();
+			
+			// hider bar border, if it was showing previously
+			$(this.#bar).hide();
+			
+			// remove listeners from the toast, if added previously
+			this.#removeListener();
+			
+			if (this.#autoHide) this.#addListener();
+			
+			// apply themes, styles to toast DOMs and show the toast with animation
+			this.#setup(type);
+			
+			if (this.#autoHide) {
+				// show bar border
+				$(this.#bar).show();
+				this.#startAnimation();
+			}
+		}
+		
+		#setup(type) {
+			this.hide();
+			this.#decorate(type);
+			
+			$(this.#toast).show().animate({right: 0}, 750, 'swing');
+		}
+		
+		#addListener() {
+			$(this.#toast).on('mouseenter', () => { this.#stopAnimation(); });
+			$(this.#toast).on('mouseleave', () => { this.#startAnimation(); });
+		}
+		
+		#removeListener() {
+			$(this.#toast).off('mouseenter, mouseleave');
+		}
+		
+		#startAnimation() {
+			$(this.#bar).css('width', '0');
+			$(this.#bar).delay(750).animate({width: '100%'}, this.#delay * 1000, 'linear', () => {
+				$(this.#toast).delay(2000).animate({'right': '-360px'}, 1000, 'swing');
+				if (this.#callback != null) this.#callback();
+			});
+		}
+		
+		#stopAnimation() { $(this.#bar).stop(); }
+		
+		#injectDOM() {
+			if (this.#injected) return;
+			
+			let dom = `
+                <div id="toast" style="display: none; overflow: clip; position: fixed; right: -360px; bottom: 32px; min-width: 280px; max-width: 360px; font-size: 0.98em; line-height: 1.15em; box-shadow: 1px 1px 2px black; z-index: 100000; border-radius: 0.25rem 0 0 0.25rem;">
                     <div style="display: flex; padding: 16px; align-items: center;">
                         <span id="toast-icon" style="user-select: none; margin-right: 12px; font-size: 24px;">&#128073;</span>
                         <span id="toast-msg" style="line-height: 1.25;">A sweet and delicious toast to eat!😎😉</span>
@@ -11298,68 +4946,677 @@ SimPro.prototype.paintRuler = function() {
                     </div>
                 </div>
             `;
-            $('body').append(dom);
-
-            this.#toast = $("#toast");
-            this.#icon = $("#toast-icon");
-            this.#msg = $("#toast-msg");
-            this.#guide = $("#toast-pro-bar-guide");
-            this.#bar = $("#toast-pro-bar");
-
-            this.#injected = true;
-        }
-
-        #decorate(type) {
-            $(this.#msg).text(this.#toastMsg);
-
-            // theme for different type of toast
-            let themeSettings = {
-                success :   { color : '#0f5132', bg : '#d1e7dd', guide : '#009A68', bar : '#52C400', icon : '&#9989;'},
-                info    :   { color : '#084298', bg : '#CFF4FC', guide : '#0a95b1', bar : '#0DCAF0', icon : '&#128172;'},
-                warning :   { color : '#664d03', bg : '#fff3cd', guide : '#937005', bar : '#FFCA2C', icon : '&#128721;'},
-                error   :   { color : '#842029', bg : '#f8d7da', guide : '#7A1E27', bar : '#DB3948', icon : '&#9940;'}
-            };
-
-            let theme;
-            if (type === this.SUCCESS) theme = themeSettings.success;
-            else if (type === this.WARNING) theme = themeSettings.warning;
-            else if (type === this.ERROR) theme = themeSettings.error;
-            else theme = themeSettings.info;
-
-            $(this.#toast).css('color', theme.color);
-            $(this.#toast).css('background-color', theme.bg);
-            $(this.#icon).html(theme.icon);
-            $(this.#guide).css('background-color', theme.guide);
-            $(this.#bar).css('background-color', theme.bar);
-        }
-
-        hide() { $(this.#toast).css('right', '-360px'); }
-
-    }
-
-    window.Toast = new Toast();
-
-    window.Toast.loadToast = (msg, type = window.Toast.SUCCESS, autoHide = true, delay = 3) => {
-        Biscuit.set('toast_msg', msg);
-        Biscuit.set('toyast_tpe', type);
-        Biscuit.set('toast_auto_hide', autoHide);
-        Biscuit.set('toast_delay', delay);
-    };
-
-    jst.run( () => {
-        // let's see if we have any cookie message to show
-        let msg = Biscuit.getStr('toast_msg', '');
-        if (msg.length === 0) return;
-
-        let type = Biscuit.getInt('toast_type', Toast.INFO);
-        let autoHide = Biscuit.getBool('toast_auto_hide', true);
-        let delay = Biscuit.getInt('toast_delay', 3);
-
-        window.Toast.show(type, msg, autoHide, null, delay);
-        Biscuit.unset('toast_msg');
-        Biscuit.unset('toast_type');
-        Biscuit.unset('toast_auto_hide');
-        Biscuit.unset('toast_delay');
-    });
-
+			$('body').append(dom);
+			
+			this.#toast = $("#toast");
+			this.#icon = $("#toast-icon");
+			this.#msg = $("#toast-msg");
+			this.#guide = $("#toast-pro-bar-guide");
+			this.#bar = $("#toast-pro-bar");
+			
+			this.#injected = true;
+		}
+		
+		#decorate(type) {
+			$(this.#msg).text(this.#toastMsg);
+			
+			// theme for different type of toast
+			let themeSettings = {
+				success :   { color : '#0f5132', bg : '#d1e7dd', guide : '#009A68', bar : '#52C400', icon : '&#9989;'},
+				info    :   { color : '#084298', bg : '#CFF4FC', guide : '#0a95b1', bar : '#0DCAF0', icon : '&#128172;'},
+				warning :   { color : '#664d03', bg : '#fff3cd', guide : '#937005', bar : '#FFCA2C', icon : '&#128721;'},
+				error   :   { color : '#842029', bg : '#f8d7da', guide : '#7A1E27', bar : '#DB3948', icon : '&#9940;'}
+			};
+			
+			let theme;
+			if (type === this.SUCCESS) theme = themeSettings.success;
+			else if (type === this.WARNING) theme = themeSettings.warning;
+			else if (type === this.ERROR) theme = themeSettings.error;
+			else theme = themeSettings.info;
+			
+			$(this.#toast).css('color', theme.color);
+			$(this.#toast).css('background-color', theme.bg);
+			$(this.#icon).html(theme.icon);
+			$(this.#guide).css('background-color', theme.guide);
+			$(this.#bar).css('background-color', theme.bar);
+		}
+		
+		hide() { $(this.#toast).css('right', '-360px'); }
+		
+	}
+	
+	window.JstToast = new JstToast();
+	
+	window.JstToast.loadToast = (msg, type = window.JstToast.SUCCESS, autoHide = true, delay = 3) => {
+		JstStorage.setCookie('toast_msg', msg);
+		JstStorage.setCookie('toast_type', type);
+		JstStorage.setCookie('toast_auto_hide', autoHide);
+		JstStorage.setCookie('toast_delay', delay);
+	};
+	
+	jst.run( () => {
+		// let's see if we have any cookie message to show
+		let msg = JstStorage.cookieStr('toast_msg', '');
+		if (msg.length === 0) return;
+		
+		let type = JstStorage.cookieInt('toast_type', JstToast.INFO);
+		let autoHide = JstStorage.cookieBool('toast_auto_hide', true);
+		let delay = JstStorage.cookieInt('toast_delay', 3);
+		
+		window.JstToast.show(type, msg, autoHide, null, delay);
+		JstStorage.unsetCookie('toast_msg');
+		JstStorage.unsetCookie('toast_type');
+		JstStorage.unsetCookie('toast_auto_hide');
+		JstStorage.unsetCookie('toast_delay');
+	});
+	
 })();
+class Shomoy {
+	
+	#datetime;
+	
+	/**
+	 * Create a shomoy object.
+	 *
+	 * @param {number|string|Date|Shomoy} datetime The value can a valid value that JS accepts
+	 * for Date object. Moreover, another date or shomoy object can passed-in as value.
+	 * By default, it creates from the current datetime.
+	 * */
+	constructor(datetime = new Date()) {
+		if (datetime instanceof Date) this.#datetime = new Date(datetime.toISOString());
+		else if (datetime instanceof Shomoy) this.#datetime = new Date(datetime.iso());
+		else if (jQuery.type(datetime) === 'string') this.#datetime =  new Date(datetime);
+		else if (jQuery.type(datetime) === 'number') this.#datetime =  new Date(datetime);
+		else new Error('Invalid time value was passed');
+	}
+	
+	/**
+	 * Using this method, the starting millisecond of the shomoy can be calculated.
+	 *
+	 * @return {number} the starting millisecond of the shomoy object.
+	 */
+	shomoyStart() { return new Date(this.iso()).setHours(0, 0, 0, 0); }
+	
+	/**
+	 * Using this method, the ending millisecond of the shomoy can be calculated.
+	 *
+	 * @return {number} the ending milliseconds of the shomoy object.
+	 */
+	shomoyEnd() { return this.shomoyStart() - 1 + Shomoy.msInDay(1); }
+	
+	/**
+	 * A shomoy object can compare itself with other shomoy object. Internally it
+	 * uses the valueOf() method of date object to calculate the difference in
+	 * timestamp and returns either 0, 1, or -1 based on the calculation.
+	 *
+	 * @param {Shomoy} shomoy The Shomoy object to calculate against
+	 *
+	 * @return {number} int the difference between two shomoy objects. Returns 0 if both
+	 * shomoy are equal, -1 if the comparing shomoy is bigger, otherwise 1.
+	 * */
+	compare (shomoy) {
+		if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
+		
+		let shomoyA = this.datetime.valueOf();
+		let shomoyB = shomoy.dateTime.valueOf();
+		
+		if (shomoyA < shomoyB) return -1;
+		else if (shomoyA > shomoyB) return 1;
+		else return 0;
+	}
+	
+	/**
+	 * The difference between two shomoy objects can be calculated either in
+	 * milliseconds(which is default) or microseconds(timestamp) value. It always
+	 * finds the difference from $this object to passed one.
+	 *
+	 * @param {Shomoy} shomoy the Shomoy object to calculate the difference against
+	 * @param {boolean} inMilli indicates whether to calculate in milliseconds or microseconds
+	 * @return {number} the difference between two Shomoy objects.
+	 * */
+	diff(shomoy, inMilli = true) {
+		if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
+		
+		if (inMilli) return this.getMilliseconds() - shomoy.getMilliseconds();
+		else return this.getTimestamp() - shomoy.getTimestamp();
+	}
+	
+	/**
+	 * Difference in hour with another shomoy object can be calculated. It internally
+	 * uses Shomoy.diff() method.
+	 *
+	 * @param {Shomoy} shomoy A shomoy to calculate against
+	 * @return {number} The difference from the passed-in shomoy
+	 * */
+	diffHour(shomoy) {
+		if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
+		let diff = this.diff(shomoy, false);
+		return diff / 3600;
+	}
+	
+	/**
+	 * Difference with another shomoy object can be calculated and returned as an array of components
+	 * of time in order: sec, min, hour, day.
+	 *
+	 * @param {Shomoy} shomoy The shomoy object to calculate against
+	 * @return {array} Containing time components
+	 * */
+	diffCompo(shomoy) {
+		if (!(shomoy instanceof Shomoy)) throw new Error('Argument must be an instance of shomoy.');
+		
+		let time = this.diff(shomoy, false);
+		
+		let secInDay = 60 * 60 * 24;
+		
+		// day
+		let day = time / secInDay;
+		let dayLeft = ~~day;
+		
+		// hour
+		let hour = (day % 1) * 24;
+		let hourLeft = ~~hour;
+		
+		// min
+		let min = (hour % 1) * 60;
+		let minLeft = ~~min;
+		
+		// sec
+		let secLeft = (min % 1) * 60;
+		
+		// fix the round up second problem
+		if (Math.round(secLeft) === 60) {
+			secLeft = 0;
+			minLeft += 1;
+		}
+		
+		return [secLeft, minLeft, hourLeft, dayLeft];
+	}
+	
+	/**
+	 * Any number of milliseconds can be added to the Shomoy object using this method.
+	 * Negative value can be added too.
+	 *
+	 * @param {number} ms number of milliseconds to be added.
+	 * */
+	addMs(ms) {
+		ms = this.datetime.getMilliseconds() + ms;
+		this.datetime.setMilliseconds(ms);
+		return this;
+	}
+	
+	/**
+	 * Any number of seconds can be added to the Shomoy object using this method.
+	 * Negative value can be added too.
+	 *
+	 * @param {number} sec number of seconds to be added.
+	 * */
+	addSec(sec) {
+		sec = this.datetime.getSeconds() + sec;
+		this.datetime.setSeconds(sec);
+		return this;
+	}
+	
+	/**
+	 * Any number of minutes can be added to the Shomoy object using this method.
+	 * Negative value can be added too.
+	 *
+	 * @param {number} min number of minutes to be added.
+	 * */
+	addMin(min) {
+		min = this.datetime.getMinutes() + min;
+		this.datetime.setMinutes(min);
+		return this;
+	}
+	
+	/**
+	 * Any number of hours can be added to the Shomoy object using this method.
+	 * It also takes negative hours which subtracts the hours from the shomoy,
+	 *
+	 * @param {number} hour number of hours to be added.
+	 * */
+	addHour(hour) {
+		hour = this.datetime.getHours() + hour;
+		this.datetime.setHours(hour);
+		return this;
+	}
+	
+	/**
+	 * Any number of days can be added to the Shomoy object using this method.
+	 * It also takes negative day which subtracts the days from the shomoy,
+	 *
+	 * @param {number} day number of days to be added.
+	 * */
+	addDay(day) {
+		day = this.datetime.getDate() + day;
+		this.datetime.setDate(day);
+		return this;
+	}
+	
+	/**
+	 * Any number of months can be added to the Shomoy object using this method.
+	 * Negative value can be added too.
+	 *
+	 * @param {number} month number of months to be added.
+	 * */
+	addMonth(month) {
+		month = this.datetime.getMonth() + month;
+		this.datetime.setMonth(month);
+		return this;
+	}
+	
+	/**
+	 * Any number of years can be added to the Shomoy object using this method.
+	 * Negative value can be added too.
+	 *
+	 * @param {number} year number of years to be added.
+	 * */
+	addYear(year) {
+		year = this.year() + year;
+		this.datetime.setFullYear(year);
+		return this;
+	}
+	
+	iso() { return `${this.year()}-${this.month()}-${this.date()} ${this.hour()}:${this.min()}:${this.sec()}`; }
+	
+	toString() { return this.iso(); }
+	
+	isoDate () { return this.iso().slice(0, 10); }
+	
+	isoTime() { return `${this.hour()}:${this.min()}:${this.sec()}`; }
+	
+	getMilliseconds () { return this.datetime.getTime(); }
+	
+	getTimestamp () { return this.getMilliseconds() / 1000; }
+	
+	getDate = () => this.#datetime.getDate();
+	
+	getMonth = () => this.#datetime.getMonth();
+	
+	getYear = () => this.#datetime.getFullYear();
+	
+	getDay = () => this.#datetime.getDay();
+	
+	getHours = () => this.#datetime.getHours();
+	
+	getMinutes = () => this.#datetime.getMinutes();
+	
+	getSeconds = () => this.#datetime.getSeconds();
+	
+	setYear = (year) => {
+		this.#datetime.setYear(year);
+		return this;
+	}
+	
+	setMonth = (month) => {
+		this.#datetime.setMonth(month);
+		return this;
+	}
+	
+	setDate = (date) => {
+		this.#datetime.setDate(date);
+		return this;
+	}
+	
+	setHour = (hour) => {
+		this.#datetime.setHours(hour);
+		return this;
+	}
+	
+	setMin = (min) => {
+		this.#datetime.setMinutes(min);
+		return this;
+	}
+	
+	setSec = (sec) => {
+		this.#datetime.setSeconds(sec);
+		return this;
+	}
+	
+	setMilli = (milli) => {
+		this.#datetime.setMilliseconds(milli);
+		return this;
+	}
+	
+	valueOf = () => this.#datetime.valueOf();
+	
+	hour (twenty_four = true, lead0 = true) {
+		let hour = this.datetime.getHours();
+		if (!twenty_four) {
+			hour = hour % 12;
+			hour = hour === 0 ? 12 : hour;
+		}
+		return lead0 ? JstNum.lead0(hour) : hour;
+	}
+	
+	min (lead0 = true) {
+		let min = this.datetime.getMinutes();
+		return lead0 ? JstNum.lead0(min) : min;
+	}
+	
+	sec (lead0 = true) {
+		let sec = this.datetime.getSeconds();
+		return lead0 ? JstNum.lead0(sec) : sec;
+	}
+	
+	year () { return this.datetime.getFullYear(); }
+	
+	month (lead0 = true) {
+		let month = this.datetime.getMonth() + 1;
+		return lead0 ? JstNum.lead0(month) : month;
+	}
+	
+	date (lead0 = true) {
+		let date = this.datetime.getDate();
+		return lead0 ? JstNum.lead0(date) : date;
+	}
+	
+	day(short = true) {
+		let days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+		let day = days[this.datetime.getDay()];
+		return short ? day.slice(0, 3) : day;
+	}
+	
+	monthStr(short = true) {
+		let months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+		let month = months[this.month() - 1];
+		return short ? month.slice(0, 3) : month;
+	}
+	
+	ampm(uppercase = true) {
+		let hour = this.datetime.getHours() + 1;
+		if (hour >= 12 && hour <= 23) {
+			return uppercase ? 'PM' : 'pm';
+		} else { return uppercase ? 'AM' : 'am'; }
+	}
+	
+	strTime24(sec = true) {
+		if (sec) return `${this.hour()}:${this.min()}:${this.sec()}`;
+		else return `${this.hour()}:${this.min()}`;
+	}
+	
+	strTime(sec = true, ampm = true, uppercase = true) {
+		if (sec) {
+			if (ampm)
+				return `${this.hour(false)}:${this.min()}:${this.sec()} ${this.ampm(uppercase)}`;
+			else
+				return `${this.hour(false)}:${this.min()}:${this.sec()}`;
+		} else {
+			if (ampm)
+				return `${this.hour(false)}:${this.min()} ${this.ampm(uppercase)}`;
+			else
+				return `${this.hour(false)}:${this.min()}`;
+		}
+	}
+	
+	strDate(separated = false) {
+		if (separated) return `${this.date()}-${this.month()}-${this.year()}`;
+		else return `${this.date()} ${this.monthStr(true)}, ${this.year()}`;
+	}
+	
+	strDateTime() {
+		return `${this.date()} ${this.monthStr()} ${this.year()}, ${this.hour()}:${this.min()}`;
+	}
+	
+	get datetime () { return this.#datetime; }
+	
+	static isoNow = () => { return new Shomoy().iso(); };
+	
+	static secInMin(of) { return 60 * of; }
+	
+	static secInHour(of) { return 60 * 60 * of; }
+	
+	static secInDay(of) { return 60 * 60 * 24 * of; }
+	
+	static msInDay(of) { return 1000 * 60 * 60 * 24 * of; }
+	
+	static isoDate() { return new Shomoy().isoDate(); }
+	
+	static isoTime() { return new Shomoy().isoTime(); }
+	
+	static clone(shomoy) {
+		if (!shomoy instanceof Shomoy) throw new Error('Argument must be instance of Shomoy.');
+		return new Shomoy(shomoy);
+	}
+	
+	/**
+	 * For a specified month and year, it returns Date for the first of day of the month.
+	 * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
+	 * returns for the current month.
+	 *
+	 * @param {number} month Month
+	 * @param {number} year Year
+	 * @return {Date} Date object for the first of the month as specified
+	 * */
+	static firstDayOfMonth(month, year) {
+		let now = new Shomoy();
+		
+		if (!Number.isSafeInteger(year)) year = now.getYear();
+		month = !Number.isSafeInteger(month) ? now.getMonth() : month-1;
+		
+		now.setYear(year).setMonth(month).setDate(1).setHour(0).setMin(0).setSec(0).setMilli(0);
+		return now.datetime;
+	}
+	
+	/**
+	 * For a specified month and year, it returns Date for the last of day of the month.
+	 * <b>Month is not zero based. January is at 1.</b> If no month & year specified, it
+	 * returns for the current month.
+	 *
+	 * @param {number} month Month
+	 * @param {number} year Year
+	 * @return {Date} Date object for the last of the month as specified
+	 * */
+	static lastDayOfMonth(month, year) {
+		let shomoy = new Shomoy();
+		
+		if (!Number.isSafeInteger(year)) year = shomoy.getYear();
+		month = !Number.isSafeInteger(month) ? shomoy.getMonth() : month-1;
+		
+		shomoy.setYear(year).setMonth(month+1).setDate(0).setHour(0).setMin(0).setSec(0).setMilli(0);
+		return shomoy.datetime;
+	}
+	
+	/**
+	 * For a time range, specified by month & year pair in two arrays (since & to), it calculates
+	 * start & end times in Shomoy for each week found within the range specified.
+	 *
+	 * End range it not inclusive.
+	 *
+	 * For each week, it composes objects containing array of time range. Both key & value can be
+	 * derived using decorator functions. Decorator functions take on from and to shomoy objects
+	 * in order. <b>End range is not inclusive.</b>
+	 *
+	 * If no range is specified, then the current month & year is calculated only.
+	 *
+	 * Months are not zero. January is always 1 in this case. The week start from Monday.
+	 *
+	 * @param {Array} since Containing the month and year in order.
+	 * @param {Array} to Containing the month and year in order.
+	 * @param {function(Shomoy, Shomoy)} keyDecFn Decorator function for keys.
+	 * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
+	 * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
+	 * */
+	static listWeek(since = [], to = [], keyDecFn = null, valDecFn = null) {
+		const WEEK_START = 1;
+		
+		let valDecorator = valDecFn || Shomoy.#valDecorator;
+		let keyDecorator = keyDecFn || Shomoy.#weekKeyDecorator;
+		
+		let weeks = [];
+		
+		// get the limit parameters
+		let now = new Date();
+		
+		let monthTo = Number.isSafeInteger(to[0]) ? (to[0] - 1) : (now.getMonth() + 1) ;
+		let yearTo = to[1] || now.getFullYear();
+		
+		let monthFrom = Number.isSafeInteger(since[0]) ? (since[0] - 1) : now.getMonth();
+		let yearFrom = since[1] || now.getFullYear();
+		
+		// build up shomoy objects for getting start and end limit
+		let end = new Shomoy(Shomoy.firstDayOfMonth(monthTo, yearTo)).addSec(-1).valueOf();
+		
+		// construct a shomoy with given month and year
+		let shomoy  = new Shomoy(Shomoy.firstDayOfMonth(monthFrom, yearFrom));
+		
+		// start with the 'from' month, where we may find broken week and discard that week
+		let momStartDay = shomoy.getDay();
+		if (momStartDay !== WEEK_START) {
+			// find out how far the next week start day is
+			// if it is sunday(0) which is one day to monday.
+			let daysTo = (momStartDay === 0) ? 1 : 8 - momStartDay;
+			shomoy.addDay(daysTo);
+		}
+		
+		let makeStop = false;
+		
+		while (true) {
+			if (makeStop) break;
+			
+			let currentMilli = shomoy.valueOf();
+			
+			// are we exceeding the limit?
+			if (currentMilli >= end) {
+				break;
+			}
+			
+			let to = Shomoy.clone(shomoy);
+			to.addDay(7).addSec(-1);
+			
+			let obj = {};
+			let key1 = keyDecorator(shomoy, to);
+			obj[key1] = valDecorator(shomoy, to);
+			weeks.push(obj);
+			
+			shomoy.addDay(7);
+		}
+		
+		return weeks;
+	}
+	
+	/**
+	 * For a time range, specified by month & year pair in two arrays (since & to), it calculates
+	 * start & end times in Shomoy for each month found within the range specified. <b>End range
+	 * is not inclusive.</b>
+	 *
+	 * If no range is specified, then the current month & year is calculated only.
+	 *
+	 * For each month, it composes objects containing array of time range. Both key & value can be
+	 * derived using decorator functions. Decorator functions take on from and to shomoy objects
+	 * in order.
+	 *
+	 * Months are not zero. January is always 1 in this case. The week start from Monday.
+	 *
+	 * @param {Array} since Containing the month and year in order.
+	 * @param {Array} to Containing the month and year in order.
+	 * @param {function(Shomoy)} keyDecFn Decorator function for keys.
+	 * @param {function(Shomoy, Shomoy)} valDecFn Decorator function for values.
+	 * @return {Array} Containing objects of time range values under keys as specified by decorator functions.
+	 * */
+	static listMonth(since = [], to = [], keyDecFn = null, valDecFn = null) {
+		
+		// get the limit parameters
+		let now = new Date();
+		
+		let monthFrom = Number.isSafeInteger(since[0]) ? (since[0] - 1) : now.getMonth();
+		let yearFrom = since[1] || now.getFullYear();
+		
+		let monthTo = Number.isSafeInteger(to[0]) ? (to[0] - 1) : (now.getMonth()) ;
+		let yearTo = to[1] || now.getFullYear();
+		
+		let end = new Shomoy(Shomoy.lastDayOfMonth(monthTo, yearTo)).addHour(24).addSec(-1).valueOf();
+		
+		let shomoy = new Shomoy();
+		shomoy.setMonth(monthFrom);
+		shomoy.setYear(yearFrom);
+		
+		let valDecorator = valDecFn || Shomoy.#valDecorator;
+		let keyDecorator = keyDecFn || Shomoy.#dayKeyDecorator;
+		let result = [];
+		
+		while(true) {
+			let shoA = new Shomoy(Shomoy.firstDayOfMonth(shomoy.getMonth(), shomoy.getYear()));
+			let shoB = new Shomoy(Shomoy.lastDayOfMonth(shomoy.getMonth(), shomoy.getYear())).addHour(24).addSec(-1);
+			shoA.valueOf();
+			let b = shoB.valueOf();
+			if (b > end) break;
+			
+			let obj = {};
+			obj[keyDecorator(shomoy)] = valDecorator(shoA, shoB);
+			result.push(obj);
+			
+			// keep going until break
+			shomoy.addMonth(1);
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * This method adds given seconds, minutes, hours and day as seconds to current time. When no
+	 * argument is set, then it returns current in milliseconds. All the argument's value will be
+	 * converted into seconds before they get added to the current time in second except the sec
+	 * argument.
+	 *
+	 * All the arguments values have to be of type number. If not, then an exception is thrown.
+	 *
+	 * This method can come in handy in situations like setting cookie value with expiration,
+	 * calculating future date time etc.
+	 *
+	 * @param {number} sec Number of seconds is to be added to the current time in second.
+	 * @param {number} min Number of minutes is to be added to the current time in second.
+	 * @param {number} hour Number of hours is to be added to the current time in second.
+	 * @param {number} day Number of days is to be added to the current time in second.
+	 *
+	 * @return {number} Seconds added to the current time as defined by the arguments.
+	 *
+	 * @throws {Error} If all the arguments are not of type integer
+	 * */
+	addToNow(sec = 0, min = 0, hour = 0, day = 0) {
+		if (Number.isNaN(day) || Number.isNaN(hour) || Number.isNaN(min) || Number.isNaN(sec))
+			throw new Error('Make sure day, hour and minute are of type number.');
+		
+		let now = new Date().valueOf();
+		
+		if (sec !== 0) now += sec;
+		if (min !== 0) now += min * 60;
+		if (hour !== 0) now += hour * 60 * 60;
+		if (day !== 0) now += day * 24 * 60 * 60;
+		
+		return now;
+	}
+	
+	/**
+	 * Default value decorator
+	 *
+	 * @param {Shomoy} from
+	 * @param {Shomoy} to
+	 * */
+	static #valDecorator(from, to) {
+		let start = from.getTimestamp();
+		let end = to.getTimestamp();
+		return [start, end];
+	};
+	
+	/**
+	 * Default week key decorator
+	 *
+	 * @param {Shomoy} from
+	 * @param {Shomoy} to
+	 * */
+	static #weekKeyDecorator(from, to) {
+		let month = from.getMonth() !== to.getMonth() ? `${from.monthStr()}-${to.monthStr()}` : `${from.monthStr()}`;
+		let year = from.getYear() !== to.getYear() ? `${from.year()}-${to.year()}` : `${from.year()}`;
+		return `${from.date()}-${to.date()} ${month}, ${year}`;
+	};
+	
+	/**
+	 * Default day key decorator
+	 *
+	 * @param {Shomoy} month
+	 * */
+	static #dayKeyDecorator(month) {
+		return `${month.monthStr()} ${month.year()}`;
+	};
+	
+}
